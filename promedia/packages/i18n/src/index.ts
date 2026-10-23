@@ -107,6 +107,9 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.loadedSkipped": "Cargada (se omitieron {n} ítems de archivo sin asset en esta sesión)",
     "shortcuts.hint": "Atajos: G Go Live · O Abrir salida · L/B/C/N escenas · 1/2/3 temas · ←/→ slides",
     "control.wsDisconnectedHint": "WebSocket desconectado — la playlist no puede sincronizar. Reconectando… o pulsa Reconectar.",
+    "control.wsConnecting": "WS conectando…",
+    "control.wsConnectingHint": "Conectando al hub… Si no abre, comprueba que `pnpm dev` tenga el hub en :8787.",
+    "control.hubUnreachable": "Hub no responde en :8787. En la carpeta promedia ejecuta `pnpm dev` (levanta hub + web). Luego pulsa Reconectar.",
     "control.reconnect": "Reconectar"
   },
   en: {
@@ -203,6 +206,9 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.loadedSkipped": "Loaded (skipped {n} file items without assets in this session)",
     "shortcuts.hint": "Shortcuts: G Go Live · O Open output · L/B/C/N scenes · 1/2/3 themes · ←/→ slides",
     "control.wsDisconnectedHint": "WebSocket disconnected — playlist cannot sync. Reconnecting… or click Reconnect.",
+    "control.wsConnecting": "WS connecting…",
+    "control.wsConnectingHint": "Connecting to hub… If it stays closed, ensure `pnpm dev` has the hub on :8787.",
+    "control.hubUnreachable": "Hub not responding on :8787. In the promedia folder run `pnpm dev` (starts hub + web). Then click Reconnect.",
     "control.reconnect": "Reconnect"
   },
   pt: {
@@ -299,6 +305,9 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.loadedSkipped": "Carregada (omitidos {n} itens de arquivo sem asset nesta sessão)",
     "shortcuts.hint": "Atalhos: G Go Live · O Abrir saída · L/B/C/N cenas · 1/2/3 temas · ←/→ slides",
     "control.wsDisconnectedHint": "WebSocket desconectado — a playlist não sincroniza. Reconectando… ou clique em Reconectar.",
+    "control.wsConnecting": "WS conectando…",
+    "control.wsConnectingHint": "Conectando ao hub… Se não abrir, confira se `pnpm dev` tem o hub em :8787.",
+    "control.hubUnreachable": "Hub não responde em :8787. Na pasta promedia execute `pnpm dev` (sobe hub + web). Depois clique em Reconectar.",
     "control.reconnect": "Reconectar"
   },
   fr: {
@@ -395,6 +404,9 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.loadedSkipped": "Chargée ({n} éléments fichier sans asset omis)",
     "shortcuts.hint": "Raccourcis : G Go Live · O Ouvrir sortie · L/B/C/N scènes · 1/2/3 thèmes · ←/→ slides",
     "control.wsDisconnectedHint": "WebSocket déconnecté — la playlist ne synchronise pas. Reconnexion… ou cliquez Reconnecter.",
+    "control.wsConnecting": "WS connexion…",
+    "control.wsConnectingHint": "Connexion au hub… Si ça reste fermé, vérifiez que `pnpm dev` lance le hub sur :8787.",
+    "control.hubUnreachable": "Le hub ne répond pas sur :8787. Dans le dossier promedia lancez `pnpm dev` (hub + web). Puis cliquez Reconnecter.",
     "control.reconnect": "Reconnecter"
   },
   "zh-CN": {
@@ -491,6 +503,9 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.loadedSkipped": "已加载（跳过本会话缺少资源的 {n} 个文件项）",
     "shortcuts.hint": "快捷键：G Go Live · O 打开输出 · L/B/C/N 场景 · 1/2/3 主题 · ←/→ 幻灯片",
     "control.wsDisconnectedHint": "WebSocket 已断开 — 播放列表无法同步。正在重连…或点击重连。",
+    "control.wsConnecting": "WS 连接中…",
+    "control.wsConnectingHint": "正在连接 hub… 若一直断开，请确认 `pnpm dev` 已在 :8787 启动 hub。",
+    "control.hubUnreachable": "Hub 在 :8787 无响应。在 promedia 目录运行 `pnpm dev`（启动 hub + web），然后点击重连。",
     "control.reconnect": "重连"
   }
 };

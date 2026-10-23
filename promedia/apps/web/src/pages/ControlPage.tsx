@@ -505,13 +505,22 @@ export function ControlPage() {
 
       {session.error ? (
         <div className="control-banner control-banner-error" role="alert">
-          {session.error}
+          {session.hubUnreachable ||
+          session.error.startsWith("HUB_UNREACHABLE")
+            ? t(locale, "control.hubUnreachable")
+            : session.error}
         </div>
       ) : null}
 
       {sessionReady && !wsReady ? (
         <div className="control-banner control-banner-error" role="status">
-          <p>{t(locale, "control.wsDisconnectedHint")}</p>
+          <p>
+            {session.hubUnreachable
+              ? t(locale, "control.hubUnreachable")
+              : session.wsStatus === "connecting"
+                ? t(locale, "control.wsConnectingHint")
+                : t(locale, "control.wsDisconnectedHint")}
+          </p>
           <button
             type="button"
             className="btn btn-primary"
@@ -859,7 +868,9 @@ export function ControlPage() {
         <span>
           {session.wsStatus === "open"
             ? t(locale, "control.wsConnected")
-            : t(locale, "control.wsDisconnected")}
+            : session.wsStatus === "connecting"
+              ? t(locale, "control.wsConnecting")
+              : t(locale, "control.wsDisconnected")}
         </span>
         <span className="footer-sep">·</span>
         <span>seq {session.lastSeq >= 0 ? session.lastSeq : "—"}</span>

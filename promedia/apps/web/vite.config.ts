@@ -9,11 +9,19 @@ export default defineConfig({
     port: 5173,
     host: true,
     proxy: {
-      "/health": hubUrl,
+      // REST: same-origin `/api` + `/health` → hub.
+      // WS: the web client connects directly to hub :8787 in DEV (see hubWsBase).
+      // Keep ws:true as a fallback if VITE_HUB_WS_URL forces proxy path.
+      "/health": {
+        target: hubUrl,
+        changeOrigin: true,
+      },
       "/api": {
         target: hubUrl,
         changeOrigin: true,
         ws: true,
+        timeout: 60_000,
+        proxyTimeout: 60_000,
       },
     },
   },

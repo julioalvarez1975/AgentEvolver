@@ -11,12 +11,20 @@ import type {
   ThemeOverrides,
   VideoPayload,
 } from "@promedia/shared";
-import { buildWsUrl, createSession, joinSession } from "../lib/hub";
+import {
+  buildWsUrl,
+  createSession,
+  isHubUnreachableError,
+  joinSession,
+  probeHubHealth,
+} from "../lib/hub";
 import { SessionSocket } from "../lib/session-socket";
 
 export type WsStatus = "idle" | "connecting" | "open" | "closed" | "error";
 
 const RECONNECT_MS = 800;
+const HUB_HINT =
+  "HUB_UNREACHABLE: hub no responde en :8787. Arranca `pnpm dev` (hub+web) o `pnpm dev:hub`.";
 
 function applyHubMessage(
   msg: HubMessage,
@@ -42,6 +50,16 @@ function applyHubMessage(
   return prev;
 }
 
+function formatSessionError(err: unknown): string {
+  if (
+    (err instanceof Error && err.message === "HUB_UNREACHABLE") ||
+    isHubUnreachableError(err)
+  ) {
+    return HUB_HINT;
+  }
+  return String(err);
+}
+
 /**
  * Shared create/join + WS wiring for Control and Output shells.
  */
@@ -54,30 +72,74 @@ export function useSessionConnection(role: ClientRole) {
   const [lastSeq, setLastSeq] = useState(-1);
   const [wsStatus, setWsStatus] = useState<WsStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [hubUnreachable, setHubUnreachable] = useState(false);
   const socketRef = useRef<SessionSocket | null>(null);
+  const generationRef = useRef(0);
+  const reconnectTimerRef = useRef<number | null>(null);
+
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current != null) {
+      window.clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }, []);
 
   const detach = useCallback(() => {
-    socketRef.current?.disconnect();
+    clearReconnectTimer();
+    generationRef.current += 1;
+    socketRef.current?.disconnect({ notifyClose: false });
     socketRef.current = null;
-  }, []);
+    setWsStatus("idle");
+  }, [clearReconnectTimer]);
 
   useEffect(() => () => detach(), [detach]);
 
   const attachSocket = useCallback((url: string) => {
-    socketRef.current?.disconnect();
+    clearReconnectTimer();
+    socketRef.current?.disconnect({ notifyClose: false });
+    const generation = ++generationRef.current;
     setWsStatus("connecting");
     const sock = new SessionSocket(url, {
-      onOpen: () => setWsStatus("open"),
-      onClose: () => setWsStatus("closed"),
-      onError: () => setWsStatus("error"),
+      onOpen: () => {
+        if (generation !== generationRef.current) {
+          return;
+        }
+        setWsStatus("open");
+        setHubUnreachable(false);
+        setError(null);
+      },
+      onClose: () => {
+        if (generation !== generationRef.current) {
+          return;
+        }
+        setWsStatus("closed");
+      },
+      onError: () => {
+        if (generation !== generationRef.current) {
+          return;
+        }
+        setWsStatus("error");
+        void probeHubHealth().then((ok) => {
+          if (generation !== generationRef.current) {
+            return;
+          }
+          if (!ok) {
+            setHubUnreachable(true);
+            setError(HUB_HINT);
+          }
+        });
+      },
       onMessage: (msg: HubMessage) => {
+        if (generation !== generationRef.current) {
+          return;
+        }
         setLastSeq(msg.seq);
         setSnapshot((prev) => applyHubMessage(msg, prev));
       },
     });
     socketRef.current = sock;
     sock.connect();
-  }, []);
+  }, [clearReconnectTimer]);
 
   const send = useCallback((type: string, payload?: unknown): boolean => {
     return socketRef.current?.send(type, payload) ?? false;
@@ -85,6 +147,7 @@ export function useSessionConnection(role: ClientRole) {
 
   const create = useCallback(async () => {
     setError(null);
+    setHubUnreachable(false);
     setWsStatus("connecting");
     try {
       const res = await createSession("lan");
@@ -98,7 +161,9 @@ export function useSessionConnection(role: ClientRole) {
       return res;
     } catch (err) {
       setWsStatus("error");
-      setError(String(err));
+      const formatted = formatSessionError(err);
+      setError(formatted);
+      setHubUnreachable(formatted.startsWith("HUB_UNREACHABLE"));
       throw err;
     }
   }, [attachSocket, role]);
@@ -106,6 +171,7 @@ export function useSessionConnection(role: ClientRole) {
   const join = useCallback(
     async (opts: { code?: string; accessToken?: string }) => {
       setError(null);
+      setHubUnreachable(false);
       setWsStatus("connecting");
       try {
         const res = await joinSession({ ...opts, role });
@@ -118,7 +184,9 @@ export function useSessionConnection(role: ClientRole) {
         return res;
       } catch (err) {
         setWsStatus("error");
-        setError(String(err));
+        const formatted = formatSessionError(err);
+        setError(formatted);
+        setHubUnreachable(formatted.startsWith("HUB_UNREACHABLE"));
         throw err;
       }
     },
@@ -129,16 +197,19 @@ export function useSessionConnection(role: ClientRole) {
     if (!wsTicket || !sessionId) {
       return;
     }
+    clearReconnectTimer();
+    setError(null);
     if (!socketRef.current) {
       attachSocket(buildWsUrl(sessionId, role, wsTicket));
       return;
     }
+    // Keep generation — same handlers; silent disconnect keeps status "connecting"
+    // so the auto-reconnect effect does not re-fire mid-handshake.
     setWsStatus("connecting");
     socketRef.current.reconnectWithResync();
-  }, [attachSocket, role, sessionId, wsTicket]);
+  }, [attachSocket, clearReconnectTimer, role, sessionId, wsTicket]);
 
-  // Control was missing this: Output already auto-reconnected, so Julio could
-  // see a live Output while Control playlist buttons stayed disabled forever.
+  // Auto-reconnect on closed/error for Control and Output.
   useEffect(() => {
     if (!sessionId || !wsTicket) {
       return;
@@ -146,11 +217,13 @@ export function useSessionConnection(role: ClientRole) {
     if (wsStatus !== "closed" && wsStatus !== "error") {
       return;
     }
-    const timer = window.setTimeout(() => {
+    clearReconnectTimer();
+    reconnectTimerRef.current = window.setTimeout(() => {
+      reconnectTimerRef.current = null;
       reconnect();
     }, RECONNECT_MS);
-    return () => window.clearTimeout(timer);
-  }, [wsStatus, sessionId, wsTicket, reconnect]);
+    return () => clearReconnectTimer();
+  }, [wsStatus, sessionId, wsTicket, reconnect, clearReconnectTimer]);
 
   const addItem = useCallback(
     (item: PlaylistItem): boolean => send("playlist.itemAdd", { item }),
@@ -219,6 +292,7 @@ export function useSessionConnection(role: ClientRole) {
     lastSeq,
     wsStatus,
     error,
+    hubUnreachable,
     create,
     join,
     reconnect,
