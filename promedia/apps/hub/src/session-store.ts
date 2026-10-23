@@ -11,9 +11,17 @@ import type {
   SessionSnapshot,
   SessionUpdatedPayload,
   TextPayload,
+  ThemeId,
+  ThemeOverrides,
   VideoPayload,
 } from "@promedia/shared";
-import { emptyLiveState, emptyPlaylist, isSceneMode } from "@promedia/shared";
+import {
+  emptyLiveState,
+  emptyPlaylist,
+  isSceneMode,
+  isThemeId,
+  normalizeThemeOverrides,
+} from "@promedia/shared";
 import { validatePlaylistItem } from "@promedia/item-types/validate";
 import { assetStore } from "./asset-store.js";
 import {
@@ -326,6 +334,40 @@ export class SessionStore {
     }
     // Overlay only — does not touch currentItemId or mediaClock (Q1/Q2)
     session.live.sceneMode = sceneMode;
+    return this.bumpUpdated(session);
+  }
+
+  setTheme(
+    session: SessionRecord,
+    patch: {
+      themeId?: ThemeId;
+      themeOverrides?: ThemeOverrides | null;
+    },
+  ): HubMessage | { error: string } {
+    if (patch.themeId !== undefined) {
+      if (!isThemeId(patch.themeId)) {
+        return { error: "invalid_theme_id" };
+      }
+      session.live.themeId = patch.themeId;
+      // Switching preset clears overrides unless caller also sends overrides
+      if (patch.themeOverrides === undefined) {
+        session.live.themeOverrides = null;
+      }
+    }
+    if (patch.themeOverrides !== undefined) {
+      if (patch.themeOverrides === null) {
+        session.live.themeOverrides = null;
+      } else {
+        const normalized = normalizeThemeOverrides(patch.themeOverrides);
+        if (normalized === null && Object.keys(patch.themeOverrides).length > 0) {
+          return { error: "invalid_theme_overrides" };
+        }
+        session.live.themeOverrides = normalized;
+      }
+    }
+    if (patch.themeId === undefined && patch.themeOverrides === undefined) {
+      return { error: "empty_theme_patch" };
+    }
     return this.bumpUpdated(session);
   }
 

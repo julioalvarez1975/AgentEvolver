@@ -68,5 +68,18 @@
   "scene.logo": "Logo",
   "scene.black": "黑屏",
   "scene.clear": "清空",
-  "scene.logoFallback": "Logo"
+  "scene.logoFallback": "Logo",
+  "theme.title": "主题",
+  "theme.oscuro": "深色",
+  "theme.claro": "浅色",
+  "theme.acento": "强调",
+  "theme.bg": "背景",
+  "theme.fg": "文字",
+  "theme.align": "对齐",
+  "theme.fontFamily": "字体",
+  "theme.fontSans": "无衬线",
+  "theme.fontSerif": "衬线",
+  "theme.fontSize": "大小",
+  "theme.resetOverrides": "恢复预设",
+  "theme.hint": "主题控制 Output 文本的字体、颜色与对齐。图片/视频仅使用画布背景色。"
 }

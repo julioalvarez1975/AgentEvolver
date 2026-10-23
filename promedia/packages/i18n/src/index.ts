@@ -83,7 +83,20 @@ const catalogs: Record<Locale, Messages> = {
     "scene.logo": "Logo",
     "scene.black": "Negro",
     "scene.clear": "Clear",
-    "scene.logoFallback": "Logo"
+    "scene.logoFallback": "Logo",
+    "theme.title": "Tema",
+    "theme.oscuro": "Oscuro",
+    "theme.claro": "Claro",
+    "theme.acento": "Acento",
+    "theme.bg": "Fondo",
+    "theme.fg": "Texto",
+    "theme.align": "Alineación",
+    "theme.fontFamily": "Fuente",
+    "theme.fontSans": "Sans",
+    "theme.fontSerif": "Serif",
+    "theme.fontSize": "Tamaño",
+    "theme.resetOverrides": "Volver al preset",
+    "theme.hint": "El tema manda tipografía, colores y alineación del texto en Output. Imagen/vídeo solo usan el fondo del lienzo."
   },
   en: {
     "app.name": "ProMedia",
@@ -155,7 +168,20 @@ const catalogs: Record<Locale, Messages> = {
     "scene.logo": "Logo",
     "scene.black": "Black",
     "scene.clear": "Clear",
-    "scene.logoFallback": "Logo"
+    "scene.logoFallback": "Logo",
+    "theme.title": "Theme",
+    "theme.oscuro": "Dark",
+    "theme.claro": "Light",
+    "theme.acento": "Accent",
+    "theme.bg": "Background",
+    "theme.fg": "Text",
+    "theme.align": "Align",
+    "theme.fontFamily": "Font",
+    "theme.fontSans": "Sans",
+    "theme.fontSerif": "Serif",
+    "theme.fontSize": "Size",
+    "theme.resetOverrides": "Reset to preset",
+    "theme.hint": "Theme controls text typography, colors, and alignment on Output. Image/video only use the canvas background."
   },
   pt: {
     "app.name": "ProMedia",
@@ -227,7 +253,20 @@ const catalogs: Record<Locale, Messages> = {
     "scene.logo": "Logo",
     "scene.black": "Preto",
     "scene.clear": "Clear",
-    "scene.logoFallback": "Logo"
+    "scene.logoFallback": "Logo",
+    "theme.title": "Tema",
+    "theme.oscuro": "Escuro",
+    "theme.claro": "Claro",
+    "theme.acento": "Destaque",
+    "theme.bg": "Fundo",
+    "theme.fg": "Texto",
+    "theme.align": "Alinhamento",
+    "theme.fontFamily": "Fonte",
+    "theme.fontSans": "Sans",
+    "theme.fontSerif": "Serif",
+    "theme.fontSize": "Tamanho",
+    "theme.resetOverrides": "Voltar ao preset",
+    "theme.hint": "O tema controla tipografia, cores e alinhamento do texto no Output. Imagem/vídeo só usam o fundo da tela."
   },
   fr: {
     "app.name": "ProMedia",
@@ -299,7 +338,20 @@ const catalogs: Record<Locale, Messages> = {
     "scene.logo": "Logo",
     "scene.black": "Noir",
     "scene.clear": "Clear",
-    "scene.logoFallback": "Logo"
+    "scene.logoFallback": "Logo",
+    "theme.title": "Thème",
+    "theme.oscuro": "Sombre",
+    "theme.claro": "Clair",
+    "theme.acento": "Accent",
+    "theme.bg": "Fond",
+    "theme.fg": "Texte",
+    "theme.align": "Alignement",
+    "theme.fontFamily": "Police",
+    "theme.fontSans": "Sans",
+    "theme.fontSerif": "Serif",
+    "theme.fontSize": "Taille",
+    "theme.resetOverrides": "Revenir au preset",
+    "theme.hint": "Le thème gère typo, couleurs et alignement du texte sur Output. Image/vidéo n’utilisent que le fond."
   },
   "zh-CN": {
     "app.name": "ProMedia",
@@ -371,7 +423,20 @@ const catalogs: Record<Locale, Messages> = {
     "scene.logo": "Logo",
     "scene.black": "黑屏",
     "scene.clear": "清空",
-    "scene.logoFallback": "Logo"
+    "scene.logoFallback": "Logo",
+    "theme.title": "主题",
+    "theme.oscuro": "深色",
+    "theme.claro": "浅色",
+    "theme.acento": "强调",
+    "theme.bg": "背景",
+    "theme.fg": "文字",
+    "theme.align": "对齐",
+    "theme.fontFamily": "字体",
+    "theme.fontSans": "无衬线",
+    "theme.fontSerif": "衬线",
+    "theme.fontSize": "大小",
+    "theme.resetOverrides": "恢复预设",
+    "theme.hint": "主题控制 Output 文本的字体、颜色与对齐。图片/视频仅使用画布背景色。"
   }
 };
 

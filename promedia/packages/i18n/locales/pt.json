@@ -68,5 +68,18 @@
   "scene.logo": "Logo",
   "scene.black": "Preto",
   "scene.clear": "Clear",
-  "scene.logoFallback": "Logo"
+  "scene.logoFallback": "Logo",
+  "theme.title": "Tema",
+  "theme.oscuro": "Escuro",
+  "theme.claro": "Claro",
+  "theme.acento": "Destaque",
+  "theme.bg": "Fundo",
+  "theme.fg": "Texto",
+  "theme.align": "Alinhamento",
+  "theme.fontFamily": "Fonte",
+  "theme.fontSans": "Sans",
+  "theme.fontSerif": "Serif",
+  "theme.fontSize": "Tamanho",
+  "theme.resetOverrides": "Voltar ao preset",
+  "theme.hint": "O tema controla tipografia, cores e alinhamento do texto no Output. Imagem/vídeo só usam o fundo da tela."
 }

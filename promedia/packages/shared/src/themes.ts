@@ -1,0 +1,182 @@
+/** Preset ids (subtarea 8). */
+export type ThemeId = "oscuro" | "claro" | "acento";
+
+type ThemeAlign = "left" | "center" | "right";
+
+export const THEME_IDS: readonly ThemeId[] = [
+  "oscuro",
+  "claro",
+  "acento",
+] as const;
+
+export const DEFAULT_THEME_ID: ThemeId = "oscuro";
+
+export type ThemeFontSize = "sm" | "md" | "lg" | "xl";
+
+export type ThemeFontFamily = "sans" | "serif";
+
+/** Deltas over a preset; editor writes here (preset base kept). */
+export type ThemeOverrides = {
+  bg?: string;
+  fg?: string;
+  align?: ThemeAlign;
+  fontFamily?: ThemeFontFamily;
+  fontSize?: ThemeFontSize;
+};
+
+export type ResolvedTheme = {
+  themeId: ThemeId;
+  bg: string;
+  fg: string;
+  align: ThemeAlign;
+  fontFamily: ThemeFontFamily;
+  fontSize: ThemeFontSize;
+  /** Soft accent (borde / título); only meaningful for acento preset. */
+  accent?: string;
+};
+
+export type ThemePreset = {
+  id: ThemeId;
+  labelKey: string;
+  values: Omit<ResolvedTheme, "themeId">;
+};
+
+const FONT_STACKS: Record<ThemeFontFamily, string> = {
+  sans: '"Segoe UI", system-ui, -apple-system, sans-serif',
+  serif: 'Georgia, "Times New Roman", serif',
+};
+
+const FONT_SIZES: Record<ThemeFontSize, string> = {
+  sm: "clamp(1.25rem, 3vw, 2rem)",
+  md: "clamp(1.75rem, 4.5vw, 3.25rem)",
+  lg: "clamp(2.25rem, 5.5vw, 4rem)",
+  xl: "clamp(2.75rem, 7vw, 5rem)",
+};
+
+export const THEME_PRESETS: readonly ThemePreset[] = [
+  {
+    id: "oscuro",
+    labelKey: "theme.oscuro",
+    values: {
+      bg: "#0a0e14",
+      fg: "#f2f5f8",
+      align: "center",
+      fontFamily: "sans",
+      fontSize: "md",
+    },
+  },
+  {
+    id: "claro",
+    labelKey: "theme.claro",
+    values: {
+      bg: "#f4f6f8",
+      fg: "#12151a",
+      align: "center",
+      fontFamily: "sans",
+      fontSize: "md",
+    },
+  },
+  {
+    id: "acento",
+    labelKey: "theme.acento",
+    values: {
+      bg: "#0c1219",
+      fg: "#e8eef6",
+      align: "center",
+      fontFamily: "sans",
+      fontSize: "md",
+      accent: "#3d8bfd",
+    },
+  },
+] as const;
+
+export function isThemeId(value: unknown): value is ThemeId {
+  return (
+    typeof value === "string" &&
+    (THEME_IDS as readonly string[]).includes(value)
+  );
+}
+
+export function isThemeFontSize(value: unknown): value is ThemeFontSize {
+  return value === "sm" || value === "md" || value === "lg" || value === "xl";
+}
+
+export function isThemeFontFamily(value: unknown): value is ThemeFontFamily {
+  return value === "sans" || value === "serif";
+}
+
+export function getThemePreset(id: ThemeId): ThemePreset {
+  return THEME_PRESETS.find((p) => p.id === id) ?? THEME_PRESETS[0]!;
+}
+
+export function normalizeThemeOverrides(
+  raw: unknown,
+): ThemeOverrides | null {
+  if (raw === null || raw === undefined) {
+    return null;
+  }
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  const o = raw as Record<string, unknown>;
+  const next: ThemeOverrides = {};
+  if (typeof o.bg === "string" && o.bg.trim()) {
+    next.bg = o.bg.trim();
+  }
+  if (typeof o.fg === "string" && o.fg.trim()) {
+    next.fg = o.fg.trim();
+  }
+  if (o.align === "left" || o.align === "center" || o.align === "right") {
+    next.align = o.align;
+  }
+  if (isThemeFontFamily(o.fontFamily)) {
+    next.fontFamily = o.fontFamily;
+  }
+  if (isThemeFontSize(o.fontSize)) {
+    next.fontSize = o.fontSize;
+  }
+  return Object.keys(next).length > 0 ? next : null;
+}
+
+export function resolveTheme(
+  themeId: ThemeId | null | undefined,
+  overrides?: ThemeOverrides | null,
+): ResolvedTheme {
+  const id = isThemeId(themeId) ? themeId : DEFAULT_THEME_ID;
+  const base = getThemePreset(id).values;
+  const o = overrides ?? {};
+  return {
+    themeId: id,
+    bg: o.bg ?? base.bg,
+    fg: o.fg ?? base.fg,
+    align: o.align ?? base.align,
+    fontFamily: o.fontFamily ?? base.fontFamily,
+    fontSize: o.fontSize ?? base.fontSize,
+    accent: base.accent,
+  };
+}
+
+/** CSS custom properties for projection surfaces. */
+export function themeToCssVars(
+  theme: ResolvedTheme,
+): Record<string, string> {
+  const vars: Record<string, string> = {
+    "--pm-bg": theme.bg,
+    "--pm-fg": theme.fg,
+    "--pm-align": theme.align,
+    "--pm-font-family": FONT_STACKS[theme.fontFamily],
+    "--pm-font-size": FONT_SIZES[theme.fontSize],
+  };
+  if (theme.accent) {
+    vars["--pm-accent"] = theme.accent;
+  }
+  return vars;
+}
+
+export function fontFamilyCss(family: ThemeFontFamily): string {
+  return FONT_STACKS[family];
+}
+
+export function fontSizeCss(size: ThemeFontSize): string {
+  return FONT_SIZES[size];
+}

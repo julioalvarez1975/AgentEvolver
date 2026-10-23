@@ -92,6 +92,11 @@ async function main() {
   if (created.snapshot?.live?.mediaClock !== null) {
     throw new Error("expected mediaClock null at create");
   }
+  if (created.snapshot?.live?.themeId !== "oscuro") {
+    throw new Error(
+      `expected default theme oscuro, got ${created.snapshot?.live?.themeId}`,
+    );
+  }
 
   const joinOut = await fetch(`${HUB}/api/v1/sessions/join`, {
     method: "POST",
@@ -605,6 +610,69 @@ async function main() {
     );
   }
   console.log("goLive resets sceneMode ok");
+
+  // --- themes (subtarea 8) ---
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.setTheme",
+      payload: { themeId: "claro" },
+    }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.themeId === "claro" &&
+      m.payload.live?.themeOverrides === null,
+  );
+  console.log("theme claro ok");
+
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.setTheme",
+      payload: {
+        themeOverrides: { fg: "#ff0000", align: "left", fontSize: "xl" },
+      },
+    }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.themeId === "claro" &&
+      m.payload.live?.themeOverrides?.fg === "#ff0000" &&
+      m.payload.live?.themeOverrides?.align === "left",
+  );
+  console.log("theme overrides ok");
+
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.setTheme",
+      payload: { themeId: "acento" },
+    }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.themeId === "acento" &&
+      m.payload.live?.themeOverrides === null,
+  );
+  console.log("theme switch clears overrides ok");
+
+  out2.inbox.length = 0;
+  out2.ws.send(JSON.stringify({ type: "client.hello", payload: {} }));
+  const snapTheme = await waitFor(
+    out2.inbox,
+    (m) => m.type === "session.snapshot",
+  );
+  if (snapTheme.payload.live?.themeId !== "acento") {
+    throw new Error(`resync theme ${snapTheme.payload.live?.themeId}`);
+  }
+  console.log("output2 resync theme ok");
 
   // clear live clears clock + sceneMode
   out1.inbox.length = 0;
