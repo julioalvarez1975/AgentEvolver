@@ -10,6 +10,11 @@ export default defineConfig({
     host: true,
     proxy: {
       "/health": hubUrl,
+      "/api": {
+        target: hubUrl,
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
   preview: {

@@ -56,3 +56,89 @@ body {
 .scaffold-nav a:hover {
   text-decoration: underline;
 }
+
+.smoke-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin: 1.5rem 0;
+}
+
+.smoke-actions button {
+  appearance: none;
+  border: 1px solid #3d8bfd;
+  background: #1a2a3d;
+  color: var(--fg);
+  padding: 0.45rem 0.85rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.smoke-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.smoke-actions button:not(:disabled):hover {
+  background: #24374f;
+}
+
+.smoke-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.smoke-field input {
+  min-width: 10rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 4px;
+  border: 1px solid #334455;
+  background: #0c1016;
+  color: var(--fg);
+  font: inherit;
+}
+
+.smoke-meta {
+  display: grid;
+  gap: 0.35rem 1rem;
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+}
+
+.smoke-meta div {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: 0.5rem;
+}
+
+.smoke-meta dt {
+  color: var(--muted);
+  margin: 0;
+}
+
+.smoke-meta dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+.smoke-meta .mono,
+.smoke-log {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+}
+
+.smoke-log {
+  background: #0c1016;
+  border: 1px solid #273442;
+  border-radius: 4px;
+  padding: 0.75rem;
+  max-height: 16rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: #c5d0da;
+}

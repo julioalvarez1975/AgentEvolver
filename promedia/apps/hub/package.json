@@ -11,10 +11,12 @@
   "dependencies": {
     "@hono/node-server": "^1.14.1",
     "@promedia/shared": "workspace:*",
-    "hono": "^4.7.5"
+    "hono": "^4.7.5",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
+    "@types/ws": "^8.18.2",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
   }
