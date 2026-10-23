@@ -1,6 +1,6 @@
 import type { MediaAsset, MediaKind } from "@promedia/shared";
 import {
-  createLocalDiskAdapter,
+  createStorageAdapter,
   isAllowedImageMime,
   isAllowedVideoMime,
   type StorageAdapter,
@@ -19,7 +19,7 @@ export class AssetStore {
   private readonly adapter: StorageAdapter;
 
   constructor(adapter?: StorageAdapter) {
-    this.adapter = adapter ?? createLocalDiskAdapter();
+    this.adapter = adapter ?? createStorageAdapter();
   }
 
   getAdapter(): StorageAdapter {

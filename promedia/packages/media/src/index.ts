@@ -16,5 +16,11 @@ export {
   LocalDiskAdapter,
   createLocalDiskAdapter,
 } from "./local/LocalDiskAdapter.js";
+export {
+  S3CompatibleAdapter,
+  createS3CompatibleAdapter,
+  type S3CompatibleConfig,
+} from "./s3/S3CompatibleAdapter.js";
+export { createStorageAdapter } from "./factory.js";
 
-export const MEDIA_PACKAGE_VERSION = "0.0.6-video" as const;
+export const MEDIA_PACKAGE_VERSION = "0.0.12-mvp" as const;

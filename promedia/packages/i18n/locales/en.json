@@ -81,5 +81,14 @@
   "theme.fontSerif": "Serif",
   "theme.fontSize": "Size",
   "theme.resetOverrides": "Reset to preset",
-  "theme.hint": "Theme controls text typography, colors, and alignment on Output. Image/video only use the canvas background."
+  "theme.hint": "Theme controls text typography, colors, and alignment on Output. Image/video only use the canvas background.",
+  "playlist.savedTitle": "Saved playlists",
+  "playlist.saveName": "Playlist name",
+  "playlist.save": "Save",
+  "playlist.load": "Load",
+  "playlist.savedEmpty": "None saved yet",
+  "playlist.savedOk": "Playlist saved",
+  "playlist.loadedOk": "Playlist loaded",
+  "playlist.loadedSkipped": "Loaded (skipped {n} file items without assets in this session)",
+  "shortcuts.hint": "Shortcuts: G Go Live · O Open output · L/B/C/N scenes · 1/2/3 themes · ←/→ slides"
 }

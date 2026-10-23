@@ -11,6 +11,8 @@ import type {
 } from "@promedia/shared";
 import { assetStore } from "./asset-store.js";
 import { authorizeSessionAccess } from "./auth.js";
+import { broadcastSession } from "./broadcast.js";
+import { playlistStore } from "./playlist-store.js";
 import { sessionStore } from "./session-store.js";
 
 function publicBase(c: {
@@ -61,10 +63,15 @@ export function createApiRoutes(): Hono {
       body = {};
     }
 
+    const envMode = (process.env.PROMEDIA_MODE ?? "").toLowerCase();
+    const defaultMode: SessionMode =
+      envMode === "cloud" || envMode === "portable" || envMode === "lan"
+        ? envMode
+        : "lan";
     const mode: SessionMode =
       body.mode === "cloud" || body.mode === "portable" || body.mode === "lan"
         ? body.mode
-        : "lan";
+        : defaultMode;
 
     const { session, ticket } = sessionStore.create(mode);
     const bases = publicBase(c);
@@ -182,6 +189,111 @@ export function createApiRoutes(): Hono {
       return c.json({ error: result.error }, 400);
     }
     return c.json({ asset: result }, 201);
+  });
+
+  /** List named SavedPlaylists (global to hub process / data file). */
+  api.get("/playlists", async (c) => {
+    const list = await playlistStore.list();
+    return c.json({
+      playlists: list.map(({ id, name, createdAt, updatedAt, items }) => ({
+        id,
+        name,
+        createdAt,
+        updatedAt,
+        itemCount: items.length,
+      })),
+    });
+  });
+
+  api.get("/playlists/:id", async (c) => {
+    const saved = await playlistStore.get(c.req.param("id"));
+    if (!saved) {
+      return c.json({ error: "not_found" }, 404);
+    }
+    return c.json({ playlist: saved });
+  });
+
+  /** Save current session playlist under a name (control). */
+  api.post("/sessions/:sessionId/playlists", async (c) => {
+    const sessionId = c.req.param("sessionId");
+    const credential =
+      bearerToken(c.req.header("authorization")) ?? c.req.query("credential");
+    const access = authorizeSessionAccess(sessionId, {
+      credential,
+      requireRole: "control",
+    });
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
+    }
+    const session = sessionStore.get(sessionId);
+    if (!session) {
+      return c.json({ error: "not_found" }, 404);
+    }
+    let body: { name?: string; id?: string } = {};
+    try {
+      body = (await c.req.json()) as { name?: string; id?: string };
+    } catch {
+      return c.json({ error: "invalid_json" }, 400);
+    }
+    if (typeof body.name !== "string") {
+      return c.json({ error: "missing_name" }, 400);
+    }
+    const result = await playlistStore.save({
+      name: body.name,
+      id: typeof body.id === "string" ? body.id : undefined,
+      items: session.playlist.items,
+    });
+    if ("error" in result) {
+      return c.json({ error: result.error }, 400);
+    }
+    return c.json({ playlist: result }, 201);
+  });
+
+  /** Load a SavedPlaylist into the session playlist (control). */
+  api.post("/sessions/:sessionId/playlists/:playlistId/load", async (c) => {
+    const sessionId = c.req.param("sessionId");
+    const playlistId = c.req.param("playlistId");
+    const credential =
+      bearerToken(c.req.header("authorization")) ?? c.req.query("credential");
+    const access = authorizeSessionAccess(sessionId, {
+      credential,
+      requireRole: "control",
+    });
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
+    }
+    const session = sessionStore.get(sessionId);
+    if (!session) {
+      return c.json({ error: "not_found" }, 404);
+    }
+    const saved = await playlistStore.get(playlistId);
+    if (!saved) {
+      return c.json({ error: "not_found" }, 404);
+    }
+    // Re-id items so load can be repeated without duplicate_id conflicts
+    const cloned = saved.items.map((item, order) => ({
+      ...item,
+      id: `${item.id.slice(0, 8)}-${Date.now().toString(36)}-${order}`,
+      order,
+    }));
+    const result = sessionStore.replacePlaylist(session, cloned);
+    if ("error" in result) {
+      return c.json({ error: result.error }, 400);
+    }
+    broadcastSession(sessionId, result.message);
+    return c.json({
+      snapshot: sessionStore.toSnapshot(session),
+      skipped: result.skipped,
+      note: "File image/video assets are session-scoped; missing media were skipped.",
+    });
+  });
+
+  api.delete("/playlists/:id", async (c) => {
+    const ok = await playlistStore.remove(c.req.param("id"));
+    if (!ok) {
+      return c.json({ error: "not_found" }, 404);
+    }
+    return c.json({ ok: true });
   });
 
   /**
