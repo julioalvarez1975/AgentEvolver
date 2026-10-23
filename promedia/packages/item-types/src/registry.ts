@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import type { ImageFit, PlaylistItem } from "@promedia/shared";
+import type { ImageFit, MediaClock, PlaylistItem } from "@promedia/shared";
 import { ImageLivePanel } from "./image/LivePanel.js";
 import { ImageOutputRenderer } from "./image/OutputRenderer.js";
 import { ImagePreview } from "./image/Preview.js";
@@ -8,6 +8,10 @@ import { TextLivePanel } from "./text/LivePanel.js";
 import { TextOutputRenderer } from "./text/OutputRenderer.js";
 import { TextPreview } from "./text/Preview.js";
 import { isTextPlaylistItem } from "./text/schema.js";
+import { VideoLivePanel } from "./video/LivePanel.js";
+import { VideoOutputRenderer } from "./video/OutputRenderer.js";
+import { VideoPreview } from "./video/Preview.js";
+import { isVideoPlaylistItem } from "./video/schema.js";
 
 export type MediaTypeModule = {
   type: string;
@@ -26,11 +30,17 @@ export type MediaTypeModule = {
     onPrev?: () => void;
     onNext?: () => void;
     assetSrc?: string;
+    mediaClock?: MediaClock | null;
+    onMediaClockSet?: (patch: {
+      playing: boolean;
+      positionMs?: number;
+    }) => void;
   }>;
   OutputRenderer: ComponentType<{
     item: PlaylistItem;
     slideIndex: number;
     assetSrc?: string;
+    mediaClock?: MediaClock | null;
   }>;
 };
 
@@ -52,7 +62,16 @@ const imageModule: MediaTypeModule = {
   OutputRenderer: ImageOutputRenderer,
 };
 
-const modules: MediaTypeModule[] = [textModule, imageModule];
+const videoModule: MediaTypeModule = {
+  type: "video",
+  labelKey: "itemTypes.video",
+  validate: isVideoPlaylistItem,
+  Preview: VideoPreview,
+  LivePanel: VideoLivePanel,
+  OutputRenderer: VideoOutputRenderer,
+};
+
+const modules: MediaTypeModule[] = [textModule, imageModule, videoModule];
 
 export const itemTypeRegistry: readonly MediaTypeModule[] = modules;
 

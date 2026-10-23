@@ -1,7 +1,8 @@
-import type { MediaAsset } from "@promedia/shared";
+import type { MediaAsset, MediaKind } from "@promedia/shared";
 import {
   createLocalDiskAdapter,
   isAllowedImageMime,
+  isAllowedVideoMime,
   type StorageAdapter,
 } from "@promedia/media";
 import { randomBytes } from "node:crypto";
@@ -34,15 +35,13 @@ export class AssetStore {
     return map ? [...map.values()] : [];
   }
 
-  async putImage(
+  private async putKind(
     sessionId: string,
+    kind: MediaKind,
     bytes: Buffer,
     mime: string,
     originalName?: string,
   ): Promise<MediaAsset | { error: string }> {
-    if (!isAllowedImageMime(mime)) {
-      return { error: "unsupported_mime" };
-    }
     const id = newAssetId();
     const { storageKey } = await this.adapter.put(sessionId, id, bytes, {
       mime,
@@ -51,7 +50,7 @@ export class AssetStore {
     });
     const asset: MediaAsset = {
       id,
-      kind: "image",
+      kind,
       mime,
       storageKey,
       size: bytes.byteLength,
@@ -65,6 +64,46 @@ export class AssetStore {
     }
     map.set(id, asset);
     return asset;
+  }
+
+  async putImage(
+    sessionId: string,
+    bytes: Buffer,
+    mime: string,
+    originalName?: string,
+  ): Promise<MediaAsset | { error: string }> {
+    if (!isAllowedImageMime(mime)) {
+      return { error: "unsupported_mime" };
+    }
+    return this.putKind(sessionId, "image", bytes, mime, originalName);
+  }
+
+  async putVideo(
+    sessionId: string,
+    bytes: Buffer,
+    mime: string,
+    originalName?: string,
+  ): Promise<MediaAsset | { error: string }> {
+    if (!isAllowedVideoMime(mime)) {
+      return { error: "unsupported_mime" };
+    }
+    return this.putKind(sessionId, "video", bytes, mime, originalName);
+  }
+
+  /** Route by MIME: image or video. */
+  async putByMime(
+    sessionId: string,
+    bytes: Buffer,
+    mime: string,
+    originalName?: string,
+  ): Promise<MediaAsset | { error: string }> {
+    if (isAllowedImageMime(mime)) {
+      return this.putImage(sessionId, bytes, mime, originalName);
+    }
+    if (isAllowedVideoMime(mime)) {
+      return this.putVideo(sessionId, bytes, mime, originalName);
+    }
+    return { error: "unsupported_mime" };
   }
 }
 

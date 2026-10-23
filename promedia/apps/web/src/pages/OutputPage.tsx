@@ -7,7 +7,7 @@ import { buildAssetUrl } from "../lib/assets";
 
 const locale = DEFAULT_LOCALE;
 
-/** Product Output — live text/image via registry (subtarea 5). */
+/** Product Output — live text/image/video via registry (subtarea 6). */
 export function OutputPage() {
   const [params] = useSearchParams();
   const {
@@ -44,14 +44,23 @@ export function OutputPage() {
   }, [snapshot]);
 
   const liveSlideIndex = snapshot?.live.currentSlideIndex ?? 0;
+  const mediaClock = snapshot?.live.mediaClock ?? null;
   const OutputRenderer = liveItem
     ? getItemType(liveItem.type)?.OutputRenderer
     : undefined;
 
-  const assetSrc =
-    liveItem?.type === "image" && sessionId && wsTicket
-      ? buildAssetUrl(sessionId, liveItem.payload.assetId, wsTicket)
-      : undefined;
+  const assetSrc = (() => {
+    if (!liveItem || !sessionId || !wsTicket) {
+      return undefined;
+    }
+    if (liveItem.type === "image") {
+      return buildAssetUrl(sessionId, liveItem.payload.assetId, wsTicket);
+    }
+    if (liveItem.type === "video" && liveItem.payload.sourceKind === "file") {
+      return buildAssetUrl(sessionId, liveItem.payload.assetId, wsTicket);
+    }
+    return undefined;
+  })();
 
   useEffect(() => {
     const onFsChange = () => {
@@ -131,6 +140,7 @@ export function OutputPage() {
             item={liveItem}
             slideIndex={liveSlideIndex}
             assetSrc={assetSrc}
+            mediaClock={mediaClock}
           />
         ) : (
           <p className="output-waiting">{t(locale, "output.waiting")}</p>

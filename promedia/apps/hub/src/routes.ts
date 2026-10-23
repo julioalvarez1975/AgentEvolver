@@ -139,8 +139,9 @@ export function createApiRoutes(): Hono {
   });
 
   /**
-   * Upload image asset (control only). Multipart field `file`.
+   * Upload image or video asset (control only). Multipart field `file`.
    * Auth: Authorization Bearer <wsTicket> or query ?credential=
+   * Video MIMEs: mp4/webm/quicktime (Q1). No hard size cap.
    */
   api.post("/sessions/:sessionId/assets", async (c) => {
     const sessionId = c.req.param("sessionId");
@@ -171,7 +172,7 @@ export function createApiRoutes(): Hono {
 
     const mime = file.type || "application/octet-stream";
     const bytes = Buffer.from(await file.arrayBuffer());
-    const result = await assetStore.putImage(
+    const result = await assetStore.putByMime(
       sessionId,
       bytes,
       mime,

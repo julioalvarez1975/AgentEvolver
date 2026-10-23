@@ -1,5 +1,5 @@
 /**
- * ProMedia shared protocol types (subtarea 2–5).
+ * ProMedia shared protocol types (subtarea 2–6).
  * No UI logic — hub and web import these shapes.
  */
 
@@ -28,6 +28,31 @@ export type ImagePayload = {
   title?: string;
 };
 
+export type VideoFit = "contain" | "cover";
+
+export type VideoFilePayload = {
+  sourceKind: "file";
+  assetId: string;
+  title?: string;
+  autoplay?: boolean;
+  loop?: boolean;
+  muted?: boolean;
+  fit?: VideoFit;
+};
+
+export type VideoYoutubePayload = {
+  sourceKind: "youtube";
+  videoId: string;
+  sourceUrl: string;
+  title?: string;
+  autoplay?: boolean;
+  loop?: boolean;
+  muted?: boolean;
+  fit?: VideoFit;
+};
+
+export type VideoPayload = VideoFilePayload | VideoYoutubePayload;
+
 export type TextPlaylistItem = {
   id: string;
   type: "text";
@@ -42,15 +67,25 @@ export type ImagePlaylistItem = {
   payload: ImagePayload;
 };
 
-export type PlaylistItemType = "text" | "image";
+export type VideoPlaylistItem = {
+  id: string;
+  type: "video";
+  order: number;
+  payload: VideoPayload;
+};
 
-export type PlaylistItem = TextPlaylistItem | ImagePlaylistItem;
+export type PlaylistItemType = "text" | "image" | "video";
+
+export type PlaylistItem =
+  | TextPlaylistItem
+  | ImagePlaylistItem
+  | VideoPlaylistItem;
 
 export type SessionPlaylist = {
   items: PlaylistItem[];
 };
 
-export type MediaKind = "image";
+export type MediaKind = "image" | "video";
 
 /** Media asset metadata (bytes live on disk via packages/media). */
 export type MediaAsset = {
@@ -59,8 +94,17 @@ export type MediaAsset = {
   mime: string;
   storageKey: string;
   size?: number;
+  durationMs?: number;
   originalName?: string;
   createdAt: string;
+};
+
+export type MediaClock = {
+  itemId: string;
+  playing: boolean;
+  positionMs: number;
+  rate?: number;
+  updatedAt: string;
 };
 
 export type SessionLiveState = {
@@ -68,7 +112,7 @@ export type SessionLiveState = {
   currentSlideIndex: number;
   sceneMode: "normal";
   themeId: null;
-  mediaClock: null;
+  mediaClock: MediaClock | null;
 };
 
 export type SessionSnapshot = {
@@ -76,16 +120,13 @@ export type SessionSnapshot = {
   code: string;
   mode: SessionMode;
   createdAt: string;
-  /** Monotonic seq assigned only by the hub. Starts at 0. */
   seq: number;
   live: SessionLiveState;
   playlist: SessionPlaylist;
-  /** Smoke fields from session.touch (protocol retained; UI hidden) */
   lastTouchAt?: string;
   touchNote?: string;
 };
 
-/** Hub → client envelope. `seq` is always set by the hub. */
 export type HubMessage = {
   type: string;
   seq: number;
@@ -113,7 +154,6 @@ export type ErrorPayload = {
   message: string;
 };
 
-/** Client → hub (no client-assigned seq). */
 export type ClientHelloMessage = {
   type: "client.hello";
   payload?: Record<string, unknown>;
@@ -138,7 +178,10 @@ export type PlaylistItemUpdateMessage = {
   type: "playlist.itemUpdate";
   payload: {
     id: string;
-    patch: Partial<{ payload: TextPayload | ImagePayload; order: number }>;
+    patch: Partial<{
+      payload: TextPayload | ImagePayload | VideoPayload;
+      order: number;
+    }>;
   };
 };
 
@@ -167,6 +210,11 @@ export type LiveSetSlideMessage = {
   payload: { index: number };
 };
 
+export type LiveMediaClockSetMessage = {
+  type: "live.mediaClock.set";
+  payload: { playing: boolean; positionMs?: number };
+};
+
 export type ClientToHubMessage =
   | ClientHelloMessage
   | ClientResyncMessage
@@ -177,7 +225,8 @@ export type ClientToHubMessage =
   | PlaylistReorderMessage
   | LiveGoMessage
   | LiveClearMessage
-  | LiveSetSlideMessage;
+  | LiveSetSlideMessage
+  | LiveMediaClockSetMessage;
 
 export type CreateSessionRequest = {
   mode?: SessionMode;
@@ -209,7 +258,7 @@ export type JoinSessionResponse = {
   snapshot: SessionSnapshot;
 };
 
-export const SHARED_PACKAGE_VERSION = "0.0.5-image-storage" as const;
+export const SHARED_PACKAGE_VERSION = "0.0.6-video-youtube" as const;
 
 export function emptyLiveState(): SessionLiveState {
   return {
@@ -225,6 +274,21 @@ export function emptyPlaylist(): SessionPlaylist {
   return { items: [] };
 }
 
+export function effectiveMediaClockPositionMs(
+  clock: MediaClock,
+  nowMs: number = Date.now(),
+): number {
+  if (!clock.playing) {
+    return clock.positionMs;
+  }
+  const updated = Date.parse(clock.updatedAt);
+  if (!Number.isFinite(updated)) {
+    return clock.positionMs;
+  }
+  const rate = clock.rate ?? 1;
+  return Math.max(0, clock.positionMs + (nowMs - updated) * rate);
+}
+
 export function itemLabel(item: PlaylistItem): string {
   if (item.type === "text") {
     const title = item.payload.title?.trim();
@@ -234,6 +298,11 @@ export function itemLabel(item: PlaylistItem): string {
     const first = item.payload.slides[0]?.lines.find((l) => l.trim().length > 0);
     return first?.trim() || "Texto";
   }
-  const title = item.payload.title?.trim();
-  return title || "Imagen";
+  if (item.type === "image") {
+    return item.payload.title?.trim() || "Imagen";
+  }
+  if (item.payload.sourceKind === "youtube") {
+    return item.payload.title?.trim() || `YouTube ${item.payload.videoId}`;
+  }
+  return item.payload.title?.trim() || "Vídeo";
 }

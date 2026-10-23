@@ -50,5 +50,17 @@
   "playlist.moveDown": "Descendre",
   "itemTypes.image": "Image",
   "image.largeWarning": "Fichier volumineux : peut saturer le LAN ou la mémoire du navigateur (pas de plafond dur).",
-  "image.uploading": "Téléversement…"
+  "image.uploading": "Téléversement…",
+  "itemTypes.video": "Vidéo",
+  "video.ingestTitle": "Ajouter une vidéo",
+  "video.fromFile": "Fichier (mp4 / webm / mov)",
+  "video.fromYoutube": "URL YouTube",
+  "video.youtubeUrl": "Lien YouTube public",
+  "video.addYoutube": "Ajouter YouTube",
+  "video.youtubeInvalid": "URL YouTube invalide ou videoId manquant.",
+  "video.youtubeCaveat": "YouTube nécessite Internet sur Control et Output. Certaines vidéos bloquent l’embed. L’autoplay avec son peut exiger un clic.",
+  "video.fileCaveat": "Codecs : mp4 et webm. QuickTime (.mov) avec avertissement — peut ne pas lire partout. Pas de plafond de taille.",
+  "video.quicktimeWarning": "QuickTime (.mov) : peut ne pas lire dans tous les navigateurs.",
+  "video.largeWarning": "Vidéo volumineuse : peut saturer le LAN ou la mémoire du navigateur (pas de plafond dur).",
+  "video.uploading": "Téléversement…"
 }

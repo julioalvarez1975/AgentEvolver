@@ -2,6 +2,7 @@ import type {
   ClientRole,
   HubMessage,
   ImagePayload,
+  MediaClock,
   PlaylistItem,
   SessionLiveState,
   SessionMode,
@@ -9,6 +10,7 @@ import type {
   SessionSnapshot,
   SessionUpdatedPayload,
   TextPayload,
+  VideoPayload,
 } from "@promedia/shared";
 import { emptyLiveState, emptyPlaylist } from "@promedia/shared";
 import { validatePlaylistItem } from "@promedia/item-types/validate";
@@ -186,11 +188,9 @@ export class SessionStore {
     if (session.playlist.items.some((existing) => existing.id === item.id)) {
       return { error: "duplicate_id" };
     }
-    if (item.type === "image") {
-      const asset = assetStore.get(session.id, item.payload.assetId);
-      if (!asset) {
-        return { error: "unknown_asset" };
-      }
+    const assetErr = this.requireAsset(session, item);
+    if (assetErr) {
+      return assetErr;
     }
     const order =
       session.playlist.items.length === 0
@@ -206,7 +206,10 @@ export class SessionStore {
   updateItem(
     session: SessionRecord,
     id: string,
-    patch: { payload?: TextPayload | ImagePayload; order?: number },
+    patch: {
+      payload?: TextPayload | ImagePayload | VideoPayload;
+      order?: number;
+    },
   ): HubMessage | { error: string } {
     const idx = session.playlist.items.findIndex((i) => i.id === id);
     if (idx < 0) {
@@ -223,11 +226,9 @@ export class SessionStore {
     if (!validated) {
       return { error: "invalid_item" };
     }
-    if (validated.type === "image") {
-      const asset = assetStore.get(session.id, validated.payload.assetId);
-      if (!asset) {
-        return { error: "unknown_asset" };
-      }
+    const assetErr = this.requireAsset(session, validated);
+    if (assetErr) {
+      return assetErr;
     }
     const items = [...session.playlist.items];
     items[idx] = validated;
@@ -246,6 +247,7 @@ export class SessionStore {
     if (session.live.currentItemId === id) {
       session.live.currentItemId = null;
       session.live.currentSlideIndex = 0;
+      session.live.mediaClock = null;
     }
     return this.bumpUpdated(session);
   }
@@ -276,17 +278,38 @@ export class SessionStore {
     if (!item) {
       return { error: "not_found" };
     }
-    if (item.type !== "text" && item.type !== "image") {
+    if (item.type !== "text" && item.type !== "image" && item.type !== "video") {
       return { error: "unsupported_type" };
     }
     session.live.currentItemId = itemId;
     session.live.currentSlideIndex = 0;
+    // Q3: video Go Live auto-starts playback (unmuted per Q2 / payload.muted)
+    if (item.type === "video" && item.payload.autoplay !== false) {
+      session.live.mediaClock = {
+        itemId,
+        playing: true,
+        positionMs: 0,
+        rate: 1,
+        updatedAt: nowIso(),
+      };
+    } else if (item.type === "video") {
+      session.live.mediaClock = {
+        itemId,
+        playing: false,
+        positionMs: 0,
+        rate: 1,
+        updatedAt: nowIso(),
+      };
+    } else {
+      session.live.mediaClock = null;
+    }
     return this.bumpUpdated(session);
   }
 
   clearLive(session: SessionRecord): HubMessage {
     session.live.currentItemId = null;
     session.live.currentSlideIndex = 0;
+    session.live.mediaClock = null;
     return this.bumpUpdated(session);
   }
 
@@ -303,6 +326,53 @@ export class SessionStore {
     const clamped = Math.min(Math.max(Math.trunc(index), 0), max);
     session.live.currentSlideIndex = clamped;
     return this.bumpUpdated(session);
+  }
+
+  setMediaClock(
+    session: SessionRecord,
+    patch: { playing: boolean; positionMs?: number },
+  ): HubMessage | { error: string } {
+    const itemId = session.live.currentItemId;
+    if (!itemId) {
+      return { error: "no_live_item" };
+    }
+    const item = session.playlist.items.find((i) => i.id === itemId);
+    if (!item || item.type !== "video") {
+      return { error: "no_video_live" };
+    }
+    const prev = session.live.mediaClock;
+    const positionMs =
+      typeof patch.positionMs === "number" && Number.isFinite(patch.positionMs)
+        ? Math.max(0, patch.positionMs)
+        : (prev?.positionMs ?? 0);
+    const clock: MediaClock = {
+      itemId,
+      playing: patch.playing,
+      positionMs,
+      rate: prev?.rate ?? 1,
+      updatedAt: nowIso(),
+    };
+    session.live.mediaClock = clock;
+    return this.bumpUpdated(session);
+  }
+
+  private requireAsset(
+    session: SessionRecord,
+    item: PlaylistItem,
+  ): { error: string } | null {
+    if (item.type === "image") {
+      const asset = assetStore.get(session.id, item.payload.assetId);
+      if (!asset || asset.kind !== "image") {
+        return { error: "unknown_asset" };
+      }
+    }
+    if (item.type === "video" && item.payload.sourceKind === "file") {
+      const asset = assetStore.get(session.id, item.payload.assetId);
+      if (!asset || asset.kind !== "video") {
+        return { error: "unknown_asset" };
+      }
+    }
+    return null;
   }
 
   eventsAfter(session: SessionRecord, lastSeq: number): HubMessage[] | null {

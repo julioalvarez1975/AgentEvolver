@@ -65,7 +65,19 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.moveDown": "Bajar",
     "itemTypes.image": "Imagen",
     "image.largeWarning": "Archivo grande: puede saturar la red LAN o la memoria del navegador (sin tope duro).",
-    "image.uploading": "Subiendo imagen…"
+    "image.uploading": "Subiendo imagen…",
+    "itemTypes.video": "Vídeo",
+    "video.ingestTitle": "Añadir vídeo",
+    "video.fromFile": "Archivo (mp4 / webm / mov)",
+    "video.fromYoutube": "URL de YouTube",
+    "video.youtubeUrl": "Enlace público de YouTube",
+    "video.addYoutube": "Añadir YouTube",
+    "video.youtubeInvalid": "URL de YouTube no válida o sin videoId.",
+    "video.youtubeCaveat": "YouTube requiere internet en Control y Output. Algunos vídeos bloquean embed. Autoplay con audio puede pedir un clic en el navegador.",
+    "video.fileCaveat": "Codecs: mp4 y webm. QuickTime (.mov) con aviso — puede no reproducir en todos los browsers. Sin tope duro de tamaño.",
+    "video.quicktimeWarning": "QuickTime (.mov): puede no reproducir en todos los browsers.",
+    "video.largeWarning": "Vídeo grande: puede saturar la red LAN o la memoria del navegador (sin tope duro).",
+    "video.uploading": "Subiendo…"
   },
   en: {
     "app.name": "ProMedia",
@@ -119,7 +131,19 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.moveDown": "Move down",
     "itemTypes.image": "Image",
     "image.largeWarning": "Large file: may saturate LAN or browser memory (no hard size cap).",
-    "image.uploading": "Uploading image…"
+    "image.uploading": "Uploading image…",
+    "itemTypes.video": "Video",
+    "video.ingestTitle": "Add video",
+    "video.fromFile": "File (mp4 / webm / mov)",
+    "video.fromYoutube": "YouTube URL",
+    "video.youtubeUrl": "Public YouTube link",
+    "video.addYoutube": "Add YouTube",
+    "video.youtubeInvalid": "Invalid YouTube URL or missing videoId.",
+    "video.youtubeCaveat": "YouTube needs internet on Control and Output. Some videos block embed. Unmuted autoplay may require a click in the browser.",
+    "video.fileCaveat": "Codecs: mp4 and webm. QuickTime (.mov) with warning — may not play in all browsers. No hard size cap.",
+    "video.quicktimeWarning": "QuickTime (.mov): may not play in all browsers.",
+    "video.largeWarning": "Large video: may saturate LAN or browser memory (no hard size cap).",
+    "video.uploading": "Uploading…"
   },
   pt: {
     "app.name": "ProMedia",
@@ -173,7 +197,19 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.moveDown": "Descer",
     "itemTypes.image": "Imagem",
     "image.largeWarning": "Arquivo grande: pode saturar a rede LAN ou a memória do navegador (sem limite rígido).",
-    "image.uploading": "Enviando imagem…"
+    "image.uploading": "Enviando imagem…",
+    "itemTypes.video": "Vídeo",
+    "video.ingestTitle": "Adicionar vídeo",
+    "video.fromFile": "Arquivo (mp4 / webm / mov)",
+    "video.fromYoutube": "URL do YouTube",
+    "video.youtubeUrl": "Link público do YouTube",
+    "video.addYoutube": "Adicionar YouTube",
+    "video.youtubeInvalid": "URL do YouTube inválida ou sem videoId.",
+    "video.youtubeCaveat": "YouTube exige internet no Control e Output. Alguns vídeos bloqueiam embed. Autoplay com áudio pode exigir um clique no navegador.",
+    "video.fileCaveat": "Codecs: mp4 e webm. QuickTime (.mov) com aviso — pode não reproduzir em todos os browsers. Sem limite rígido de tamanho.",
+    "video.quicktimeWarning": "QuickTime (.mov): pode não reproduzir em todos os browsers.",
+    "video.largeWarning": "Vídeo grande: pode saturar a rede LAN ou a memória do navegador (sem limite rígido).",
+    "video.uploading": "Enviando…"
   },
   fr: {
     "app.name": "ProMedia",
@@ -227,7 +263,19 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.moveDown": "Descendre",
     "itemTypes.image": "Image",
     "image.largeWarning": "Fichier volumineux : peut saturer le LAN ou la mémoire du navigateur (pas de plafond dur).",
-    "image.uploading": "Téléversement…"
+    "image.uploading": "Téléversement…",
+    "itemTypes.video": "Vidéo",
+    "video.ingestTitle": "Ajouter une vidéo",
+    "video.fromFile": "Fichier (mp4 / webm / mov)",
+    "video.fromYoutube": "URL YouTube",
+    "video.youtubeUrl": "Lien YouTube public",
+    "video.addYoutube": "Ajouter YouTube",
+    "video.youtubeInvalid": "URL YouTube invalide ou videoId manquant.",
+    "video.youtubeCaveat": "YouTube nécessite Internet sur Control et Output. Certaines vidéos bloquent l’embed. L’autoplay avec son peut exiger un clic.",
+    "video.fileCaveat": "Codecs : mp4 et webm. QuickTime (.mov) avec avertissement — peut ne pas lire partout. Pas de plafond de taille.",
+    "video.quicktimeWarning": "QuickTime (.mov) : peut ne pas lire dans tous les navigateurs.",
+    "video.largeWarning": "Vidéo volumineuse : peut saturer le LAN ou la mémoire du navigateur (pas de plafond dur).",
+    "video.uploading": "Téléversement…"
   },
   "zh-CN": {
     "app.name": "ProMedia",
@@ -281,11 +329,26 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.moveDown": "下移",
     "itemTypes.image": "图片",
     "image.largeWarning": "文件较大：可能占满局域网带宽或浏览器内存（无硬性上限）。",
-    "image.uploading": "正在上传图片…"
-  },
+    "image.uploading": "正在上传图片…",
+    "itemTypes.video": "视频",
+    "video.ingestTitle": "添加视频",
+    "video.fromFile": "文件（mp4 / webm / mov）",
+    "video.fromYoutube": "YouTube 链接",
+    "video.youtubeUrl": "公开 YouTube 链接",
+    "video.addYoutube": "添加 YouTube",
+    "video.youtubeInvalid": "无效的 YouTube URL 或缺少 videoId。",
+    "video.youtubeCaveat": "YouTube 需要 Control 与 Output 可访问互联网。部分视频禁止嵌入。带声音的自动播放可能需要点击。",
+    "video.fileCaveat": "编码：mp4 与 webm。QuickTime（.mov）有警告——可能无法在所有浏览器播放。无硬性大小上限。",
+    "video.quicktimeWarning": "QuickTime（.mov）：可能无法在所有浏览器播放。",
+    "video.largeWarning": "视频较大：可能占满局域网带宽或浏览器内存（无硬性上限）。",
+    "video.uploading": "正在上传…"
+  }
 };
 
 export function t(locale: Locale, key: string): string {
-  const catalog = catalogs[locale] ?? catalogs[DEFAULT_LOCALE];
-  return catalog[key] ?? catalogs[DEFAULT_LOCALE][key] ?? key;
+  return catalogs[locale][key] ?? catalogs.en[key] ?? key;
+}
+
+export function hasLocale(value: string): value is Locale {
+  return (LOCALES as readonly string[]).includes(value);
 }

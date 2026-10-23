@@ -50,5 +50,17 @@
   "playlist.moveDown": "下移",
   "itemTypes.image": "图片",
   "image.largeWarning": "文件较大：可能占满局域网带宽或浏览器内存（无硬性上限）。",
-  "image.uploading": "正在上传图片…"
+  "image.uploading": "正在上传图片…",
+  "itemTypes.video": "视频",
+  "video.ingestTitle": "添加视频",
+  "video.fromFile": "文件（mp4 / webm / mov）",
+  "video.fromYoutube": "YouTube 链接",
+  "video.youtubeUrl": "公开 YouTube 链接",
+  "video.addYoutube": "添加 YouTube",
+  "video.youtubeInvalid": "无效的 YouTube URL 或缺少 videoId。",
+  "video.youtubeCaveat": "YouTube 需要 Control 与 Output 可访问互联网。部分视频禁止嵌入。带声音的自动播放可能需要点击。",
+  "video.fileCaveat": "编码：mp4 与 webm。QuickTime（.mov）有警告——可能无法在所有浏览器播放。无硬性大小上限。",
+  "video.quicktimeWarning": "QuickTime（.mov）：可能无法在所有浏览器播放。",
+  "video.largeWarning": "视频较大：可能占满局域网带宽或浏览器内存（无硬性上限）。",
+  "video.uploading": "正在上传…"
 }

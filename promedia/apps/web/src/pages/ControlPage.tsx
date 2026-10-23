@@ -4,6 +4,7 @@ import {
   cryptoRandomId,
   getItemType,
   listItemTypes,
+  parseYouTubeUrl,
 } from "@promedia/item-types";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
 import type {
@@ -11,12 +12,14 @@ import type {
   ImagePayload,
   PlaylistItem,
   TextPayload,
+  VideoPayload,
 } from "@promedia/shared";
 import { itemLabel } from "@promedia/shared";
 import { TextItemEditor } from "../components/TextItemEditor";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import {
   LARGE_IMAGE_WARN_BYTES,
+  LARGE_VIDEO_WARN_BYTES,
   buildAssetUrl,
   uploadSessionAsset,
 } from "../lib/assets";
@@ -36,13 +39,19 @@ function assetSrcFor(
   wsTicket: string,
   item: PlaylistItem | null,
 ): string | undefined {
-  if (!item || item.type !== "image" || !sessionId || !wsTicket) {
+  if (!item || !sessionId || !wsTicket) {
     return undefined;
   }
-  return buildAssetUrl(sessionId, item.payload.assetId, wsTicket);
+  if (item.type === "image") {
+    return buildAssetUrl(sessionId, item.payload.assetId, wsTicket);
+  }
+  if (item.type === "video" && item.payload.sourceKind === "file") {
+    return buildAssetUrl(sessionId, item.payload.assetId, wsTicket);
+  }
+  return undefined;
 }
 
-/** Product Control — text + image playlist (subtarea 5). */
+/** Product Control — text + image + video playlist (subtarea 6). */
 export function ControlPage() {
   const session = useSessionConnection("control");
   const [joinCode, setJoinCode] = useState("");
@@ -52,9 +61,12 @@ export function ControlPage() {
   const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [videoMode, setVideoMode] = useState<"pick" | "youtube" | null>(null);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [uploadHint, setUploadHint] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const items = session.snapshot?.playlist.items ?? [];
   const selectedItem = useMemo(
@@ -67,6 +79,7 @@ export function ControlPage() {
     [items, liveItemId],
   );
   const liveSlideIndex = session.snapshot?.live.currentSlideIndex ?? 0;
+  const mediaClock = session.snapshot?.live.mediaClock ?? null;
 
   const outputByCode = session.code ? codeOutputUrl(session.code) : "";
   const outputByToken = session.accessToken
@@ -75,7 +88,9 @@ export function ControlPage() {
 
   const canGoLive = Boolean(
     selectedItem &&
-      (selectedItem.type === "text" || selectedItem.type === "image") &&
+      (selectedItem.type === "text" ||
+        selectedItem.type === "image" ||
+        selectedItem.type === "video") &&
       session.wsStatus === "open",
   );
 
@@ -111,11 +126,13 @@ export function ControlPage() {
     setPreviewSlideIndex(0);
     setCreating(false);
     setEditingId(null);
+    setVideoMode(null);
   };
 
   const startCreateText = () => {
     setCreating(true);
     setEditingId(null);
+    setVideoMode(null);
   };
 
   const saveNewText = (payload: TextPayload) => {
@@ -141,7 +158,8 @@ export function ControlPage() {
 
   const onPickImage = () => {
     setUploadHint(null);
-    fileInputRef.current?.click();
+    setVideoMode(null);
+    imageInputRef.current?.click();
   };
 
   const onImageFile = async (file: File | undefined) => {
@@ -179,10 +197,97 @@ export function ControlPage() {
       setUploadHint(String(err));
     } finally {
       setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      if (imageInputRef.current) {
+        imageInputRef.current.value = "";
       }
     }
+  };
+
+  const startAddVideo = () => {
+    setUploadHint(null);
+    setCreating(false);
+    setEditingId(null);
+    setVideoMode("pick");
+    setYoutubeUrl("");
+  };
+
+  const onPickVideoFile = () => {
+    videoInputRef.current?.click();
+  };
+
+  const onVideoFile = async (file: File | undefined) => {
+    if (!file || !session.sessionId || !session.wsTicket) {
+      return;
+    }
+    const hints: string[] = [];
+    if (file.type === "video/quicktime") {
+      hints.push(t(locale, "video.quicktimeWarning"));
+    }
+    if (file.size > LARGE_VIDEO_WARN_BYTES) {
+      hints.push(t(locale, "video.largeWarning"));
+    }
+    setUploadHint(hints.length ? hints.join(" ") : null);
+    setUploading(true);
+    try {
+      const asset = await uploadSessionAsset(
+        session.sessionId,
+        session.wsTicket,
+        file,
+      );
+      const payload: VideoPayload = {
+        sourceKind: "file",
+        assetId: asset.id,
+        title: asset.originalName || file.name,
+        autoplay: true,
+        muted: false,
+        fit: "contain",
+      };
+      const item: PlaylistItem = {
+        id: cryptoRandomId(),
+        type: "video",
+        order: items.length,
+        payload,
+      };
+      session.addItem(item);
+      setSelectedItemId(item.id);
+      setVideoMode(null);
+      setCreating(false);
+      setEditingId(null);
+    } catch (err) {
+      setUploadHint(String(err));
+    } finally {
+      setUploading(false);
+      if (videoInputRef.current) {
+        videoInputRef.current.value = "";
+      }
+    }
+  };
+
+  const addYoutubeVideo = () => {
+    const parsed = parseYouTubeUrl(youtubeUrl);
+    if (!parsed) {
+      setUploadHint(t(locale, "video.youtubeInvalid"));
+      return;
+    }
+    setUploadHint(t(locale, "video.youtubeCaveat"));
+    const payload: VideoPayload = {
+      sourceKind: "youtube",
+      videoId: parsed.videoId,
+      sourceUrl: parsed.sourceUrl,
+      autoplay: true,
+      muted: false,
+      fit: "contain",
+    };
+    const item: PlaylistItem = {
+      id: cryptoRandomId(),
+      type: "video",
+      order: items.length,
+      payload,
+    };
+    session.addItem(item);
+    setSelectedItemId(item.id);
+    setVideoMode(null);
+    setYoutubeUrl("");
   };
 
   const onFitChange = (fit: ImageFit) => {
@@ -337,11 +442,18 @@ export function ControlPage() {
       ) : null}
 
       <input
-        ref={fileInputRef}
+        ref={imageInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
         className="sr-only"
         onChange={(e) => void onImageFile(e.target.files?.[0])}
+      />
+      <input
+        ref={videoInputRef}
+        type="file"
+        accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+        className="sr-only"
+        onChange={(e) => void onVideoFile(e.target.files?.[0])}
       />
 
       <div className="control-zones">
@@ -366,6 +478,8 @@ export function ControlPage() {
                     startCreateText();
                   } else if (mod.type === "image") {
                     onPickImage();
+                  } else if (mod.type === "video") {
+                    startAddVideo();
                   }
                 }}
               >
@@ -374,7 +488,58 @@ export function ControlPage() {
             ))}
           </div>
 
-          {creating ? (
+          {videoMode ? (
+            <div className="zone-body video-ingest">
+              <p className="video-ingest-title">{t(locale, "video.ingestTitle")}</p>
+              <div className="video-ingest-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={uploading}
+                  onClick={onPickVideoFile}
+                >
+                  {t(locale, "video.fromFile")}
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setVideoMode("youtube")}
+                >
+                  {t(locale, "video.fromYoutube")}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setVideoMode(null)}
+                >
+                  {t(locale, "text.cancel")}
+                </button>
+              </div>
+              {videoMode === "youtube" ? (
+                <div className="video-yt-form">
+                  <label>
+                    {t(locale, "video.youtubeUrl")}
+                    <input
+                      value={youtubeUrl}
+                      onChange={(e) => setYoutubeUrl(e.target.value)}
+                      placeholder="https://www.youtube.com/watch?v=…"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!youtubeUrl.trim()}
+                    onClick={addYoutubeVideo}
+                  >
+                    {t(locale, "video.addYoutube")}
+                  </button>
+                  <p className="video-caveat">{t(locale, "video.youtubeCaveat")}</p>
+                </div>
+              ) : (
+                <p className="video-caveat">{t(locale, "video.fileCaveat")}</p>
+              )}
+            </div>
+          ) : creating ? (
             <div className="zone-body playlist-editor">
               <TextItemEditor
                 initial={createEmptyTextPayload()}
@@ -492,6 +657,12 @@ export function ControlPage() {
                 item={liveItem}
                 slideIndex={liveSlideIndex}
                 assetSrc={liveSrc}
+                mediaClock={mediaClock}
+                onMediaClockSet={
+                  liveItem.type === "video"
+                    ? (patch) => session.setMediaClock(patch)
+                    : undefined
+                }
                 onPrev={
                   liveItem.type === "text"
                     ? () => session.setSlide(liveSlideIndex - 1)
@@ -561,7 +732,7 @@ export function ControlPage() {
         {uploading ? (
           <>
             <span className="footer-sep">·</span>
-            <span className="footer-muted">{t(locale, "image.uploading")}</span>
+            <span className="footer-muted">{t(locale, "video.uploading")}</span>
           </>
         ) : null}
       </footer>

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Headless smoke: text playlist + image upload/serve + Go Live.
+ * Headless smoke: text + image + video (file + youtube) + mediaClock.
  * Hub must listen on :8787. Usage: node scripts/smoke-hub-ws.mjs
  */
 const HUB = process.env.HUB_URL ?? "http://127.0.0.1:8787";
@@ -75,6 +75,9 @@ const PNG_1X1 = Buffer.from(
   "base64",
 );
 
+/** Tiny fake mp4-ish bytes (MIME only; not a real container) */
+const FAKE_MP4 = Buffer.from("ftypisomfake-promedia-smoke");
+
 async function main() {
   const createRes = await fetch(`${HUB}/api/v1/sessions`, {
     method: "POST",
@@ -86,6 +89,9 @@ async function main() {
   }
   const created = await createRes.json();
   console.log("created", created.code, "seq", created.snapshot.seq);
+  if (created.snapshot?.live?.mediaClock !== null) {
+    throw new Error("expected mediaClock null at create");
+  }
 
   const joinOut = await fetch(`${HUB}/api/v1/sessions/join`, {
     method: "POST",
@@ -216,7 +222,8 @@ async function main() {
     out1.inbox,
     (m) =>
       m.type === "session.updated" &&
-      m.payload.live?.currentItemId === imageItem.id,
+      m.payload.live?.currentItemId === imageItem.id &&
+      m.payload.live?.mediaClock === null,
   );
   console.log("image go live ok");
 
@@ -242,8 +249,254 @@ async function main() {
   }
   console.log("auth gate ok");
 
+  // --- video file upload ---
+  const vform = new FormData();
+  vform.append(
+    "file",
+    new Blob([FAKE_MP4], { type: "video/mp4" }),
+    "smoke.mp4",
+  );
+  const vup = await fetch(
+    `${HUB}/api/v1/sessions/${created.sessionId}/assets`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${created.wsTicket}` },
+      body: vform,
+    },
+  );
+  if (!vup.ok) {
+    throw new Error(`video upload ${vup.status} ${await vup.text()}`);
+  }
+  const { asset: videoAsset } = await vup.json();
+  if (videoAsset.kind !== "video" || videoAsset.mime !== "video/mp4") {
+    throw new Error(`bad video asset ${JSON.stringify(videoAsset)}`);
+  }
+  console.log("video upload ok", videoAsset.id);
+
+  // quicktime allowed
+  const qt = await fetch(
+    `${HUB}/api/v1/sessions/${created.sessionId}/assets`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${created.wsTicket}` },
+      body: (() => {
+        const f = new FormData();
+        f.append(
+          "file",
+          new Blob([Buffer.from("qt")], { type: "video/quicktime" }),
+          "clip.mov",
+        );
+        return f;
+      })(),
+    },
+  );
+  if (!qt.ok) {
+    throw new Error(`quicktime upload ${qt.status}`);
+  }
+  console.log("quicktime upload ok");
+
+  // reject unsupported video mime
+  const badVid = await fetch(
+    `${HUB}/api/v1/sessions/${created.sessionId}/assets`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${created.wsTicket}` },
+      body: (() => {
+        const f = new FormData();
+        f.append(
+          "file",
+          new Blob([Buffer.from("x")], { type: "video/avi" }),
+          "x.avi",
+        );
+        return f;
+      })(),
+    },
+  );
+  if (badVid.status !== 400) {
+    throw new Error(`expected video mime reject, got ${badVid.status}`);
+  }
+  console.log("video mime reject ok");
+
+  const videoFileItem = {
+    id: "item-video-file-1",
+    type: "video",
+    order: 2,
+    payload: {
+      sourceKind: "file",
+      assetId: videoAsset.id,
+      title: "smoke.mp4",
+      autoplay: true,
+      muted: false,
+      fit: "contain",
+    },
+  };
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "playlist.itemAdd",
+      payload: { item: videoFileItem },
+    }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.playlist?.items?.some((i) => i.id === videoFileItem.id),
+  );
+  console.log("video file add ok");
+
+  // YouTube item
+  const ytItem = {
+    id: "item-video-yt-1",
+    type: "video",
+    order: 3,
+    payload: {
+      sourceKind: "youtube",
+      videoId: "dQw4w9WgXcQ",
+      sourceUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      autoplay: true,
+      muted: false,
+    },
+  };
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({ type: "playlist.itemAdd", payload: { item: ytItem } }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.playlist?.items?.some(
+        (i) => i.id === ytItem.id && i.payload?.videoId === "dQw4w9WgXcQ",
+      ),
+  );
+  console.log("youtube add ok");
+
+  // invalid youtube rejected by hub validate
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "playlist.itemAdd",
+      payload: {
+        item: {
+          id: "bad-yt",
+          type: "video",
+          order: 4,
+          payload: {
+            sourceKind: "youtube",
+            videoId: "short",
+            sourceUrl: "https://example.com",
+          },
+        },
+      },
+    }),
+  );
+  await waitFor(
+    control.inbox,
+    (m) => m.type === "error" && m.payload?.code === "invalid_item",
+  );
+  console.log("invalid youtube reject ok");
+
+  // Go Live video → mediaClock playing true position 0
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({ type: "live.go", payload: { itemId: videoFileItem.id } }),
+  );
+  const liveMsg = await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.currentItemId === videoFileItem.id,
+  );
+  const clock = liveMsg.payload.live.mediaClock;
+  if (
+    !clock ||
+    clock.itemId !== videoFileItem.id ||
+    clock.playing !== true ||
+    clock.positionMs !== 0
+  ) {
+    throw new Error(`bad mediaClock on goLive ${JSON.stringify(clock)}`);
+  }
+  console.log("video go live clock ok", clock);
+
+  // mediaClock pause
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.mediaClock.set",
+      payload: { playing: false, positionMs: 1500 },
+    }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.mediaClock?.playing === false &&
+      m.payload.live?.mediaClock?.positionMs === 1500,
+  );
+  console.log("mediaClock pause/seek ok");
+
+  // mediaClock play
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.mediaClock.set",
+      payload: { playing: true, positionMs: 2000 },
+    }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.mediaClock?.playing === true &&
+      m.payload.live?.mediaClock?.positionMs === 2000,
+  );
+  console.log("mediaClock play ok");
+
+  // second output reconnect sees clock
+  const joinOut2 = await fetch(`${HUB}/api/v1/sessions/join`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: created.code, role: "output" }),
+  }).then((r) => r.json());
+  const out2 = await connect(
+    toWsUrl(HUB, joinOut2.sessionId, "output", joinOut2.wsTicket),
+  );
+  const snap2 = await waitFor(out2.inbox, (m) => m.type === "session.snapshot");
+  if (
+    snap2.payload.live?.mediaClock?.playing !== true ||
+    snap2.payload.live?.mediaClock?.positionMs !== 2000
+  ) {
+    throw new Error(
+      `resync clock mismatch ${JSON.stringify(snap2.payload.live?.mediaClock)}`,
+    );
+  }
+  console.log("output2 resync clock ok");
+
+  // clear live clears clock
+  out1.inbox.length = 0;
+  control.ws.send(JSON.stringify({ type: "live.clear", payload: {} }));
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.currentItemId === null &&
+      m.payload.live?.mediaClock === null,
+  );
+  console.log("clear live clock ok");
+
+  // serve video bytes
+  const getVid = await fetch(
+    `${HUB}/api/v1/sessions/${created.sessionId}/assets/${videoAsset.id}?credential=${encodeURIComponent(joinOut.wsTicket)}`,
+  );
+  if (!getVid.ok) {
+    throw new Error(`serve video ${getVid.status}`);
+  }
+  console.log("serve video ok");
+
   control.ws.close();
   out1.ws.close();
+  out2.ws.close();
   console.log("SMOKE OK");
 }
 

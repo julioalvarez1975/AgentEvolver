@@ -44,3 +44,6 @@ export async function uploadSessionAsset(
 
 /** Soft UI warning threshold (no hard cap). */
 export const LARGE_IMAGE_WARN_BYTES = 20 * 1024 * 1024;
+
+/** Soft UI warning for large video files (no hard cap). */
+export const LARGE_VIDEO_WARN_BYTES = 100 * 1024 * 1024;
