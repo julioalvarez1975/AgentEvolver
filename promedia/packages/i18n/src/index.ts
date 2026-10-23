@@ -96,7 +96,16 @@ const catalogs: Record<Locale, Messages> = {
     "theme.fontSerif": "Serif",
     "theme.fontSize": "Tamaño",
     "theme.resetOverrides": "Volver al preset",
-    "theme.hint": "El tema manda tipografía, colores y alineación del texto en Output. Imagen/vídeo solo usan el fondo del lienzo."
+    "theme.hint": "El tema manda tipografía, colores y alineación del texto en Output. Imagen/vídeo solo usan el fondo del lienzo.",
+    "playlist.savedTitle": "Playlists guardadas",
+    "playlist.saveName": "Nombre de la playlist",
+    "playlist.save": "Guardar",
+    "playlist.load": "Cargar",
+    "playlist.savedEmpty": "Ninguna guardada aún",
+    "playlist.savedOk": "Playlist guardada",
+    "playlist.loadedOk": "Playlist cargada",
+    "playlist.loadedSkipped": "Cargada (se omitieron {n} ítems de archivo sin asset en esta sesión)",
+    "shortcuts.hint": "Atajos: G Go Live · O Abrir salida · L/B/C/N escenas · 1/2/3 temas · ←/→ slides"
   },
   en: {
     "app.name": "ProMedia",
@@ -181,7 +190,16 @@ const catalogs: Record<Locale, Messages> = {
     "theme.fontSerif": "Serif",
     "theme.fontSize": "Size",
     "theme.resetOverrides": "Reset to preset",
-    "theme.hint": "Theme controls text typography, colors, and alignment on Output. Image/video only use the canvas background."
+    "theme.hint": "Theme controls text typography, colors, and alignment on Output. Image/video only use the canvas background.",
+    "playlist.savedTitle": "Saved playlists",
+    "playlist.saveName": "Playlist name",
+    "playlist.save": "Save",
+    "playlist.load": "Load",
+    "playlist.savedEmpty": "None saved yet",
+    "playlist.savedOk": "Playlist saved",
+    "playlist.loadedOk": "Playlist loaded",
+    "playlist.loadedSkipped": "Loaded (skipped {n} file items without assets in this session)",
+    "shortcuts.hint": "Shortcuts: G Go Live · O Open output · L/B/C/N scenes · 1/2/3 themes · ←/→ slides"
   },
   pt: {
     "app.name": "ProMedia",
@@ -266,7 +284,16 @@ const catalogs: Record<Locale, Messages> = {
     "theme.fontSerif": "Serif",
     "theme.fontSize": "Tamanho",
     "theme.resetOverrides": "Voltar ao preset",
-    "theme.hint": "O tema controla tipografia, cores e alinhamento do texto no Output. Imagem/vídeo só usam o fundo da tela."
+    "theme.hint": "O tema controla tipografia, cores e alinhamento do texto no Output. Imagem/vídeo só usam o fundo da tela.",
+    "playlist.savedTitle": "Playlists salvas",
+    "playlist.saveName": "Nome da playlist",
+    "playlist.save": "Salvar",
+    "playlist.load": "Carregar",
+    "playlist.savedEmpty": "Nenhuma salva ainda",
+    "playlist.savedOk": "Playlist salva",
+    "playlist.loadedOk": "Playlist carregada",
+    "playlist.loadedSkipped": "Carregada (omitidos {n} itens de arquivo sem asset nesta sessão)",
+    "shortcuts.hint": "Atalhos: G Go Live · O Abrir saída · L/B/C/N cenas · 1/2/3 temas · ←/→ slides"
   },
   fr: {
     "app.name": "ProMedia",
@@ -351,7 +378,16 @@ const catalogs: Record<Locale, Messages> = {
     "theme.fontSerif": "Serif",
     "theme.fontSize": "Taille",
     "theme.resetOverrides": "Revenir au preset",
-    "theme.hint": "Le thème gère typo, couleurs et alignement du texte sur Output. Image/vidéo n’utilisent que le fond."
+    "theme.hint": "Le thème gère typo, couleurs et alignement du texte sur Output. Image/vidéo n’utilisent que le fond.",
+    "playlist.savedTitle": "Playlists enregistrées",
+    "playlist.saveName": "Nom de la playlist",
+    "playlist.save": "Enregistrer",
+    "playlist.load": "Charger",
+    "playlist.savedEmpty": "Aucune encore",
+    "playlist.savedOk": "Playlist enregistrée",
+    "playlist.loadedOk": "Playlist chargée",
+    "playlist.loadedSkipped": "Chargée ({n} éléments fichier sans asset omis)",
+    "shortcuts.hint": "Raccourcis : G Go Live · O Ouvrir sortie · L/B/C/N scènes · 1/2/3 thèmes · ←/→ slides"
   },
   "zh-CN": {
     "app.name": "ProMedia",
@@ -436,7 +472,16 @@ const catalogs: Record<Locale, Messages> = {
     "theme.fontSerif": "衬线",
     "theme.fontSize": "大小",
     "theme.resetOverrides": "恢复预设",
-    "theme.hint": "主题控制 Output 文本的字体、颜色与对齐。图片/视频仅使用画布背景色。"
+    "theme.hint": "主题控制 Output 文本的字体、颜色与对齐。图片/视频仅使用画布背景色。",
+    "playlist.savedTitle": "已保存播放列表",
+    "playlist.saveName": "播放列表名称",
+    "playlist.save": "保存",
+    "playlist.load": "加载",
+    "playlist.savedEmpty": "暂无保存",
+    "playlist.savedOk": "已保存",
+    "playlist.loadedOk": "已加载",
+    "playlist.loadedSkipped": "已加载（跳过本会话缺少资源的 {n} 个文件项）",
+    "shortcuts.hint": "快捷键：G Go Live · O 打开输出 · L/B/C/N 场景 · 1/2/3 主题 · ←/→ 幻灯片"
   }
 };
 

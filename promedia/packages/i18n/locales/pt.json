@@ -81,5 +81,14 @@
   "theme.fontSerif": "Serif",
   "theme.fontSize": "Tamanho",
   "theme.resetOverrides": "Voltar ao preset",
-  "theme.hint": "O tema controla tipografia, cores e alinhamento do texto no Output. Imagem/vídeo só usam o fundo da tela."
+  "theme.hint": "O tema controla tipografia, cores e alinhamento do texto no Output. Imagem/vídeo só usam o fundo da tela.",
+  "playlist.savedTitle": "Playlists salvas",
+  "playlist.saveName": "Nome da playlist",
+  "playlist.save": "Salvar",
+  "playlist.load": "Carregar",
+  "playlist.savedEmpty": "Nenhuma salva ainda",
+  "playlist.savedOk": "Playlist salva",
+  "playlist.loadedOk": "Playlist carregada",
+  "playlist.loadedSkipped": "Carregada (omitidos {n} itens de arquivo sem asset nesta sessão)",
+  "shortcuts.hint": "Atalhos: G Go Live · O Abrir saída · L/B/C/N cenas · 1/2/3 temas · ←/→ slides"
 }

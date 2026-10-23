@@ -85,6 +85,15 @@ export type SessionPlaylist = {
   items: PlaylistItem[];
 };
 
+/** Named playlist snapshot (subtarea 9). Asset bytes stay in media store. */
+export type SavedPlaylist = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  items: PlaylistItem[];
+};
+
 export type MediaKind = "image" | "video";
 
 /** Media asset metadata (bytes live on disk via packages/media). */
@@ -318,7 +327,7 @@ export type JoinSessionResponse = {
   snapshot: SessionSnapshot;
 };
 
-export const SHARED_PACKAGE_VERSION = "0.0.8-themes" as const;
+export const SHARED_PACKAGE_VERSION = "0.0.12-mvp" as const;
 
 export function emptyLiveState(): SessionLiveState {
   return {

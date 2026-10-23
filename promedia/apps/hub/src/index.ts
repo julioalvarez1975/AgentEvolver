@@ -2,11 +2,13 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { SHARED_PACKAGE_VERSION } from "@promedia/shared";
+import { setSessionBroadcaster } from "./broadcast.js";
 import { createApiRoutes } from "./routes.js";
 import { WsHub } from "./ws-hub.js";
 
 const app = new Hono();
 const port = Number(process.env.PORT ?? 8787);
+const deployMode = (process.env.PROMEDIA_MODE ?? "lan").toLowerCase();
 
 app.use(
   "*",
@@ -22,6 +24,8 @@ app.get("/health", (c) =>
     ok: true,
     service: "promedia-hub",
     shared: SHARED_PACKAGE_VERSION,
+    mode: deployMode,
+    mediaAdapter: process.env.MEDIA_ADAPTER ?? (deployMode === "cloud" ? "s3-compatible" : "local"),
   }),
 );
 
@@ -37,7 +41,9 @@ app.get("/", (c) =>
 
 app.route("/api/v1", createApiRoutes());
 
-console.log(`ProMedia hub listening on http://localhost:${port}`);
+console.log(
+  `ProMedia hub listening on http://localhost:${port} (mode=${deployMode})`,
+);
 
 const server = serve({
   fetch: app.fetch,
@@ -45,4 +51,5 @@ const server = serve({
 });
 
 // Attach WS upgrade handler (ticket auth on /api/v1/ws)
-new WsHub(server as import("node:http").Server);
+const hub = new WsHub(server as import("node:http").Server);
+setSessionBroadcaster((sessionId, message) => hub.broadcast(sessionId, message));

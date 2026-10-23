@@ -81,5 +81,14 @@
   "theme.fontSerif": "Serif",
   "theme.fontSize": "Tamaño",
   "theme.resetOverrides": "Volver al preset",
-  "theme.hint": "El tema manda tipografía, colores y alineación del texto en Output. Imagen/vídeo solo usan el fondo del lienzo."
+  "theme.hint": "El tema manda tipografía, colores y alineación del texto en Output. Imagen/vídeo solo usan el fondo del lienzo.",
+  "playlist.savedTitle": "Playlists guardadas",
+  "playlist.saveName": "Nombre de la playlist",
+  "playlist.save": "Guardar",
+  "playlist.load": "Cargar",
+  "playlist.savedEmpty": "Ninguna guardada aún",
+  "playlist.savedOk": "Playlist guardada",
+  "playlist.loadedOk": "Playlist cargada",
+  "playlist.loadedSkipped": "Cargada (se omitieron {n} ítems de archivo sin asset en esta sesión)",
+  "shortcuts.hint": "Atajos: G Go Live · O Abrir salida · L/B/C/N escenas · 1/2/3 temas · ←/→ slides"
 }

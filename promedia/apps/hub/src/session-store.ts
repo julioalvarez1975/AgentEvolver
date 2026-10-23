@@ -189,6 +189,46 @@ export class SessionStore {
     return this.bumpUpdated(session);
   }
 
+  /**
+   * Replace session playlist with a validated snapshot (SavedPlaylist load).
+   * Skips file items whose MediaAsset is missing in this session (text/YouTube OK).
+   */
+  replacePlaylist(
+    session: SessionRecord,
+    rawItems: unknown[],
+  ):
+    | { message: HubMessage; skipped: number }
+    | { error: string } {
+    const next: PlaylistItem[] = [];
+    let skipped = 0;
+    for (const raw of rawItems) {
+      const item = validatePlaylistItem(raw);
+      if (!item) {
+        return { error: "invalid_item" };
+      }
+      const assetErr = this.requireAsset(session, item);
+      if (assetErr) {
+        if (assetErr.error === "unknown_asset") {
+          skipped += 1;
+          continue;
+        }
+        return assetErr;
+      }
+      next.push(item);
+    }
+    session.playlist.items = sortItems(next);
+    if (
+      session.live.currentItemId &&
+      !session.playlist.items.some((i) => i.id === session.live.currentItemId)
+    ) {
+      session.live.currentItemId = null;
+      session.live.currentSlideIndex = 0;
+      session.live.mediaClock = null;
+      session.live.sceneMode = "normal";
+    }
+    return { message: this.bumpUpdated(session), skipped };
+  }
+
   addItem(session: SessionRecord, rawItem: unknown): HubMessage | { error: string } {
     const item = validatePlaylistItem(rawItem);
     if (!item) {

@@ -17,8 +17,10 @@ import type {
   VideoPayload,
 } from "@promedia/shared";
 import { DEFAULT_THEME_ID, itemLabel } from "@promedia/shared";
+import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { TextItemEditor } from "../components/TextItemEditor";
 import { ThemePanel } from "../components/ThemePanel";
+import { useControlShortcuts } from "../hooks/useControlShortcuts";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import {
   LARGE_IMAGE_WARN_BYTES,
@@ -140,6 +142,28 @@ export function ControlPage() {
     }
     setPopupBlockedUrl(null);
   };
+
+  useControlShortcuts({
+    enabled: session.hasSession && session.wsStatus === "open",
+    goLive: () => {
+      if (selectedItemId && canGoLive) {
+        session.goLive(selectedItemId);
+      }
+    },
+    openOutput,
+    setSceneMode: (mode) => session.setSceneMode(mode),
+    setTheme: (id) => session.setTheme({ themeId: id }),
+    prevSlide: () => {
+      if (liveItem?.type === "text") {
+        session.setSlide(liveSlideIndex - 1);
+      }
+    },
+    nextSlide: () => {
+      if (liveItem?.type === "text") {
+        session.setSlide(liveSlideIndex + 1);
+      }
+    },
+  });
 
   const selectItem = (id: string) => {
     setSelectedItemId(id);
@@ -764,6 +788,15 @@ export function ControlPage() {
               onChange={(patch) => session.setTheme(patch)}
             />
           </div>
+          {session.hasSession && session.sessionId && session.wsTicket ? (
+            <SavedPlaylistPanel
+              sessionId={session.sessionId}
+              wsTicket={session.wsTicket}
+              disabled={session.wsStatus !== "open"}
+              onHint={setUploadHint}
+            />
+          ) : null}
+          <p className="shortcuts-hint">{t(locale, "shortcuts.hint")}</p>
         </section>
       </div>
 

@@ -674,6 +674,45 @@ async function main() {
   }
   console.log("output2 resync theme ok");
 
+  // --- saved playlists (subtarea 9) ---
+  const savePl = await fetch(
+    `${HUB}/api/v1/sessions/${created.sessionId}/playlists`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${created.wsTicket}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: "Ensayo culto" }),
+    },
+  );
+  if (!savePl.ok) {
+    throw new Error(`save playlist ${savePl.status} ${await savePl.text()}`);
+  }
+  const savedBody = await savePl.json();
+  console.log("playlist save ok", savedBody.playlist.id);
+
+  const listPl = await fetch(`${HUB}/api/v1/playlists`).then((r) => r.json());
+  if (!listPl.playlists?.some((p) => p.id === savedBody.playlist.id)) {
+    throw new Error("playlist not listed");
+  }
+  console.log("playlist list ok");
+
+  // load into same session (broadcast)
+  out1.inbox.length = 0;
+  const loadPl = await fetch(
+    `${HUB}/api/v1/sessions/${created.sessionId}/playlists/${savedBody.playlist.id}/load`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${created.wsTicket}` },
+    },
+  );
+  if (!loadPl.ok) {
+    throw new Error(`load playlist ${loadPl.status}`);
+  }
+  await waitFor(out1.inbox, (m) => m.type === "session.updated");
+  console.log("playlist load ok");
+
   // clear live clears clock + sceneMode
   out1.inbox.length = 0;
   control.ws.send(JSON.stringify({ type: "live.clear", payload: {} }));

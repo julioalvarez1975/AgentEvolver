@@ -1,23 +1,39 @@
-# ProMedia — carpeta portable (esqueleto)
+# ProMedia — carpeta portable
 
-Esta carpeta es el **esqueleto** del empaquetado runnable (hub + web) para PCs sin instalar un servidor de hosting.
+Empaquetado runnable (hub + web) para PCs sin instalar un servidor de hosting.
 
-## Layout previsto
+## Empaquetar (MVP)
 
-```text
-portable/
-  hub/          # binario / dist del hub (placeholder)
-  web/          # estáticos del build de apps/web (placeholder)
-  data/         # SQLite + medios locales (vacío en scaffold)
-  README.md     # este archivo
+Desde `promedia/`:
+
+```bash
+pnpm build
+./portable/pack.sh
 ```
 
-## Cómo empaquetar (futuro)
+Esto deja en `portable/dist/`:
 
-1. `pnpm build` en la raíz del monorepo.
-2. Copiar `apps/hub/dist` (+ deps de runtime) → `portable/hub/`.
-3. Copiar `apps/web/dist` → `portable/web/`.
-4. Documentar un script de arranque (`node hub/...` + servir `web/`).
-5. Opcional: zip de la carpeta para distribución.
+```text
+portable/dist/
+  hub/          # apps/hub/dist + package hints
+  web/          # apps/web/dist (estáticos)
+  data/         # media + playlists (vacío)
+  start.sh      # arranca hub sirviendo API; abre nota para servir web
+  README.md
+```
 
-**Subtarea 1:** solo estructura + este README. **No** hay zip funcional completo ni pipeline de empaquetado aún.
+## Arranque
+
+```bash
+cd portable/dist
+./start.sh
+```
+
+Por defecto:
+
+- Hub: `http://localhost:8787` (`PROMEDIA_MODE=portable`)
+- Web: servir `web/` con cualquier static server, p. ej.  
+  `npx --yes serve web -l 5173`  
+  o abrir el hub documentado en el script.
+
+LAN sigue siendo el camino preferido con `pnpm dev` en el monorepo.
