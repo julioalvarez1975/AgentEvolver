@@ -68,5 +68,18 @@
   "scene.logo": "Logo",
   "scene.black": "Black",
   "scene.clear": "Clear",
-  "scene.logoFallback": "Logo"
+  "scene.logoFallback": "Logo",
+  "theme.title": "Theme",
+  "theme.oscuro": "Dark",
+  "theme.claro": "Light",
+  "theme.acento": "Accent",
+  "theme.bg": "Background",
+  "theme.fg": "Text",
+  "theme.align": "Align",
+  "theme.fontFamily": "Font",
+  "theme.fontSans": "Sans",
+  "theme.fontSerif": "Serif",
+  "theme.fontSize": "Size",
+  "theme.resetOverrides": "Reset to preset",
+  "theme.hint": "Theme controls text typography, colors, and alignment on Output. Image/video only use the canvas background."
 }

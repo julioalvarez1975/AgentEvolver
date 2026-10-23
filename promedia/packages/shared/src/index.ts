@@ -1,5 +1,5 @@
 /**
- * ProMedia shared protocol types (subtarea 2–6).
+ * ProMedia shared protocol types (subtarea 2–8+).
  * No UI logic — hub and web import these shapes.
  */
 
@@ -124,11 +124,39 @@ export function isSceneMode(value: unknown): value is SceneMode {
   );
 }
 
+export type {
+  ResolvedTheme,
+  ThemeFontFamily,
+  ThemeFontSize,
+  ThemeId,
+  ThemeOverrides,
+  ThemePreset,
+} from "./themes.js";
+export {
+  DEFAULT_THEME_ID,
+  THEME_IDS,
+  THEME_PRESETS,
+  fontFamilyCss,
+  fontSizeCss,
+  getThemePreset,
+  isThemeFontFamily,
+  isThemeFontSize,
+  isThemeId,
+  normalizeThemeOverrides,
+  resolveTheme,
+  themeToCssVars,
+} from "./themes.js";
+
+import type { ThemeId, ThemeOverrides } from "./themes.js";
+import { DEFAULT_THEME_ID } from "./themes.js";
+
 export type SessionLiveState = {
   currentItemId: string | null;
   currentSlideIndex: number;
   sceneMode: SceneMode;
-  themeId: null;
+  themeId: ThemeId;
+  /** Deltas over preset; null = pure preset. */
+  themeOverrides: ThemeOverrides | null;
   mediaClock: MediaClock | null;
 };
 
@@ -237,6 +265,14 @@ export type LiveSetSceneModeMessage = {
   payload: { sceneMode: SceneMode };
 };
 
+export type LiveSetThemeMessage = {
+  type: "live.setTheme";
+  payload: {
+    themeId?: ThemeId;
+    themeOverrides?: ThemeOverrides | null;
+  };
+};
+
 export type ClientToHubMessage =
   | ClientHelloMessage
   | ClientResyncMessage
@@ -249,7 +285,8 @@ export type ClientToHubMessage =
   | LiveClearMessage
   | LiveSetSlideMessage
   | LiveMediaClockSetMessage
-  | LiveSetSceneModeMessage;
+  | LiveSetSceneModeMessage
+  | LiveSetThemeMessage;
 
 export type CreateSessionRequest = {
   mode?: SessionMode;
@@ -281,14 +318,15 @@ export type JoinSessionResponse = {
   snapshot: SessionSnapshot;
 };
 
-export const SHARED_PACKAGE_VERSION = "0.0.7-scene-modes" as const;
+export const SHARED_PACKAGE_VERSION = "0.0.8-themes" as const;
 
 export function emptyLiveState(): SessionLiveState {
   return {
     currentItemId: null,
     currentSlideIndex: 0,
     sceneMode: "normal",
-    themeId: null,
+    themeId: DEFAULT_THEME_ID,
+    themeOverrides: null,
     mediaClock: null,
   };
 }

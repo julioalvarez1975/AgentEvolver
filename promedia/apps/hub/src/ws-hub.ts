@@ -10,7 +10,11 @@ import type {
   TextPayload,
   VideoPayload,
 } from "@promedia/shared";
-import { isSceneMode } from "@promedia/shared";
+import {
+  isSceneMode,
+  isThemeId,
+  normalizeThemeOverrides,
+} from "@promedia/shared";
 import { sessionStore, type SessionRecord } from "./session-store.js";
 
 type ClientConn = {
@@ -146,6 +150,42 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
         return null;
       }
       return { type: "live.setSceneMode", payload: { sceneMode } };
+    }
+    if (type === "live.setTheme") {
+      const p = payload as {
+        themeId?: unknown;
+        themeOverrides?: unknown;
+      } | undefined;
+      if (!p) {
+        return null;
+      }
+      const out: {
+        themeId?: import("@promedia/shared").ThemeId;
+        themeOverrides?: import("@promedia/shared").ThemeOverrides | null;
+      } = {};
+      if (p.themeId !== undefined) {
+        if (!isThemeId(p.themeId)) {
+          return null;
+        }
+        out.themeId = p.themeId;
+      }
+      if (p.themeOverrides !== undefined) {
+        if (p.themeOverrides === null) {
+          out.themeOverrides = null;
+        } else {
+          const n = normalizeThemeOverrides(p.themeOverrides);
+          if (n === null) {
+            // allow empty object as clear
+            out.themeOverrides = null;
+          } else {
+            out.themeOverrides = n;
+          }
+        }
+      }
+      if (out.themeId === undefined && out.themeOverrides === undefined) {
+        return null;
+      }
+      return { type: "live.setTheme", payload: out };
     }
     return null;
   } catch {
@@ -358,6 +398,13 @@ export class WsHub {
           conn,
           session,
           sessionStore.setSceneMode(session, msg.payload.sceneMode),
+        );
+        return;
+      case "live.setTheme":
+        this.applyResult(
+          conn,
+          session,
+          sessionStore.setTheme(session, msg.payload),
         );
         return;
       default:

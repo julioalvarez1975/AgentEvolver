@@ -13,10 +13,12 @@ import type {
   PlaylistItem,
   SceneMode,
   TextPayload,
+  ThemeId,
   VideoPayload,
 } from "@promedia/shared";
-import { itemLabel } from "@promedia/shared";
+import { DEFAULT_THEME_ID, itemLabel } from "@promedia/shared";
 import { TextItemEditor } from "../components/TextItemEditor";
+import { ThemePanel } from "../components/ThemePanel";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import {
   LARGE_IMAGE_WARN_BYTES,
@@ -24,6 +26,7 @@ import {
   buildAssetUrl,
   uploadSessionAsset,
 } from "../lib/assets";
+import { themeSurfaceStyle } from "../lib/theme";
 
 const locale = DEFAULT_LOCALE;
 
@@ -82,6 +85,10 @@ export function ControlPage() {
   const liveSlideIndex = session.snapshot?.live.currentSlideIndex ?? 0;
   const mediaClock = session.snapshot?.live.mediaClock ?? null;
   const sceneMode: SceneMode = session.snapshot?.live.sceneMode ?? "normal";
+  const themeId: ThemeId =
+    session.snapshot?.live.themeId ?? DEFAULT_THEME_ID;
+  const themeOverrides = session.snapshot?.live.themeOverrides ?? null;
+  const themeStyle = themeSurfaceStyle(themeId, themeOverrides);
 
   const toggleSceneMode = (mode: SceneMode) => {
     if (session.wsStatus !== "open") {
@@ -645,7 +652,7 @@ export function ControlPage() {
           aria-label={t(locale, "control.preview")}
         >
           <h2>{t(locale, "control.preview")}</h2>
-          <div className="zone-body zone-stage">
+          <div className="zone-body zone-stage pm-theme" style={themeStyle}>
             {selectedItem && Preview ? (
               <Preview
                 item={selectedItem}
@@ -671,7 +678,7 @@ export function ControlPage() {
               </span>
             ) : null}
           </h2>
-          <div className="zone-body zone-stage">
+          <div className="zone-body zone-stage pm-theme" style={themeStyle}>
             {liveItem && LivePanel ? (
               <LivePanel
                 item={liveItem}
@@ -747,6 +754,15 @@ export function ControlPage() {
             >
               {t(locale, "control.sceneClear")}
             </button>
+          </div>
+          <div className="theme-controls">
+            <h3 className="theme-controls-title">{t(locale, "theme.title")}</h3>
+            <ThemePanel
+              themeId={themeId}
+              themeOverrides={themeOverrides}
+              disabled={!session.hasSession || session.wsStatus !== "open"}
+              onChange={(patch) => session.setTheme(patch)}
+            />
           </div>
         </section>
       </div>

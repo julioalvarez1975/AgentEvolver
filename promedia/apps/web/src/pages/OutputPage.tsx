@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getItemType } from "@promedia/item-types";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
-import type { SceneMode } from "@promedia/shared";
+import type { SceneMode, ThemeId } from "@promedia/shared";
+import { DEFAULT_THEME_ID } from "@promedia/shared";
 import { SceneOverlay } from "../components/SceneOverlay";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import { buildAssetUrl } from "../lib/assets";
+import { themeSurfaceStyle } from "../lib/theme";
 
 const locale = DEFAULT_LOCALE;
 
@@ -48,6 +50,9 @@ export function OutputPage() {
   const liveSlideIndex = snapshot?.live.currentSlideIndex ?? 0;
   const mediaClock = snapshot?.live.mediaClock ?? null;
   const sceneMode: SceneMode = snapshot?.live.sceneMode ?? "normal";
+  const themeId: ThemeId = snapshot?.live.themeId ?? DEFAULT_THEME_ID;
+  const themeOverrides = snapshot?.live.themeOverrides ?? null;
+  const themeStyle = themeSurfaceStyle(themeId, themeOverrides);
   const OutputRenderer = liveItem
     ? getItemType(liveItem.type)?.OutputRenderer
     : undefined;
@@ -129,8 +134,12 @@ export function OutputPage() {
       <div
         ref={stageRef}
         className={
-          isFullscreen ? "output-stage output-stage-fs" : "output-stage"
+          isFullscreen
+            ? "output-stage output-stage-fs pm-theme"
+            : "output-stage pm-theme"
         }
+        style={themeStyle}
+        data-theme={themeId}
       >
         {wsStatus === "connecting" && !hasSession ? (
           <p className="output-waiting">{t(locale, "output.joining")}</p>

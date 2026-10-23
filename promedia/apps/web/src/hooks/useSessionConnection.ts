@@ -7,6 +7,8 @@ import type {
   SceneMode,
   SessionSnapshot,
   TextPayload,
+  ThemeId,
+  ThemeOverrides,
   VideoPayload,
 } from "@promedia/shared";
 import { buildWsUrl, createSession, joinSession } from "../lib/hub";
@@ -173,6 +175,11 @@ export function useSessionConnection(role: ClientRole) {
     (sceneMode: SceneMode) => send("live.setSceneMode", { sceneMode }),
     [send],
   );
+  const setTheme = useCallback(
+    (patch: { themeId?: ThemeId; themeOverrides?: ThemeOverrides | null }) =>
+      send("live.setTheme", patch),
+    [send],
+  );
 
   return {
     code,
@@ -197,6 +204,7 @@ export function useSessionConnection(role: ClientRole) {
     setSlide,
     setMediaClock,
     setSceneMode,
+    setTheme,
     hasSession: Boolean(sessionId && wsTicket),
   };
 }
