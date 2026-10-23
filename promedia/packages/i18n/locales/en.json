@@ -90,5 +90,7 @@
   "playlist.savedOk": "Playlist saved",
   "playlist.loadedOk": "Playlist loaded",
   "playlist.loadedSkipped": "Loaded (skipped {n} file items without assets in this session)",
-  "shortcuts.hint": "Shortcuts: G Go Live · O Open output · L/B/C/N scenes · 1/2/3 themes · ←/→ slides"
+  "shortcuts.hint": "Shortcuts: G Go Live · O Open output · L/B/C/N scenes · 1/2/3 themes · ←/→ slides",
+  "control.wsDisconnectedHint": "WebSocket disconnected — playlist cannot sync. Reconnecting… or click Reconnect.",
+  "control.reconnect": "Reconnect"
 }

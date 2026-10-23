@@ -105,7 +105,9 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.savedOk": "Playlist guardada",
     "playlist.loadedOk": "Playlist cargada",
     "playlist.loadedSkipped": "Cargada (se omitieron {n} ítems de archivo sin asset en esta sesión)",
-    "shortcuts.hint": "Atajos: G Go Live · O Abrir salida · L/B/C/N escenas · 1/2/3 temas · ←/→ slides"
+    "shortcuts.hint": "Atajos: G Go Live · O Abrir salida · L/B/C/N escenas · 1/2/3 temas · ←/→ slides",
+    "control.wsDisconnectedHint": "WebSocket desconectado — la playlist no puede sincronizar. Reconectando… o pulsa Reconectar.",
+    "control.reconnect": "Reconectar"
   },
   en: {
     "app.name": "ProMedia",
@@ -199,7 +201,9 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.savedOk": "Playlist saved",
     "playlist.loadedOk": "Playlist loaded",
     "playlist.loadedSkipped": "Loaded (skipped {n} file items without assets in this session)",
-    "shortcuts.hint": "Shortcuts: G Go Live · O Open output · L/B/C/N scenes · 1/2/3 themes · ←/→ slides"
+    "shortcuts.hint": "Shortcuts: G Go Live · O Open output · L/B/C/N scenes · 1/2/3 themes · ←/→ slides",
+    "control.wsDisconnectedHint": "WebSocket disconnected — playlist cannot sync. Reconnecting… or click Reconnect.",
+    "control.reconnect": "Reconnect"
   },
   pt: {
     "app.name": "ProMedia",
@@ -293,7 +297,9 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.savedOk": "Playlist salva",
     "playlist.loadedOk": "Playlist carregada",
     "playlist.loadedSkipped": "Carregada (omitidos {n} itens de arquivo sem asset nesta sessão)",
-    "shortcuts.hint": "Atalhos: G Go Live · O Abrir saída · L/B/C/N cenas · 1/2/3 temas · ←/→ slides"
+    "shortcuts.hint": "Atalhos: G Go Live · O Abrir saída · L/B/C/N cenas · 1/2/3 temas · ←/→ slides",
+    "control.wsDisconnectedHint": "WebSocket desconectado — a playlist não sincroniza. Reconectando… ou clique em Reconectar.",
+    "control.reconnect": "Reconectar"
   },
   fr: {
     "app.name": "ProMedia",
@@ -387,7 +393,9 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.savedOk": "Playlist enregistrée",
     "playlist.loadedOk": "Playlist chargée",
     "playlist.loadedSkipped": "Chargée ({n} éléments fichier sans asset omis)",
-    "shortcuts.hint": "Raccourcis : G Go Live · O Ouvrir sortie · L/B/C/N scènes · 1/2/3 thèmes · ←/→ slides"
+    "shortcuts.hint": "Raccourcis : G Go Live · O Ouvrir sortie · L/B/C/N scènes · 1/2/3 thèmes · ←/→ slides",
+    "control.wsDisconnectedHint": "WebSocket déconnecté — la playlist ne synchronise pas. Reconnexion… ou cliquez Reconnecter.",
+    "control.reconnect": "Reconnecter"
   },
   "zh-CN": {
     "app.name": "ProMedia",
@@ -481,7 +489,9 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.savedOk": "已保存",
     "playlist.loadedOk": "已加载",
     "playlist.loadedSkipped": "已加载（跳过本会话缺少资源的 {n} 个文件项）",
-    "shortcuts.hint": "快捷键：G Go Live · O 打开输出 · L/B/C/N 场景 · 1/2/3 主题 · ←/→ 幻灯片"
+    "shortcuts.hint": "快捷键：G Go Live · O 打开输出 · L/B/C/N 场景 · 1/2/3 主题 · ←/→ 幻灯片",
+    "control.wsDisconnectedHint": "WebSocket 已断开 — 播放列表无法同步。正在重连…或点击重连。",
+    "control.reconnect": "重连"
   }
 };
 

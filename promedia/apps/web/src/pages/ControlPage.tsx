@@ -108,12 +108,17 @@ export function ControlPage() {
     ? opaqueOutputUrl(session.accessToken)
     : "";
 
+  const wsReady = session.wsStatus === "open";
+  const sessionReady = session.hasSession;
+  /** Playlist chrome needs a session; mutations need WS (auto-reconnects if down). */
+  const canMutate = sessionReady && wsReady;
+
   const canGoLive = Boolean(
     selectedItem &&
       (selectedItem.type === "text" ||
         selectedItem.type === "image" ||
         selectedItem.type === "video") &&
-      session.wsStatus === "open",
+      canMutate,
   );
 
   const flashCopied = (label: string) => {
@@ -144,7 +149,7 @@ export function ControlPage() {
   };
 
   useControlShortcuts({
-    enabled: session.hasSession && session.wsStatus === "open",
+    enabled: canMutate,
     goLive: () => {
       if (selectedItemId && canGoLive) {
         session.goLive(selectedItemId);
@@ -179,14 +184,30 @@ export function ControlPage() {
     setVideoMode(null);
   };
 
+  const ensureWsOrHint = (): boolean => {
+    if (session.wsStatus === "open" && session.isWsOpen()) {
+      return true;
+    }
+    session.reconnect();
+    setUploadHint(t(locale, "control.wsDisconnectedHint"));
+    return false;
+  };
+
   const saveNewText = (payload: TextPayload) => {
+    if (!ensureWsOrHint()) {
+      return;
+    }
     const item: PlaylistItem = {
       id: cryptoRandomId(),
       type: "text",
       order: items.length,
       payload,
     };
-    session.addItem(item);
+    if (!session.addItem(item)) {
+      setUploadHint(t(locale, "control.wsDisconnectedHint"));
+      session.reconnect();
+      return;
+    }
     setCreating(false);
     setSelectedItemId(item.id);
     setPreviewSlideIndex(0);
@@ -194,6 +215,9 @@ export function ControlPage() {
 
   const saveEditText = (payload: TextPayload) => {
     if (!editingId) {
+      return;
+    }
+    if (!ensureWsOrHint()) {
       return;
     }
     session.updateItem(editingId, { payload });
@@ -485,6 +509,19 @@ export function ControlPage() {
         </div>
       ) : null}
 
+      {sessionReady && !wsReady ? (
+        <div className="control-banner control-banner-error" role="status">
+          <p>{t(locale, "control.wsDisconnectedHint")}</p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => session.reconnect()}
+          >
+            {t(locale, "control.reconnect")}
+          </button>
+        </div>
+      ) : null}
+
       <input
         ref={imageInputRef}
         type="file"
@@ -512,15 +549,28 @@ export function ControlPage() {
                 key={mod.type}
                 type="button"
                 className="btn btn-primary"
-                disabled={
-                  !session.hasSession ||
-                  session.wsStatus !== "open" ||
-                  uploading
+                disabled={!sessionReady || uploading}
+                title={
+                  !sessionReady
+                    ? t(locale, "control.createSession")
+                    : !wsReady
+                      ? t(locale, "control.wsDisconnectedHint")
+                      : undefined
                 }
                 onClick={() => {
+                  if (!sessionReady) {
+                    return;
+                  }
+                  if (!wsReady) {
+                    session.reconnect();
+                    setUploadHint(t(locale, "control.wsDisconnectedHint"));
+                  }
                   if (mod.type === "text") {
                     startCreateText();
                   } else if (mod.type === "image") {
+                    if (!wsReady) {
+                      return;
+                    }
                     onPickImage();
                   } else if (mod.type === "video") {
                     startAddVideo();
@@ -745,7 +795,7 @@ export function ControlPage() {
             <button
               type="button"
               className={sceneBtnClass("normal")}
-              disabled={!session.hasSession || session.wsStatus !== "open"}
+              disabled={!canMutate}
               aria-pressed={sceneMode === "normal"}
               onClick={() => session.setSceneMode("normal")}
             >
@@ -754,7 +804,7 @@ export function ControlPage() {
             <button
               type="button"
               className={sceneBtnClass("logo")}
-              disabled={!session.hasSession || session.wsStatus !== "open"}
+              disabled={!canMutate}
               aria-pressed={sceneMode === "logo"}
               onClick={() => toggleSceneMode("logo")}
             >
@@ -763,7 +813,7 @@ export function ControlPage() {
             <button
               type="button"
               className={sceneBtnClass("black")}
-              disabled={!session.hasSession || session.wsStatus !== "open"}
+              disabled={!canMutate}
               aria-pressed={sceneMode === "black"}
               onClick={() => toggleSceneMode("black")}
             >
@@ -772,7 +822,7 @@ export function ControlPage() {
             <button
               type="button"
               className={sceneBtnClass("clear")}
-              disabled={!session.hasSession || session.wsStatus !== "open"}
+              disabled={!canMutate}
               aria-pressed={sceneMode === "clear"}
               onClick={() => toggleSceneMode("clear")}
             >
@@ -784,7 +834,7 @@ export function ControlPage() {
             <ThemePanel
               themeId={themeId}
               themeOverrides={themeOverrides}
-              disabled={!session.hasSession || session.wsStatus !== "open"}
+              disabled={!canMutate}
               onChange={(patch) => session.setTheme(patch)}
             />
           </div>
@@ -792,7 +842,7 @@ export function ControlPage() {
             <SavedPlaylistPanel
               sessionId={session.sessionId}
               wsTicket={session.wsTicket}
-              disabled={session.wsStatus !== "open"}
+              disabled={!canMutate}
               onHint={setUploadHint}
             />
           ) : null}

@@ -16,6 +16,8 @@ import { SessionSocket } from "../lib/session-socket";
 
 export type WsStatus = "idle" | "connecting" | "open" | "closed" | "error";
 
+const RECONNECT_MS = 800;
+
 function applyHubMessage(
   msg: HubMessage,
   prev: SessionSnapshot | null,
@@ -77,8 +79,8 @@ export function useSessionConnection(role: ClientRole) {
     sock.connect();
   }, []);
 
-  const send = useCallback((type: string, payload?: unknown) => {
-    socketRef.current?.send(type, payload);
+  const send = useCallback((type: string, payload?: unknown): boolean => {
+    return socketRef.current?.send(type, payload) ?? false;
   }, []);
 
   const create = useCallback(async () => {
@@ -135,8 +137,23 @@ export function useSessionConnection(role: ClientRole) {
     socketRef.current.reconnectWithResync();
   }, [attachSocket, role, sessionId, wsTicket]);
 
+  // Control was missing this: Output already auto-reconnected, so Julio could
+  // see a live Output while Control playlist buttons stayed disabled forever.
+  useEffect(() => {
+    if (!sessionId || !wsTicket) {
+      return;
+    }
+    if (wsStatus !== "closed" && wsStatus !== "error") {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      reconnect();
+    }, RECONNECT_MS);
+    return () => window.clearTimeout(timer);
+  }, [wsStatus, sessionId, wsTicket, reconnect]);
+
   const addItem = useCallback(
-    (item: PlaylistItem) => send("playlist.itemAdd", { item }),
+    (item: PlaylistItem): boolean => send("playlist.itemAdd", { item }),
     [send],
   );
   const updateItem = useCallback(
@@ -146,39 +163,51 @@ export function useSessionConnection(role: ClientRole) {
         payload?: TextPayload | ImagePayload | VideoPayload;
         order?: number;
       },
-    ) => send("playlist.itemUpdate", { id, patch }),
+    ): boolean => send("playlist.itemUpdate", { id, patch }),
     [send],
   );
   const removeItem = useCallback(
-    (id: string) => send("playlist.itemRemove", { id }),
+    (id: string): boolean => send("playlist.itemRemove", { id }),
     [send],
   );
   const reorder = useCallback(
-    (orderedIds: string[]) => send("playlist.reorder", { orderedIds }),
+    (orderedIds: string[]): boolean =>
+      send("playlist.reorder", { orderedIds }),
     [send],
   );
   const goLive = useCallback(
-    (itemId: string) => send("live.go", { itemId }),
+    (itemId: string): boolean => send("live.go", { itemId }),
     [send],
   );
-  const clearLive = useCallback(() => send("live.clear", {}), [send]);
+  const clearLive = useCallback(
+    (): boolean => send("live.clear", {}),
+    [send],
+  );
   const setSlide = useCallback(
-    (index: number) => send("live.setSlide", { index }),
+    (index: number): boolean => send("live.setSlide", { index }),
     [send],
   );
   const setMediaClock = useCallback(
-    (patch: { playing: boolean; positionMs?: number }) =>
+    (patch: { playing: boolean; positionMs?: number }): boolean =>
       send("live.mediaClock.set", patch),
     [send],
   );
   const setSceneMode = useCallback(
-    (sceneMode: SceneMode) => send("live.setSceneMode", { sceneMode }),
+    (sceneMode: SceneMode): boolean =>
+      send("live.setSceneMode", { sceneMode }),
     [send],
   );
   const setTheme = useCallback(
-    (patch: { themeId?: ThemeId; themeOverrides?: ThemeOverrides | null }) =>
-      send("live.setTheme", patch),
+    (patch: {
+      themeId?: ThemeId;
+      themeOverrides?: ThemeOverrides | null;
+    }): boolean => send("live.setTheme", patch),
     [send],
+  );
+
+  const isWsOpen = useCallback(
+    () => socketRef.current?.isOpen === true,
+    [],
   );
 
   return {
@@ -205,6 +234,7 @@ export function useSessionConnection(role: ClientRole) {
     setMediaClock,
     setSceneMode,
     setTheme,
+    isWsOpen,
     hasSession: Boolean(sessionId && wsTicket),
   };
 }
