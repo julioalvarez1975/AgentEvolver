@@ -7,6 +7,15 @@ export type SessionSocketHandlers = {
   onError?: (err: Event) => void;
 };
 
+export type DisconnectOptions = {
+  /**
+   * When false, tear down the socket without calling onClose.
+   * Use during connect/reconnect so UI does not flash "closed" mid-handshake
+   * and fight auto-reconnect effects.
+   */
+  notifyClose?: boolean;
+};
+
 /**
  * Minimal WS client: applies seq idempotency and supports resync on demand.
  */
@@ -26,42 +35,15 @@ export class SessionSocket {
   }
 
   connect(): void {
-    this.disconnect();
-    const ws = new WebSocket(this.url);
-    this.ws = ws;
-
-    ws.onopen = () => {
-      this.handlers.onOpen?.();
-    };
-
-    ws.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(String(ev.data)) as HubMessage;
-        if (typeof msg.seq === "number" && msg.seq <= this.lastSeq) {
-          return;
-        }
-        if (typeof msg.seq === "number") {
-          this.lastSeq = msg.seq;
-        }
-        this.handlers.onMessage(msg);
-      } catch {
-        // ignore malformed
-      }
-    };
-
-    ws.onclose = () => {
-      this.handlers.onClose?.();
-    };
-
-    ws.onerror = (err) => {
-      this.handlers.onError?.(err);
-    };
+    this.disconnect({ notifyClose: false });
+    this.bindSocket(new WebSocket(this.url));
   }
 
-  disconnect(): void {
+  disconnect(opts?: DisconnectOptions): void {
     if (!this.ws) {
       return;
     }
+    const notifyClose = opts?.notifyClose !== false;
     const ws = this.ws;
     this.ws = null;
     const wasOpenOrConnecting =
@@ -78,9 +60,12 @@ export class SessionSocket {
         // ignore
       }
     }
-    // Always notify — otherwise UI can stay wsStatus "open" while send() no-ops
-    // (handlers were cleared before the browser close event).
-    this.handlers.onClose?.();
+    // Notify only for real teardown — otherwise UI can stay wsStatus "open"
+    // while send() no-ops (handlers were cleared before the browser close event).
+    // Silent during connect/reconnect so status stays "connecting".
+    if (notifyClose) {
+      this.handlers.onClose?.();
+    }
   }
 
   get isOpen(): boolean {
@@ -105,15 +90,19 @@ export class SessionSocket {
    */
   reconnectWithResync(): void {
     const last = this.lastSeq;
-    this.disconnect();
+    this.disconnect({ notifyClose: false });
     this.lastSeq = last;
-    const ws = new WebSocket(this.url);
+    this.bindSocket(new WebSocket(this.url), () => {
+      this.send("client.resync", { lastSeq: Math.max(last, 0) });
+    });
+  }
+
+  private bindSocket(ws: WebSocket, afterOpen?: () => void): void {
     this.ws = ws;
 
     ws.onopen = () => {
       this.handlers.onOpen?.();
-      // After automatic snapshot on connect, request catch-up from lastSeq
-      this.send("client.resync", { lastSeq: Math.max(last, 0) });
+      afterOpen?.();
     };
 
     ws.onmessage = (ev) => {
@@ -127,15 +116,22 @@ export class SessionSocket {
         }
         this.handlers.onMessage(msg);
       } catch {
-        // ignore
+        // ignore malformed
       }
     };
 
     ws.onclose = () => {
+      if (this.ws !== ws) {
+        return;
+      }
+      this.ws = null;
       this.handlers.onClose?.();
     };
 
     ws.onerror = (err) => {
+      if (this.ws !== ws) {
+        return;
+      }
       this.handlers.onError?.(err);
     };
   }

@@ -4,6 +4,9 @@ import type {
   ClientRole,
 } from "@promedia/shared";
 
+/** Default hub HTTP port (dev). Keep in sync with apps/hub and README. */
+export const HUB_DEV_PORT = 8787;
+
 /**
  * REST base. Default: same-origin (Vite proxies `/api` → hub).
  * Set `VITE_HUB_URL` only when calling the hub without the proxy.
@@ -16,23 +19,72 @@ export function hubHttpBase(): string {
   return "";
 }
 
+/**
+ * WebSocket base URL.
+ *
+ * Prefer a direct hub WS in Vite dev — proxying `/api` WebSockets through Vite
+ * is flaky on some Mac setups. REST stays same-origin via the proxy.
+ *
+ * Override with `VITE_HUB_WS_URL` (e.g. `ws://192.168.1.10:8787`) or
+ * `VITE_HUB_URL` (http→ws rewrite) when needed.
+ */
 export function hubWsBase(): string {
+  const wsEnv = import.meta.env.VITE_HUB_WS_URL as string | undefined;
+  if (wsEnv && wsEnv.length > 0) {
+    return wsEnv.replace(/\/$/, "");
+  }
   const http = hubHttpBase();
   if (http) {
     return http.replace(/^http/, "ws");
+  }
+  if (import.meta.env.DEV) {
+    const proto = window.location.protocol === "https:" ? "wss" : "ws";
+    const host = window.location.hostname || "localhost";
+    return `${proto}://${host}:${HUB_DEV_PORT}`;
   }
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
   return `${proto}://${window.location.host}`;
 }
 
+export function isHubUnreachableError(err: unknown): boolean {
+  if (err instanceof TypeError) {
+    return true;
+  }
+  const msg = String(err ?? "");
+  return (
+    /failed to fetch/i.test(msg) ||
+    /networkerror/i.test(msg) ||
+    /load failed/i.test(msg) ||
+    /network request failed/i.test(msg) ||
+    /econnrefused/i.test(msg)
+  );
+}
+
+export async function probeHubHealth(): Promise<boolean> {
+  try {
+    const res = await fetch(`${hubHttpBase()}/health`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function createSession(
   mode: "lan" | "cloud" | "portable" = "lan",
 ): Promise<CreateSessionResponse> {
-  const res = await fetch(`${hubHttpBase()}/api/v1/sessions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mode }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${hubHttpBase()}/api/v1/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode }),
+    });
+  } catch (err) {
+    throw new Error("HUB_UNREACHABLE", { cause: err });
+  }
   if (!res.ok) {
     throw new Error(`create failed: ${res.status}`);
   }
@@ -49,11 +101,16 @@ export async function joinSession(opts: {
       ? { code: opts.code, role: opts.role }
       : { accessToken: opts.accessToken, role: opts.role };
 
-  const res = await fetch(`${hubHttpBase()}/api/v1/sessions/join`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${hubHttpBase()}/api/v1/sessions/join`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    throw new Error("HUB_UNREACHABLE", { cause: err });
+  }
   if (!res.ok) {
     throw new Error(`join failed: ${res.status}`);
   }
