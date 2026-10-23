@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Headless smoke: text + image + video (file + youtube) + mediaClock.
+ * Headless smoke: text + image + video + mediaClock + sceneMode.
  * Hub must listen on :8787. Usage: node scripts/smoke-hub-ws.mjs
  */
 const HUB = process.env.HUB_URL ?? "http://127.0.0.1:8787";
@@ -91,6 +91,11 @@ async function main() {
   console.log("created", created.code, "seq", created.snapshot.seq);
   if (created.snapshot?.live?.mediaClock !== null) {
     throw new Error("expected mediaClock null at create");
+  }
+  if (created.snapshot?.live?.themeId !== "oscuro") {
+    throw new Error(
+      `expected default theme oscuro, got ${created.snapshot?.live?.themeId}`,
+    );
   }
 
   const joinOut = await fetch(`${HUB}/api/v1/sessions/join`, {
@@ -473,7 +478,203 @@ async function main() {
   }
   console.log("output2 resync clock ok");
 
-  // clear live clears clock
+  // --- scene modes (subtarea 7) ---
+  // black: overlay only; keep item + mediaClock playing
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.setSceneMode",
+      payload: { sceneMode: "black" },
+    }),
+  );
+  const blackMsg = await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.sceneMode === "black",
+  );
+  if (blackMsg.payload.live.currentItemId !== videoFileItem.id) {
+    throw new Error("black must keep currentItemId");
+  }
+  if (blackMsg.payload.live.mediaClock?.playing !== true) {
+    throw new Error("black must not auto-pause mediaClock");
+  }
+  console.log("scene black ok");
+
+  // logo
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.setSceneMode",
+      payload: { sceneMode: "logo" },
+    }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" && m.payload.live?.sceneMode === "logo",
+  );
+  console.log("scene logo ok");
+
+  // clear: sceneMode only, keep item
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.setSceneMode",
+      payload: { sceneMode: "clear" },
+    }),
+  );
+  const clearModeMsg = await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.sceneMode === "clear",
+  );
+  if (clearModeMsg.payload.live.currentItemId !== videoFileItem.id) {
+    throw new Error("clear mode must keep currentItemId");
+  }
+  if (clearModeMsg.payload.live.mediaClock?.playing !== true) {
+    throw new Error("clear must not auto-pause mediaClock");
+  }
+  console.log("scene clear ok");
+
+  // output2 resync sees clear
+  out2.inbox.length = 0;
+  out2.ws.send(JSON.stringify({ type: "client.hello", payload: {} }));
+  const snapScene = await waitFor(
+    out2.inbox,
+    (m) => m.type === "session.snapshot",
+  );
+  if (snapScene.payload.live?.sceneMode !== "clear") {
+    throw new Error(
+      `resync sceneMode mismatch ${snapScene.payload.live?.sceneMode}`,
+    );
+  }
+  console.log("output2 resync sceneMode ok");
+
+  // back to normal
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.setSceneMode",
+      payload: { sceneMode: "normal" },
+    }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.sceneMode === "normal",
+  );
+  console.log("scene normal ok");
+
+  // invalid sceneMode
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.setSceneMode",
+      payload: { sceneMode: "disco" },
+    }),
+  );
+  await waitFor(
+    control.inbox,
+    (m) => m.type === "error" && m.payload?.code === "bad_request",
+  );
+  console.log("invalid sceneMode reject ok");
+
+  // set black then Go Live → resets to normal
+  control.ws.send(
+    JSON.stringify({
+      type: "live.setSceneMode",
+      payload: { sceneMode: "black" },
+    }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" && m.payload.live?.sceneMode === "black",
+  );
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({ type: "live.go", payload: { itemId: textItem.id } }),
+  );
+  const goReset = await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.currentItemId === textItem.id,
+  );
+  if (goReset.payload.live.sceneMode !== "normal") {
+    throw new Error(
+      `Go Live should reset sceneMode to normal, got ${goReset.payload.live.sceneMode}`,
+    );
+  }
+  console.log("goLive resets sceneMode ok");
+
+  // --- themes (subtarea 8) ---
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.setTheme",
+      payload: { themeId: "claro" },
+    }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.themeId === "claro" &&
+      m.payload.live?.themeOverrides === null,
+  );
+  console.log("theme claro ok");
+
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.setTheme",
+      payload: {
+        themeOverrides: { fg: "#ff0000", align: "left", fontSize: "xl" },
+      },
+    }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.themeId === "claro" &&
+      m.payload.live?.themeOverrides?.fg === "#ff0000" &&
+      m.payload.live?.themeOverrides?.align === "left",
+  );
+  console.log("theme overrides ok");
+
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.setTheme",
+      payload: { themeId: "acento" },
+    }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.themeId === "acento" &&
+      m.payload.live?.themeOverrides === null,
+  );
+  console.log("theme switch clears overrides ok");
+
+  out2.inbox.length = 0;
+  out2.ws.send(JSON.stringify({ type: "client.hello", payload: {} }));
+  const snapTheme = await waitFor(
+    out2.inbox,
+    (m) => m.type === "session.snapshot",
+  );
+  if (snapTheme.payload.live?.themeId !== "acento") {
+    throw new Error(`resync theme ${snapTheme.payload.live?.themeId}`);
+  }
+  console.log("output2 resync theme ok");
+
+  // clear live clears clock + sceneMode
   out1.inbox.length = 0;
   control.ws.send(JSON.stringify({ type: "live.clear", payload: {} }));
   await waitFor(
@@ -481,7 +682,8 @@ async function main() {
     (m) =>
       m.type === "session.updated" &&
       m.payload.live?.currentItemId === null &&
-      m.payload.live?.mediaClock === null,
+      m.payload.live?.mediaClock === null &&
+      m.payload.live?.sceneMode === "normal",
   );
   console.log("clear live clock ok");
 

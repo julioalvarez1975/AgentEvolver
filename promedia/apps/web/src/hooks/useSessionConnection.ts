@@ -4,8 +4,11 @@ import type {
   HubMessage,
   ImagePayload,
   PlaylistItem,
+  SceneMode,
   SessionSnapshot,
   TextPayload,
+  ThemeId,
+  ThemeOverrides,
   VideoPayload,
 } from "@promedia/shared";
 import { buildWsUrl, createSession, joinSession } from "../lib/hub";
@@ -168,6 +171,15 @@ export function useSessionConnection(role: ClientRole) {
       send("live.mediaClock.set", patch),
     [send],
   );
+  const setSceneMode = useCallback(
+    (sceneMode: SceneMode) => send("live.setSceneMode", { sceneMode }),
+    [send],
+  );
+  const setTheme = useCallback(
+    (patch: { themeId?: ThemeId; themeOverrides?: ThemeOverrides | null }) =>
+      send("live.setTheme", patch),
+    [send],
+  );
 
   return {
     code,
@@ -191,6 +203,8 @@ export function useSessionConnection(role: ClientRole) {
     clearLive,
     setSlide,
     setMediaClock,
+    setSceneMode,
+    setTheme,
     hasSession: Boolean(sessionId && wsTicket),
   };
 }
