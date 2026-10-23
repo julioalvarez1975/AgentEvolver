@@ -292,6 +292,96 @@ body {
   padding: 0 0.85rem 0.85rem;
 }
 
+.btn-scene.active {
+  border-color: var(--accent, #3d8bfd);
+  background: rgba(61, 139, 253, 0.18);
+  color: var(--fg);
+}
+
+.zone-live h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.scene-mode-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.scene-mode-badge[data-mode="logo"] {
+  border-color: #3d8bfd;
+  color: #9ec5ff;
+}
+
+.scene-mode-badge[data-mode="black"] {
+  border-color: #8899aa;
+  color: #c5d0dc;
+}
+
+.scene-mode-badge[data-mode="clear"] {
+  border-color: #6a9e78;
+  color: #a8d4b4;
+}
+
+.output-item-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.scene-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.scene-overlay-black {
+  background: #000;
+}
+
+.scene-overlay-clear {
+  background: #1a222c;
+}
+
+.scene-clear-label {
+  margin: 0;
+  color: #6b7785;
+  font-size: clamp(1rem, 2.5vw, 1.4rem);
+}
+
+.scene-overlay-logo {
+  background: #05080c;
+}
+
+.scene-logo-img {
+  max-width: min(72vw, 28rem);
+  max-height: 40vh;
+  width: auto;
+  height: auto;
+  display: block;
+}
+
+.scene-logo-fallback {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  color: #e8eef6;
+  letter-spacing: 0.06em;
+}
+
 .control-footer {
   display: flex;
   flex-wrap: wrap;

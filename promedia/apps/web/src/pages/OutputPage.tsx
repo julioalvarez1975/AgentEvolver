@@ -2,12 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getItemType } from "@promedia/item-types";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
+import type { SceneMode } from "@promedia/shared";
+import { SceneOverlay } from "../components/SceneOverlay";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import { buildAssetUrl } from "../lib/assets";
 
 const locale = DEFAULT_LOCALE;
 
-/** Product Output — live text/image/video via registry (subtarea 6). */
+/** Product Output — live + sceneMode overlays (subtarea 7). */
 export function OutputPage() {
   const [params] = useSearchParams();
   const {
@@ -45,6 +47,7 @@ export function OutputPage() {
 
   const liveSlideIndex = snapshot?.live.currentSlideIndex ?? 0;
   const mediaClock = snapshot?.live.mediaClock ?? null;
+  const sceneMode: SceneMode = snapshot?.live.sceneMode ?? "normal";
   const OutputRenderer = liveItem
     ? getItemType(liveItem.type)?.OutputRenderer
     : undefined;
@@ -135,15 +138,26 @@ export function OutputPage() {
           <p className="output-waiting output-error">
             {t(locale, "output.joinFailed")}
           </p>
-        ) : liveItem && OutputRenderer ? (
-          <OutputRenderer
-            item={liveItem}
-            slideIndex={liveSlideIndex}
-            assetSrc={assetSrc}
-            mediaClock={mediaClock}
-          />
         ) : (
-          <p className="output-waiting">{t(locale, "output.waiting")}</p>
+          <>
+            {/* Keep item mounted under overlays so video clock/audio continue (Q1). */}
+            {liveItem && OutputRenderer ? (
+              <div
+                className="output-item-layer"
+                aria-hidden={sceneMode !== "normal"}
+              >
+                <OutputRenderer
+                  item={liveItem}
+                  slideIndex={liveSlideIndex}
+                  assetSrc={assetSrc}
+                  mediaClock={mediaClock}
+                />
+              </div>
+            ) : sceneMode === "normal" ? (
+              <p className="output-waiting">{t(locale, "output.waiting")}</p>
+            ) : null}
+            <SceneOverlay mode={sceneMode} />
+          </>
         )}
 
         {!isFullscreen ? (
@@ -192,6 +206,7 @@ export function OutputPage() {
               <p className="output-meta">
                 {code} · seq {lastSeq >= 0 ? lastSeq : "—"} ·{" "}
                 {wsStatus === "open" ? "WS" : wsStatus}
+                {sceneMode !== "normal" ? ` · ${sceneMode}` : ""}
               </p>
             ) : null}
           </div>

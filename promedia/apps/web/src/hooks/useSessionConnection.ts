@@ -4,6 +4,7 @@ import type {
   HubMessage,
   ImagePayload,
   PlaylistItem,
+  SceneMode,
   SessionSnapshot,
   TextPayload,
   VideoPayload,
@@ -168,6 +169,10 @@ export function useSessionConnection(role: ClientRole) {
       send("live.mediaClock.set", patch),
     [send],
   );
+  const setSceneMode = useCallback(
+    (sceneMode: SceneMode) => send("live.setSceneMode", { sceneMode }),
+    [send],
+  );
 
   return {
     code,
@@ -191,6 +196,7 @@ export function useSessionConnection(role: ClientRole) {
     clearLive,
     setSlide,
     setMediaClock,
+    setSceneMode,
     hasSession: Boolean(sessionId && wsTicket),
   };
 }

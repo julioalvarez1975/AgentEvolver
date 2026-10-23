@@ -10,6 +10,7 @@ import type {
   TextPayload,
   VideoPayload,
 } from "@promedia/shared";
+import { isSceneMode } from "@promedia/shared";
 import { sessionStore, type SessionRecord } from "./session-store.js";
 
 type ClientConn = {
@@ -138,6 +139,13 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
         type: "live.mediaClock.set",
         payload: { playing: p.playing, positionMs },
       };
+    }
+    if (type === "live.setSceneMode") {
+      const sceneMode = (payload as { sceneMode?: unknown } | undefined)?.sceneMode;
+      if (!isSceneMode(sceneMode)) {
+        return null;
+      }
+      return { type: "live.setSceneMode", payload: { sceneMode } };
     }
     return null;
   } catch {
@@ -343,6 +351,13 @@ export class WsHub {
           conn,
           session,
           sessionStore.setMediaClock(session, msg.payload),
+        );
+        return;
+      case "live.setSceneMode":
+        this.applyResult(
+          conn,
+          session,
+          sessionStore.setSceneMode(session, msg.payload.sceneMode),
         );
         return;
       default:

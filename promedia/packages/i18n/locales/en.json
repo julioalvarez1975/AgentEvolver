@@ -62,5 +62,11 @@
   "video.fileCaveat": "Codecs: mp4 and webm. QuickTime (.mov) with warning — may not play in all browsers. No hard size cap.",
   "video.quicktimeWarning": "QuickTime (.mov): may not play in all browsers.",
   "video.largeWarning": "Large video: may saturate LAN or browser memory (no hard size cap).",
-  "video.uploading": "Uploading…"
+  "video.uploading": "Uploading…",
+  "control.sceneNormal": "Normal",
+  "scene.normal": "Normal",
+  "scene.logo": "Logo",
+  "scene.black": "Black",
+  "scene.clear": "Clear",
+  "scene.logoFallback": "Logo"
 }

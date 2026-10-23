@@ -77,7 +77,13 @@ const catalogs: Record<Locale, Messages> = {
     "video.fileCaveat": "Codecs: mp4 y webm. QuickTime (.mov) con aviso — puede no reproducir en todos los browsers. Sin tope duro de tamaño.",
     "video.quicktimeWarning": "QuickTime (.mov): puede no reproducir en todos los browsers.",
     "video.largeWarning": "Vídeo grande: puede saturar la red LAN o la memoria del navegador (sin tope duro).",
-    "video.uploading": "Subiendo…"
+    "video.uploading": "Subiendo…",
+    "control.sceneNormal": "Normal",
+    "scene.normal": "Normal",
+    "scene.logo": "Logo",
+    "scene.black": "Negro",
+    "scene.clear": "Clear",
+    "scene.logoFallback": "Logo"
   },
   en: {
     "app.name": "ProMedia",
@@ -143,7 +149,13 @@ const catalogs: Record<Locale, Messages> = {
     "video.fileCaveat": "Codecs: mp4 and webm. QuickTime (.mov) with warning — may not play in all browsers. No hard size cap.",
     "video.quicktimeWarning": "QuickTime (.mov): may not play in all browsers.",
     "video.largeWarning": "Large video: may saturate LAN or browser memory (no hard size cap).",
-    "video.uploading": "Uploading…"
+    "video.uploading": "Uploading…",
+    "control.sceneNormal": "Normal",
+    "scene.normal": "Normal",
+    "scene.logo": "Logo",
+    "scene.black": "Black",
+    "scene.clear": "Clear",
+    "scene.logoFallback": "Logo"
   },
   pt: {
     "app.name": "ProMedia",
@@ -209,7 +221,13 @@ const catalogs: Record<Locale, Messages> = {
     "video.fileCaveat": "Codecs: mp4 e webm. QuickTime (.mov) com aviso — pode não reproduzir em todos os browsers. Sem limite rígido de tamanho.",
     "video.quicktimeWarning": "QuickTime (.mov): pode não reproduzir em todos os browsers.",
     "video.largeWarning": "Vídeo grande: pode saturar a rede LAN ou a memória do navegador (sem limite rígido).",
-    "video.uploading": "Enviando…"
+    "video.uploading": "Enviando…",
+    "control.sceneNormal": "Normal",
+    "scene.normal": "Normal",
+    "scene.logo": "Logo",
+    "scene.black": "Preto",
+    "scene.clear": "Clear",
+    "scene.logoFallback": "Logo"
   },
   fr: {
     "app.name": "ProMedia",
@@ -275,7 +293,13 @@ const catalogs: Record<Locale, Messages> = {
     "video.fileCaveat": "Codecs : mp4 et webm. QuickTime (.mov) avec avertissement — peut ne pas lire partout. Pas de plafond de taille.",
     "video.quicktimeWarning": "QuickTime (.mov) : peut ne pas lire dans tous les navigateurs.",
     "video.largeWarning": "Vidéo volumineuse : peut saturer le LAN ou la mémoire du navigateur (pas de plafond dur).",
-    "video.uploading": "Téléversement…"
+    "video.uploading": "Téléversement…",
+    "control.sceneNormal": "Normal",
+    "scene.normal": "Normal",
+    "scene.logo": "Logo",
+    "scene.black": "Noir",
+    "scene.clear": "Clear",
+    "scene.logoFallback": "Logo"
   },
   "zh-CN": {
     "app.name": "ProMedia",
@@ -341,7 +365,13 @@ const catalogs: Record<Locale, Messages> = {
     "video.fileCaveat": "编码：mp4 与 webm。QuickTime（.mov）有警告——可能无法在所有浏览器播放。无硬性大小上限。",
     "video.quicktimeWarning": "QuickTime（.mov）：可能无法在所有浏览器播放。",
     "video.largeWarning": "视频较大：可能占满局域网带宽或浏览器内存（无硬性上限）。",
-    "video.uploading": "正在上传…"
+    "video.uploading": "正在上传…",
+    "control.sceneNormal": "正常",
+    "scene.normal": "正常",
+    "scene.logo": "Logo",
+    "scene.black": "黑屏",
+    "scene.clear": "清空",
+    "scene.logoFallback": "Logo"
   }
 };
 

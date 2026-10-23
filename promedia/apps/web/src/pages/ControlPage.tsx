@@ -11,6 +11,7 @@ import type {
   ImageFit,
   ImagePayload,
   PlaylistItem,
+  SceneMode,
   TextPayload,
   VideoPayload,
 } from "@promedia/shared";
@@ -80,6 +81,18 @@ export function ControlPage() {
   );
   const liveSlideIndex = session.snapshot?.live.currentSlideIndex ?? 0;
   const mediaClock = session.snapshot?.live.mediaClock ?? null;
+  const sceneMode: SceneMode = session.snapshot?.live.sceneMode ?? "normal";
+
+  const toggleSceneMode = (mode: SceneMode) => {
+    if (session.wsStatus !== "open") {
+      return;
+    }
+    // Active mode → normal; otherwise set mode
+    session.setSceneMode(sceneMode === mode ? "normal" : mode);
+  };
+
+  const sceneBtnClass = (mode: SceneMode) =>
+    sceneMode === mode ? "btn btn-scene active" : "btn btn-scene";
 
   const outputByCode = session.code ? codeOutputUrl(session.code) : "";
   const outputByToken = session.accessToken
@@ -650,7 +663,14 @@ export function ControlPage() {
         </section>
 
         <section className="zone zone-live" aria-label={t(locale, "control.live")}>
-          <h2>{t(locale, "control.live")}</h2>
+          <h2>
+            {t(locale, "control.live")}
+            {sceneMode !== "normal" ? (
+              <span className="scene-mode-badge" data-mode={sceneMode}>
+                {t(locale, `scene.${sceneMode}`)}
+              </span>
+            ) : null}
+          </h2>
           <div className="zone-body zone-stage">
             {liveItem && LivePanel ? (
               <LivePanel
@@ -691,13 +711,40 @@ export function ControlPage() {
             >
               {t(locale, "control.goLive")}
             </button>
-            <button type="button" className="btn" disabled>
+            <button
+              type="button"
+              className={sceneBtnClass("normal")}
+              disabled={!session.hasSession || session.wsStatus !== "open"}
+              aria-pressed={sceneMode === "normal"}
+              onClick={() => session.setSceneMode("normal")}
+            >
+              {t(locale, "control.sceneNormal")}
+            </button>
+            <button
+              type="button"
+              className={sceneBtnClass("logo")}
+              disabled={!session.hasSession || session.wsStatus !== "open"}
+              aria-pressed={sceneMode === "logo"}
+              onClick={() => toggleSceneMode("logo")}
+            >
               {t(locale, "control.sceneLogo")}
             </button>
-            <button type="button" className="btn" disabled>
+            <button
+              type="button"
+              className={sceneBtnClass("black")}
+              disabled={!session.hasSession || session.wsStatus !== "open"}
+              aria-pressed={sceneMode === "black"}
+              onClick={() => toggleSceneMode("black")}
+            >
               {t(locale, "control.sceneBlack")}
             </button>
-            <button type="button" className="btn" disabled>
+            <button
+              type="button"
+              className={sceneBtnClass("clear")}
+              disabled={!session.hasSession || session.wsStatus !== "open"}
+              aria-pressed={sceneMode === "clear"}
+              onClick={() => toggleSceneMode("clear")}
+            >
               {t(locale, "control.sceneClear")}
             </button>
           </div>

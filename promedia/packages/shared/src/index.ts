@@ -107,10 +107,27 @@ export type MediaClock = {
   updatedAt: string;
 };
 
+/** Visual overlay on Output; does not clear live item (subtarea 7). */
+export type SceneMode = "normal" | "logo" | "black" | "clear";
+
+export const SCENE_MODES: readonly SceneMode[] = [
+  "normal",
+  "logo",
+  "black",
+  "clear",
+] as const;
+
+export function isSceneMode(value: unknown): value is SceneMode {
+  return (
+    typeof value === "string" &&
+    (SCENE_MODES as readonly string[]).includes(value)
+  );
+}
+
 export type SessionLiveState = {
   currentItemId: string | null;
   currentSlideIndex: number;
-  sceneMode: "normal";
+  sceneMode: SceneMode;
   themeId: null;
   mediaClock: MediaClock | null;
 };
@@ -215,6 +232,11 @@ export type LiveMediaClockSetMessage = {
   payload: { playing: boolean; positionMs?: number };
 };
 
+export type LiveSetSceneModeMessage = {
+  type: "live.setSceneMode";
+  payload: { sceneMode: SceneMode };
+};
+
 export type ClientToHubMessage =
   | ClientHelloMessage
   | ClientResyncMessage
@@ -226,7 +248,8 @@ export type ClientToHubMessage =
   | LiveGoMessage
   | LiveClearMessage
   | LiveSetSlideMessage
-  | LiveMediaClockSetMessage;
+  | LiveMediaClockSetMessage
+  | LiveSetSceneModeMessage;
 
 export type CreateSessionRequest = {
   mode?: SessionMode;
@@ -258,7 +281,7 @@ export type JoinSessionResponse = {
   snapshot: SessionSnapshot;
 };
 
-export const SHARED_PACKAGE_VERSION = "0.0.6-video-youtube" as const;
+export const SHARED_PACKAGE_VERSION = "0.0.7-scene-modes" as const;
 
 export function emptyLiveState(): SessionLiveState {
   return {

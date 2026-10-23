@@ -62,5 +62,11 @@
   "video.fileCaveat": "编码：mp4 与 webm。QuickTime（.mov）有警告——可能无法在所有浏览器播放。无硬性大小上限。",
   "video.quicktimeWarning": "QuickTime（.mov）：可能无法在所有浏览器播放。",
   "video.largeWarning": "视频较大：可能占满局域网带宽或浏览器内存（无硬性上限）。",
-  "video.uploading": "正在上传…"
+  "video.uploading": "正在上传…",
+  "control.sceneNormal": "正常",
+  "scene.normal": "正常",
+  "scene.logo": "Logo",
+  "scene.black": "黑屏",
+  "scene.clear": "清空",
+  "scene.logoFallback": "Logo"
 }
