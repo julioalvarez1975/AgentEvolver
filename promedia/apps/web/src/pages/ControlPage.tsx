@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   createEmptyTextPayload,
   cryptoRandomId,
@@ -6,10 +6,20 @@ import {
   listItemTypes,
 } from "@promedia/item-types";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
-import type { PlaylistItem, TextPayload } from "@promedia/shared";
+import type {
+  ImageFit,
+  ImagePayload,
+  PlaylistItem,
+  TextPayload,
+} from "@promedia/shared";
 import { itemLabel } from "@promedia/shared";
 import { TextItemEditor } from "../components/TextItemEditor";
 import { useSessionConnection } from "../hooks/useSessionConnection";
+import {
+  LARGE_IMAGE_WARN_BYTES,
+  buildAssetUrl,
+  uploadSessionAsset,
+} from "../lib/assets";
 
 const locale = DEFAULT_LOCALE;
 
@@ -21,7 +31,18 @@ function codeOutputUrl(code: string): string {
   return `${window.location.origin}/output?code=${encodeURIComponent(code)}`;
 }
 
-/** Product Control shell — registry + text playlist (subtarea 4). */
+function assetSrcFor(
+  sessionId: string,
+  wsTicket: string,
+  item: PlaylistItem | null,
+): string | undefined {
+  if (!item || item.type !== "image" || !sessionId || !wsTicket) {
+    return undefined;
+  }
+  return buildAssetUrl(sessionId, item.payload.assetId, wsTicket);
+}
+
+/** Product Control — text + image playlist (subtarea 5). */
 export function ControlPage() {
   const session = useSessionConnection("control");
   const [joinCode, setJoinCode] = useState("");
@@ -31,6 +52,9 @@ export function ControlPage() {
   const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [uploadHint, setUploadHint] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const items = session.snapshot?.playlist.items ?? [];
   const selectedItem = useMemo(
@@ -50,7 +74,9 @@ export function ControlPage() {
     : "";
 
   const canGoLive = Boolean(
-    selectedItem && selectedItem.type === "text" && session.wsStatus === "open",
+    selectedItem &&
+      (selectedItem.type === "text" || selectedItem.type === "image") &&
+      session.wsStatus === "open",
   );
 
   const flashCopied = (label: string) => {
@@ -105,12 +131,67 @@ export function ControlPage() {
     setPreviewSlideIndex(0);
   };
 
-  const saveEdit = (payload: TextPayload) => {
+  const saveEditText = (payload: TextPayload) => {
     if (!editingId) {
       return;
     }
     session.updateItem(editingId, { payload });
     setEditingId(null);
+  };
+
+  const onPickImage = () => {
+    setUploadHint(null);
+    fileInputRef.current?.click();
+  };
+
+  const onImageFile = async (file: File | undefined) => {
+    if (!file || !session.sessionId || !session.wsTicket) {
+      return;
+    }
+    if (file.size > LARGE_IMAGE_WARN_BYTES) {
+      setUploadHint(t(locale, "image.largeWarning"));
+    } else {
+      setUploadHint(null);
+    }
+    setUploading(true);
+    try {
+      const asset = await uploadSessionAsset(
+        session.sessionId,
+        session.wsTicket,
+        file,
+      );
+      const payload: ImagePayload = {
+        assetId: asset.id,
+        fit: "contain",
+        title: asset.originalName || file.name,
+      };
+      const item: PlaylistItem = {
+        id: cryptoRandomId(),
+        type: "image",
+        order: items.length,
+        payload,
+      };
+      session.addItem(item);
+      setSelectedItemId(item.id);
+      setCreating(false);
+      setEditingId(null);
+    } catch (err) {
+      setUploadHint(String(err));
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const onFitChange = (fit: ImageFit) => {
+    if (!selectedItem || selectedItem.type !== "image") {
+      return;
+    }
+    session.updateItem(selectedItem.id, {
+      payload: { ...selectedItem.payload, fit },
+    });
   };
 
   const moveItem = (id: string, dir: -1 | 1) => {
@@ -143,6 +224,12 @@ export function ControlPage() {
   const liveModule = liveItem ? getItemType(liveItem.type) : undefined;
   const Preview = previewModule?.Preview;
   const LivePanel = liveModule?.LivePanel;
+  const previewSrc = assetSrcFor(
+    session.sessionId,
+    session.wsTicket,
+    selectedItem,
+  );
+  const liveSrc = assetSrcFor(session.sessionId, session.wsTicket, liveItem);
 
   return (
     <div className="control-shell">
@@ -237,11 +324,25 @@ export function ControlPage() {
         </div>
       ) : null}
 
+      {uploadHint ? (
+        <div className="control-banner" role="status">
+          {uploadHint}
+        </div>
+      ) : null}
+
       {session.error ? (
         <div className="control-banner control-banner-error" role="alert">
           {session.error}
         </div>
       ) : null}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
+        className="sr-only"
+        onChange={(e) => void onImageFile(e.target.files?.[0])}
+      />
 
       <div className="control-zones">
         <section
@@ -255,10 +356,16 @@ export function ControlPage() {
                 key={mod.type}
                 type="button"
                 className="btn btn-primary"
-                disabled={!session.hasSession || session.wsStatus !== "open"}
+                disabled={
+                  !session.hasSession ||
+                  session.wsStatus !== "open" ||
+                  uploading
+                }
                 onClick={() => {
                   if (mod.type === "text") {
                     startCreateText();
+                  } else if (mod.type === "image") {
+                    onPickImage();
                   }
                 }}
               >
@@ -275,11 +382,11 @@ export function ControlPage() {
                 onCancel={() => setCreating(false)}
               />
             </div>
-          ) : editingId && selectedItem ? (
+          ) : editingId && selectedItem?.type === "text" ? (
             <div className="zone-body playlist-editor">
               <TextItemEditor
                 initial={selectedItem.payload}
-                onSave={saveEdit}
+                onSave={saveEditText}
                 onCancel={() => setEditingId(null)}
               />
             </div>
@@ -303,6 +410,7 @@ export function ControlPage() {
                         <span className="playlist-row-label">
                           {itemLabel(item)}
                         </span>
+                        <span className="playlist-type-badge">{item.type}</span>
                         {item.id === liveItemId ? (
                           <span className="playlist-live-badge">LIVE</span>
                         ) : null}
@@ -326,16 +434,18 @@ export function ControlPage() {
                         >
                           ↓
                         </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => {
-                            selectItem(item.id);
-                            setEditingId(item.id);
-                          }}
-                        >
-                          {t(locale, "playlist.edit")}
-                        </button>
+                        {item.type === "text" ? (
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => {
+                              selectItem(item.id);
+                              setEditingId(item.id);
+                            }}
+                          >
+                            {t(locale, "playlist.edit")}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           className="btn btn-ghost"
@@ -363,6 +473,10 @@ export function ControlPage() {
                 item={selectedItem}
                 slideIndex={previewSlideIndex}
                 onSlideIndexChange={setPreviewSlideIndex}
+                assetSrc={previewSrc}
+                onFitChange={
+                  selectedItem.type === "image" ? onFitChange : undefined
+                }
               />
             ) : (
               <p>{t(locale, "control.previewEmpty")}</p>
@@ -377,8 +491,17 @@ export function ControlPage() {
               <LivePanel
                 item={liveItem}
                 slideIndex={liveSlideIndex}
-                onPrev={() => session.setSlide(liveSlideIndex - 1)}
-                onNext={() => session.setSlide(liveSlideIndex + 1)}
+                assetSrc={liveSrc}
+                onPrev={
+                  liveItem.type === "text"
+                    ? () => session.setSlide(liveSlideIndex - 1)
+                    : undefined
+                }
+                onNext={
+                  liveItem.type === "text"
+                    ? () => session.setSlide(liveSlideIndex + 1)
+                    : undefined
+                }
               />
             ) : (
               <p>{t(locale, "control.liveEmpty")}</p>
@@ -433,6 +556,12 @@ export function ControlPage() {
           <>
             <span className="footer-sep">·</span>
             <span className="footer-muted">copiado</span>
+          </>
+        ) : null}
+        {uploading ? (
+          <>
+            <span className="footer-sep">·</span>
+            <span className="footer-muted">{t(locale, "image.uploading")}</span>
           </>
         ) : null}
       </footer>

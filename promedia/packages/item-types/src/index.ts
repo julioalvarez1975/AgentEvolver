@@ -18,3 +18,11 @@ export {
   TextLivePanel,
   TextOutputRenderer,
 } from "./text/index.js";
+export {
+  isImagePayload,
+  isImagePlaylistItem,
+  normalizeImagePayload,
+  ImagePreview,
+  ImageLivePanel,
+  ImageOutputRenderer,
+} from "./image/index.js";

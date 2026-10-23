@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   ClientRole,
   HubMessage,
+  ImagePayload,
   PlaylistItem,
   SessionSnapshot,
   TextPayload,
@@ -135,8 +136,10 @@ export function useSessionConnection(role: ClientRole) {
     [send],
   );
   const updateItem = useCallback(
-    (id: string, patch: { payload?: TextPayload; order?: number }) =>
-      send("playlist.itemUpdate", { id, patch }),
+    (
+      id: string,
+      patch: { payload?: TextPayload | ImagePayload; order?: number },
+    ) => send("playlist.itemUpdate", { id, patch }),
     [send],
   );
   const removeItem = useCallback(

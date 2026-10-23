@@ -3,10 +3,11 @@ import { useSearchParams } from "react-router-dom";
 import { getItemType } from "@promedia/item-types";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
 import { useSessionConnection } from "../hooks/useSessionConnection";
+import { buildAssetUrl } from "../lib/assets";
 
 const locale = DEFAULT_LOCALE;
 
-/** Product Output shell — renders live text via registry (subtarea 4). */
+/** Product Output — live text/image via registry (subtarea 5). */
 export function OutputPage() {
   const [params] = useSearchParams();
   const {
@@ -18,6 +19,8 @@ export function OutputPage() {
     join,
     reconnect,
     snapshot,
+    sessionId,
+    wsTicket,
   } = useSessionConnection("output");
   const stageRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -44,6 +47,11 @@ export function OutputPage() {
   const OutputRenderer = liveItem
     ? getItemType(liveItem.type)?.OutputRenderer
     : undefined;
+
+  const assetSrc =
+    liveItem?.type === "image" && sessionId && wsTicket
+      ? buildAssetUrl(sessionId, liveItem.payload.assetId, wsTicket)
+      : undefined;
 
   useEffect(() => {
     const onFsChange = () => {
@@ -119,7 +127,11 @@ export function OutputPage() {
             {t(locale, "output.joinFailed")}
           </p>
         ) : liveItem && OutputRenderer ? (
-          <OutputRenderer item={liveItem} slideIndex={liveSlideIndex} />
+          <OutputRenderer
+            item={liveItem}
+            slideIndex={liveSlideIndex}
+            assetSrc={assetSrc}
+          />
         ) : (
           <p className="output-waiting">{t(locale, "output.waiting")}</p>
         )}

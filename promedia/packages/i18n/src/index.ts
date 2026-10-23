@@ -2,7 +2,6 @@
  * i18n placeholders (ES / EN / PT / FR / zh-CN).
  * Locale JSON files live in ../locales/ (source of truth for strings).
  * Catalogs below mirror those files so the package builds for Node + Vite.
- * UI language selector lands in a later subtarea.
  */
 
 export type Locale = "es" | "en" | "pt" | "fr" | "zh-CN";
@@ -13,7 +12,6 @@ export const DEFAULT_LOCALE: Locale = "es";
 
 type Messages = Record<string, string>;
 
-/** Mirrors packages/i18n/locales/*.json — keep in sync when adding keys. */
 const catalogs: Record<Locale, Messages> = {
   es: {
     "app.name": "ProMedia",
@@ -64,7 +62,10 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.edit": "Editar",
     "playlist.remove": "Eliminar",
     "playlist.moveUp": "Subir",
-    "playlist.moveDown": "Bajar"
+    "playlist.moveDown": "Bajar",
+    "itemTypes.image": "Imagen",
+    "image.largeWarning": "Archivo grande: puede saturar la red LAN o la memoria del navegador (sin tope duro).",
+    "image.uploading": "Subiendo imagen…"
   },
   en: {
     "app.name": "ProMedia",
@@ -115,7 +116,10 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.edit": "Edit",
     "playlist.remove": "Remove",
     "playlist.moveUp": "Move up",
-    "playlist.moveDown": "Move down"
+    "playlist.moveDown": "Move down",
+    "itemTypes.image": "Image",
+    "image.largeWarning": "Large file: may saturate LAN or browser memory (no hard size cap).",
+    "image.uploading": "Uploading image…"
   },
   pt: {
     "app.name": "ProMedia",
@@ -166,7 +170,10 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.edit": "Editar",
     "playlist.remove": "Eliminar",
     "playlist.moveUp": "Subir",
-    "playlist.moveDown": "Descer"
+    "playlist.moveDown": "Descer",
+    "itemTypes.image": "Imagem",
+    "image.largeWarning": "Arquivo grande: pode saturar a rede LAN ou a memória do navegador (sem limite rígido).",
+    "image.uploading": "Enviando imagem…"
   },
   fr: {
     "app.name": "ProMedia",
@@ -217,7 +224,10 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.edit": "Modifier",
     "playlist.remove": "Supprimer",
     "playlist.moveUp": "Monter",
-    "playlist.moveDown": "Descendre"
+    "playlist.moveDown": "Descendre",
+    "itemTypes.image": "Image",
+    "image.largeWarning": "Fichier volumineux : peut saturer le LAN ou la mémoire du navigateur (pas de plafond dur).",
+    "image.uploading": "Téléversement…"
   },
   "zh-CN": {
     "app.name": "ProMedia",
@@ -268,11 +278,13 @@ const catalogs: Record<Locale, Messages> = {
     "playlist.edit": "编辑",
     "playlist.remove": "删除",
     "playlist.moveUp": "上移",
-    "playlist.moveDown": "下移"
+    "playlist.moveDown": "下移",
+    "itemTypes.image": "图片",
+    "image.largeWarning": "文件较大：可能占满局域网带宽或浏览器内存（无硬性上限）。",
+    "image.uploading": "正在上传图片…"
   },
 };
 
-/** Minimal lookup; missing keys return the key itself. */
 export function t(locale: Locale, key: string): string {
   const catalog = catalogs[locale] ?? catalogs[DEFAULT_LOCALE];
   return catalog[key] ?? catalogs[DEFAULT_LOCALE][key] ?? key;

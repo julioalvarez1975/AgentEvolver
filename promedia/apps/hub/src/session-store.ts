@@ -1,6 +1,7 @@
 import type {
   ClientRole,
   HubMessage,
+  ImagePayload,
   PlaylistItem,
   SessionLiveState,
   SessionMode,
@@ -11,6 +12,7 @@ import type {
 } from "@promedia/shared";
 import { emptyLiveState, emptyPlaylist } from "@promedia/shared";
 import { validatePlaylistItem } from "@promedia/item-types/validate";
+import { assetStore } from "./asset-store.js";
 import {
   generateAccessToken,
   generateSessionId,
@@ -184,6 +186,12 @@ export class SessionStore {
     if (session.playlist.items.some((existing) => existing.id === item.id)) {
       return { error: "duplicate_id" };
     }
+    if (item.type === "image") {
+      const asset = assetStore.get(session.id, item.payload.assetId);
+      if (!asset) {
+        return { error: "unknown_asset" };
+      }
+    }
     const order =
       session.playlist.items.length === 0
         ? 0
@@ -198,21 +206,28 @@ export class SessionStore {
   updateItem(
     session: SessionRecord,
     id: string,
-    patch: { payload?: TextPayload; order?: number },
+    patch: { payload?: TextPayload | ImagePayload; order?: number },
   ): HubMessage | { error: string } {
     const idx = session.playlist.items.findIndex((i) => i.id === id);
     if (idx < 0) {
       return { error: "not_found" };
     }
     const current = session.playlist.items[idx]!;
-    const nextRaw: PlaylistItem = {
-      ...current,
+    const nextRaw = {
+      id: current.id,
+      type: current.type,
       order: patch.order ?? current.order,
       payload: patch.payload ?? current.payload,
     };
     const validated = validatePlaylistItem(nextRaw);
     if (!validated) {
       return { error: "invalid_item" };
+    }
+    if (validated.type === "image") {
+      const asset = assetStore.get(session.id, validated.payload.assetId);
+      if (!asset) {
+        return { error: "unknown_asset" };
+      }
     }
     const items = [...session.playlist.items];
     items[idx] = validated;
@@ -261,7 +276,7 @@ export class SessionStore {
     if (!item) {
       return { error: "not_found" };
     }
-    if (item.type !== "text") {
+    if (item.type !== "text" && item.type !== "image") {
       return { error: "unsupported_type" };
     }
     session.live.currentItemId = itemId;

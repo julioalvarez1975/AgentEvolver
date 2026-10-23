@@ -47,5 +47,8 @@
   "playlist.edit": "Modifier",
   "playlist.remove": "Supprimer",
   "playlist.moveUp": "Monter",
-  "playlist.moveDown": "Descendre"
+  "playlist.moveDown": "Descendre",
+  "itemTypes.image": "Image",
+  "image.largeWarning": "Fichier volumineux : peut saturer le LAN ou la mémoire du navigateur (pas de plafond dur).",
+  "image.uploading": "Téléversement…"
 }

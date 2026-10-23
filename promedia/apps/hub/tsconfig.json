@@ -11,6 +11,7 @@
   "include": ["src/**/*"],
   "references": [
     { "path": "../../packages/shared" },
-    { "path": "../../packages/item-types" }
+    { "path": "../../packages/item-types" },
+    { "path": "../../packages/media" }
   ]
 }

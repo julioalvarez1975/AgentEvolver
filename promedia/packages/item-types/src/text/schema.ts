@@ -1,4 +1,9 @@
-import type { PlaylistItem, TextAlign, TextPayload, TextSlide } from "@promedia/shared";
+import type {
+  TextAlign,
+  TextPayload,
+  TextPlaylistItem,
+  TextSlide,
+} from "@promedia/shared";
 
 const ALIGNS: ReadonlySet<TextAlign> = new Set(["left", "center", "right"]);
 
@@ -35,7 +40,7 @@ export function isTextPayload(value: unknown): value is TextPayload {
   return true;
 }
 
-export function isTextPlaylistItem(value: unknown): value is PlaylistItem {
+export function isTextPlaylistItem(value: unknown): value is TextPlaylistItem {
   if (!value || typeof value !== "object") {
     return false;
   }

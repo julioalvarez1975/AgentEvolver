@@ -1,3 +1,6 @@
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
+import { Readable } from "node:stream";
 import { Hono } from "hono";
 import type {
   CreateSessionRequest,
@@ -6,6 +9,8 @@ import type {
   JoinSessionResponse,
   SessionMode,
 } from "@promedia/shared";
+import { assetStore } from "./asset-store.js";
+import { authorizeSessionAccess } from "./auth.js";
 import { sessionStore } from "./session-store.js";
 
 function publicBase(c: {
@@ -35,6 +40,14 @@ function buildWsUrl(
     credential: ticket,
   });
   return `${baseWs}/api/v1/ws?${q.toString()}`;
+}
+
+function bearerToken(header: string | undefined): string | null {
+  if (!header) {
+    return null;
+  }
+  const m = /^Bearer\s+(.+)$/i.exec(header.trim());
+  return m?.[1] ?? null;
 }
 
 export function createApiRoutes(): Hono {
@@ -123,6 +136,88 @@ export function createApiRoutes(): Hono {
       return c.json({ error: "not_found" }, 404);
     }
     return c.json({ snapshot: sessionStore.toSnapshot(session) });
+  });
+
+  /**
+   * Upload image asset (control only). Multipart field `file`.
+   * Auth: Authorization Bearer <wsTicket> or query ?credential=
+   */
+  api.post("/sessions/:sessionId/assets", async (c) => {
+    const sessionId = c.req.param("sessionId");
+    const credential =
+      bearerToken(c.req.header("authorization")) ?? c.req.query("credential");
+    const access = authorizeSessionAccess(sessionId, {
+      credential,
+      requireRole: "control",
+    });
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
+    }
+
+    let body: Record<string, string | File>;
+    try {
+      body = (await c.req.parseBody({ all: true })) as Record<
+        string,
+        string | File
+      >;
+    } catch {
+      return c.json({ error: "invalid_multipart" }, 400);
+    }
+
+    const file = body.file;
+    if (!file || typeof file === "string") {
+      return c.json({ error: "missing_file" }, 400);
+    }
+
+    const mime = file.type || "application/octet-stream";
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const result = await assetStore.putImage(
+      sessionId,
+      bytes,
+      mime,
+      file.name,
+    );
+    if ("error" in result) {
+      return c.json({ error: result.error }, 400);
+    }
+    return c.json({ asset: result }, 201);
+  });
+
+  /**
+   * Serve asset bytes. Auth via credential / code / accessToken query.
+   */
+  api.get("/sessions/:sessionId/assets/:assetId", async (c) => {
+    const sessionId = c.req.param("sessionId");
+    const assetId = c.req.param("assetId");
+    const access = authorizeSessionAccess(sessionId, {
+      credential: c.req.query("credential"),
+      code: c.req.query("code"),
+      accessToken: c.req.query("accessToken") ?? c.req.query("token"),
+    });
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
+    }
+
+    const asset = assetStore.get(sessionId, assetId);
+    if (!asset) {
+      return c.json({ error: "not_found" }, 404);
+    }
+
+    try {
+      const { path: filePath } = await assetStore.getAdapter().open(asset.storageKey);
+      await stat(filePath);
+      const nodeStream = createReadStream(filePath);
+      const webStream = Readable.toWeb(nodeStream) as ReadableStream;
+      return new Response(webStream, {
+        status: 200,
+        headers: {
+          "Content-Type": asset.mime,
+          "Cache-Control": "private, max-age=60",
+        },
+      });
+    } catch {
+      return c.json({ error: "file_missing" }, 404);
+    }
   });
 
   return api;

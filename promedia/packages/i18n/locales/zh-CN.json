@@ -47,5 +47,8 @@
   "playlist.edit": "编辑",
   "playlist.remove": "删除",
   "playlist.moveUp": "上移",
-  "playlist.moveDown": "下移"
+  "playlist.moveDown": "下移",
+  "itemTypes.image": "图片",
+  "image.largeWarning": "文件较大：可能占满局域网带宽或浏览器内存（无硬性上限）。",
+  "image.uploading": "正在上传图片…"
 }

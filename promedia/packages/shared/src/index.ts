@@ -1,5 +1,5 @@
 /**
- * ProMedia shared protocol types (subtarea 2–4).
+ * ProMedia shared protocol types (subtarea 2–5).
  * No UI logic — hub and web import these shapes.
  */
 
@@ -20,17 +20,47 @@ export type TextPayload = {
   align?: TextAlign;
 };
 
-export type PlaylistItemType = "text";
+export type ImageFit = "contain" | "cover" | "fill";
 
-export type PlaylistItem = {
+export type ImagePayload = {
+  assetId: string;
+  fit: ImageFit;
+  title?: string;
+};
+
+export type TextPlaylistItem = {
   id: string;
-  type: PlaylistItemType;
+  type: "text";
   order: number;
   payload: TextPayload;
 };
 
+export type ImagePlaylistItem = {
+  id: string;
+  type: "image";
+  order: number;
+  payload: ImagePayload;
+};
+
+export type PlaylistItemType = "text" | "image";
+
+export type PlaylistItem = TextPlaylistItem | ImagePlaylistItem;
+
 export type SessionPlaylist = {
   items: PlaylistItem[];
+};
+
+export type MediaKind = "image";
+
+/** Media asset metadata (bytes live on disk via packages/media). */
+export type MediaAsset = {
+  id: string;
+  kind: MediaKind;
+  mime: string;
+  storageKey: string;
+  size?: number;
+  originalName?: string;
+  createdAt: string;
 };
 
 export type SessionLiveState = {
@@ -106,7 +136,10 @@ export type PlaylistItemAddMessage = {
 
 export type PlaylistItemUpdateMessage = {
   type: "playlist.itemUpdate";
-  payload: { id: string; patch: Partial<Pick<PlaylistItem, "payload" | "order">> };
+  payload: {
+    id: string;
+    patch: Partial<{ payload: TextPayload | ImagePayload; order: number }>;
+  };
 };
 
 export type PlaylistItemRemoveMessage = {
@@ -176,7 +209,7 @@ export type JoinSessionResponse = {
   snapshot: SessionSnapshot;
 };
 
-export const SHARED_PACKAGE_VERSION = "0.0.4-registry-text" as const;
+export const SHARED_PACKAGE_VERSION = "0.0.5-image-storage" as const;
 
 export function emptyLiveState(): SessionLiveState {
   return {
@@ -201,5 +234,6 @@ export function itemLabel(item: PlaylistItem): string {
     const first = item.payload.slides[0]?.lines.find((l) => l.trim().length > 0);
     return first?.trim() || "Texto";
   }
-  return item.type;
+  const title = item.payload.title?.trim();
+  return title || "Imagen";
 }

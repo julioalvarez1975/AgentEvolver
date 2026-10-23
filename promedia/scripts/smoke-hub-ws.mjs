@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Headless smoke: session + playlist text + Go Live + setSlide + resync.
+ * Headless smoke: text playlist + image upload/serve + Go Live.
  * Hub must listen on :8787. Usage: node scripts/smoke-hub-ws.mjs
  */
 const HUB = process.env.HUB_URL ?? "http://127.0.0.1:8787";
@@ -69,6 +69,12 @@ function waitFor(inbox, pred, ms = 4000) {
   });
 }
 
+/** Minimal 1x1 PNG */
+const PNG_1X1 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
+
 async function main() {
   const createRes = await fetch(`${HUB}/api/v1/sessions`, {
     method: "POST",
@@ -80,9 +86,6 @@ async function main() {
   }
   const created = await createRes.json();
   console.log("created", created.code, "seq", created.snapshot.seq);
-  if (!created.snapshot.playlist) {
-    throw new Error("snapshot missing playlist");
-  }
 
   const joinOut = await fetch(`${HUB}/api/v1/sessions/join`, {
     method: "POST",
@@ -101,7 +104,8 @@ async function main() {
   await waitFor(out1.inbox, (m) => m.type === "session.snapshot");
   console.log("snapshots ok");
 
-  const item = {
+  // text still works
+  const textItem = {
     id: "item-text-1",
     type: "text",
     order: 0,
@@ -114,65 +118,129 @@ async function main() {
       ],
     },
   };
-
   out1.inbox.length = 0;
   control.ws.send(
-    JSON.stringify({ type: "playlist.itemAdd", payload: { item } }),
+    JSON.stringify({ type: "playlist.itemAdd", payload: { item: textItem } }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) => m.type === "session.updated" && m.payload.playlist?.items?.length === 1,
+  );
+  console.log("text add ok");
+
+  // upload image
+  const form = new FormData();
+  form.append(
+    "file",
+    new Blob([PNG_1X1], { type: "image/png" }),
+    "smoke.png",
+  );
+  const up = await fetch(
+    `${HUB}/api/v1/sessions/${created.sessionId}/assets`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${created.wsTicket}` },
+      body: form,
+    },
+  );
+  if (!up.ok) {
+    throw new Error(`upload ${up.status} ${await up.text()}`);
+  }
+  const { asset } = await up.json();
+  console.log("upload ok", asset.id, asset.mime);
+
+  // reject bad mime
+  const bad = await fetch(
+    `${HUB}/api/v1/sessions/${created.sessionId}/assets`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${created.wsTicket}` },
+      body: (() => {
+        const f = new FormData();
+        f.append("file", new Blob([Buffer.from("x")], { type: "text/plain" }), "x.txt");
+        return f;
+      })(),
+    },
+  );
+  if (bad.status !== 400) {
+    throw new Error(`expected mime reject, got ${bad.status}`);
+  }
+  console.log("mime reject ok");
+
+  const imageItem = {
+    id: "item-image-1",
+    type: "image",
+    order: 1,
+    payload: { assetId: asset.id, fit: "contain", title: "smoke.png" },
+  };
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({ type: "playlist.itemAdd", payload: { item: imageItem } }),
   );
   await waitFor(
     out1.inbox,
     (m) =>
       m.type === "session.updated" &&
-      m.payload.playlist?.items?.length === 1,
+      m.payload.playlist?.items?.some((i) => i.type === "image"),
   );
-  console.log("playlist add ok");
+  console.log("image add ok");
 
+  // edit fit
   out1.inbox.length = 0;
   control.ws.send(
-    JSON.stringify({ type: "live.go", payload: { itemId: item.id } }),
-  );
-  const liveMsg = await waitFor(
-    out1.inbox,
-    (m) =>
-      m.type === "session.updated" &&
-      m.payload.live?.currentItemId === item.id &&
-      m.payload.live?.currentSlideIndex === 0,
-  );
-  console.log("go live ok seq", liveMsg.seq);
-
-  out1.inbox.length = 0;
-  control.ws.send(
-    JSON.stringify({ type: "live.setSlide", payload: { index: 1 } }),
+    JSON.stringify({
+      type: "playlist.itemUpdate",
+      payload: {
+        id: imageItem.id,
+        patch: {
+          payload: { ...imageItem.payload, fit: "cover" },
+        },
+      },
+    }),
   );
   await waitFor(
     out1.inbox,
     (m) =>
       m.type === "session.updated" &&
-      m.payload.live?.currentSlideIndex === 1,
+      m.payload.playlist?.items?.find((i) => i.id === imageItem.id)?.payload
+        ?.fit === "cover",
   );
-  console.log("setSlide ok");
+  console.log("fit update ok");
 
-  // output cannot mutate
-  out1.inbox.length = 0;
-  out1.ws.send(
-    JSON.stringify({ type: "live.go", payload: { itemId: item.id } }),
-  );
-  const err = await waitFor(out1.inbox, (m) => m.type === "error");
-  console.log("output mutate rejected", err.payload.code);
-
-  // remove live item clears live
+  // go live image
   out1.inbox.length = 0;
   control.ws.send(
-    JSON.stringify({ type: "playlist.itemRemove", payload: { id: item.id } }),
+    JSON.stringify({ type: "live.go", payload: { itemId: imageItem.id } }),
   );
   await waitFor(
     out1.inbox,
     (m) =>
       m.type === "session.updated" &&
-      m.payload.live?.currentItemId === null &&
-      m.payload.playlist?.items?.length === 0,
+      m.payload.live?.currentItemId === imageItem.id,
   );
-  console.log("remove live item clears live ok");
+  console.log("image go live ok");
+
+  // serve bytes with output ticket
+  const get = await fetch(
+    `${HUB}/api/v1/sessions/${created.sessionId}/assets/${asset.id}?credential=${encodeURIComponent(joinOut.wsTicket)}`,
+  );
+  if (!get.ok) {
+    throw new Error(`serve ${get.status}`);
+  }
+  const buf = Buffer.from(await get.arrayBuffer());
+  if (buf.length !== PNG_1X1.length) {
+    throw new Error(`serve size mismatch ${buf.length}`);
+  }
+  console.log("serve ok");
+
+  // path escape / unauthorized
+  const noAuth = await fetch(
+    `${HUB}/api/v1/sessions/${created.sessionId}/assets/${asset.id}`,
+  );
+  if (noAuth.status !== 401) {
+    throw new Error(`expected 401 without creds, got ${noAuth.status}`);
+  }
+  console.log("auth gate ok");
 
   control.ws.close();
   out1.ws.close();

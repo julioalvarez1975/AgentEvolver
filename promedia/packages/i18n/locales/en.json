@@ -47,5 +47,8 @@
   "playlist.edit": "Edit",
   "playlist.remove": "Remove",
   "playlist.moveUp": "Move up",
-  "playlist.moveDown": "Move down"
+  "playlist.moveDown": "Move down",
+  "itemTypes.image": "Image",
+  "image.largeWarning": "Large file: may saturate LAN or browser memory (no hard size cap).",
+  "image.uploading": "Uploading image…"
 }
