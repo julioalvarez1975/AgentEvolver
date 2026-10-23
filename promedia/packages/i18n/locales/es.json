@@ -90,5 +90,7 @@
   "playlist.savedOk": "Playlist guardada",
   "playlist.loadedOk": "Playlist cargada",
   "playlist.loadedSkipped": "Cargada (se omitieron {n} ítems de archivo sin asset en esta sesión)",
-  "shortcuts.hint": "Atajos: G Go Live · O Abrir salida · L/B/C/N escenas · 1/2/3 temas · ←/→ slides"
+  "shortcuts.hint": "Atajos: G Go Live · O Abrir salida · L/B/C/N escenas · 1/2/3 temas · ←/→ slides",
+  "control.wsDisconnectedHint": "WebSocket desconectado — la playlist no puede sincronizar. Reconectando… o pulsa Reconectar.",
+  "control.reconnect": "Reconectar"
 }

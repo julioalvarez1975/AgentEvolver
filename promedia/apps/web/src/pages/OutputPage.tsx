@@ -21,7 +21,6 @@ export function OutputPage() {
     wsStatus,
     error,
     join,
-    reconnect,
     snapshot,
     sessionId,
     wsTicket,
@@ -31,9 +30,7 @@ export function OutputPage() {
   const [manualCode, setManualCode] = useState("");
   const autoJoinStarted = useRef(false);
   const joinRef = useRef(join);
-  const reconnectRef = useRef(reconnect);
   joinRef.current = join;
-  reconnectRef.current = reconnect;
 
   const queryCode = (params.get("code") ?? "").trim().toUpperCase();
   const queryToken =
@@ -93,15 +90,7 @@ export function OutputPage() {
     }
   }, [queryCode, queryToken, hasSession]);
 
-  useEffect(() => {
-    if (wsStatus !== "closed" || !hasSession) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      reconnectRef.current();
-    }, 800);
-    return () => window.clearTimeout(timer);
-  }, [wsStatus, hasSession]);
+  // WS auto-reconnect lives in useSessionConnection (shared with Control).
 
   const enterFullscreen = async () => {
     const el = stageRef.current;

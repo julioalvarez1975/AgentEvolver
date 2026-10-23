@@ -59,26 +59,41 @@ export class SessionSocket {
   }
 
   disconnect(): void {
-    if (this.ws) {
-      this.ws.onopen = null;
-      this.ws.onmessage = null;
-      this.ws.onclose = null;
-      this.ws.onerror = null;
-      if (
-        this.ws.readyState === WebSocket.OPEN ||
-        this.ws.readyState === WebSocket.CONNECTING
-      ) {
-        this.ws.close();
-      }
-      this.ws = null;
-    }
-  }
-
-  send(type: string, payload?: unknown): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+    if (!this.ws) {
       return;
     }
+    const ws = this.ws;
+    this.ws = null;
+    const wasOpenOrConnecting =
+      ws.readyState === WebSocket.OPEN ||
+      ws.readyState === WebSocket.CONNECTING;
+    ws.onopen = null;
+    ws.onmessage = null;
+    ws.onerror = null;
+    ws.onclose = null;
+    if (wasOpenOrConnecting) {
+      try {
+        ws.close();
+      } catch {
+        // ignore
+      }
+    }
+    // Always notify — otherwise UI can stay wsStatus "open" while send() no-ops
+    // (handlers were cleared before the browser close event).
+    this.handlers.onClose?.();
+  }
+
+  get isOpen(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  /** @returns false if the socket is not open (caller should reconnect / warn). */
+  send(type: string, payload?: unknown): boolean {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return false;
+    }
     this.ws.send(JSON.stringify({ type, payload }));
+    return true;
   }
 
   resync(): void {
