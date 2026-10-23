@@ -1,172 +1,218 @@
-import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import type { HubMessage, SessionSnapshot } from "@promedia/shared";
-import { buildWsUrl, createSession, joinSession } from "../lib/hub";
-import { SessionSocket } from "../lib/session-socket";
+import { useState } from "react";
+import { DEFAULT_LOCALE, t } from "@promedia/i18n";
+import { useSessionConnection } from "../hooks/useSessionConnection";
 
-/** Smoke control stubs — product shell is subtarea 3. */
+const locale = DEFAULT_LOCALE;
+
+function opaqueOutputUrl(accessToken: string): string {
+  return `${window.location.origin}/output?token=${encodeURIComponent(accessToken)}`;
+}
+
+function codeOutputUrl(code: string): string {
+  return `${window.location.origin}/output?code=${encodeURIComponent(code)}`;
+}
+
+/** Product Control shell — three zones + Abrir salida (subtarea 3). */
 export function ControlPage() {
-  const [code, setCode] = useState("");
+  const session = useSessionConnection("control");
   const [joinCode, setJoinCode] = useState("");
-  const [accessToken, setAccessToken] = useState("");
-  const [sessionId, setSessionId] = useState("");
-  const [wsTicket, setWsTicket] = useState("");
-  const [snapshot, setSnapshot] = useState<SessionSnapshot | null>(null);
-  const [lastSeq, setLastSeq] = useState(-1);
-  const [status, setStatus] = useState("idle");
-  const [log, setLog] = useState<string[]>([]);
-  const socketRef = useRef<SessionSocket | null>(null);
+  const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
-  const pushLog = (line: string) => {
-    setLog((prev) => [`${new Date().toISOString().slice(11, 19)} ${line}`, ...prev].slice(0, 40));
+  const outputByCode = session.code ? codeOutputUrl(session.code) : "";
+  const outputByToken = session.accessToken
+    ? opaqueOutputUrl(session.accessToken)
+    : "";
+
+  const flashCopied = (label: string) => {
+    setCopied(label);
+    window.setTimeout(() => setCopied(null), 1500);
   };
 
-  useEffect(() => {
-    return () => {
-      socketRef.current?.disconnect();
-    };
-  }, []);
-
-  const attachSocket = (url: string) => {
-    socketRef.current?.disconnect();
-    const sock = new SessionSocket(url, {
-      onOpen: () => {
-        setStatus("ws open");
-        pushLog("ws open");
-      },
-      onClose: () => {
-        setStatus("ws closed");
-        pushLog("ws closed");
-      },
-      onMessage: (msg: HubMessage) => {
-        setLastSeq(msg.seq);
-        if (msg.type === "session.snapshot") {
-          setSnapshot(msg.payload as SessionSnapshot);
-          pushLog(`snapshot seq=${msg.seq}`);
-        } else if (msg.type === "session.updated") {
-          const p = msg.payload as Partial<SessionSnapshot>;
-          setSnapshot((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  seq: msg.seq,
-                  lastTouchAt: p.lastTouchAt ?? prev.lastTouchAt,
-                  touchNote: p.touchNote ?? prev.touchNote,
-                  live: p.live ?? prev.live,
-                }
-              : prev,
-          );
-          pushLog(`updated seq=${msg.seq} note=${p.touchNote ?? ""}`);
-        } else if (msg.type === "error") {
-          pushLog(`error ${JSON.stringify(msg.payload)}`);
-        } else {
-          pushLog(`${msg.type} seq=${msg.seq}`);
-        }
-      },
-    });
-    socketRef.current = sock;
-    sock.connect();
-  };
-
-  const onCreate = async () => {
+  const copyText = async (value: string, label: string) => {
     try {
-      setStatus("creating…");
-      const res = await createSession("lan");
-      setSessionId(res.sessionId);
-      setCode(res.code);
-      setAccessToken(res.accessToken);
-      setWsTicket(res.wsTicket);
-      setSnapshot(res.snapshot);
-      pushLog(`created code=${res.code}`);
-      attachSocket(buildWsUrl(res.sessionId, "control", res.wsTicket));
-    } catch (err) {
-      setStatus("create failed");
-      pushLog(String(err));
+      await navigator.clipboard.writeText(value);
+      flashCopied(label);
+    } catch {
+      flashCopied("?");
     }
   };
 
-  const onJoin = async () => {
-    try {
-      setStatus("joining…");
-      const res = await joinSession({ code: joinCode, role: "control" });
-      setSessionId(res.sessionId);
-      setCode(res.code);
-      setWsTicket(res.wsTicket);
-      setSnapshot(res.snapshot);
-      pushLog(`joined as control code=${res.code}`);
-      attachSocket(buildWsUrl(res.sessionId, "control", res.wsTicket));
-    } catch (err) {
-      setStatus("join failed");
-      pushLog(String(err));
+  const openOutput = () => {
+    if (!session.code) {
+      return;
     }
-  };
-
-  const onTouch = () => {
-    socketRef.current?.send("session.touch", {
-      note: `touch@${new Date().toISOString()}`,
-    });
-    pushLog("sent session.touch");
+    const url = codeOutputUrl(session.code);
+    const win = window.open(url, "promedia-output", "noopener,noreferrer");
+    if (!win) {
+      setPopupBlockedUrl(url);
+      return;
+    }
+    setPopupBlockedUrl(null);
   };
 
   return (
-    <main className="scaffold-page">
-      <h1>ProMedia — control smoke</h1>
-      <p>
-        Stub de subtarea 2 (sesión + WS). Sin playlist / Go Live.
-      </p>
-      <nav className="scaffold-nav">
-        <Link to="/">Inicio</Link>
-        <Link to="/output">/output</Link>
-      </nav>
+    <div className="control-shell">
+      <header className="control-header">
+        <div className="control-brand">
+          <span className="control-brand-name">{t(locale, "app.name")}</span>
+          <span className="control-brand-role">Control</span>
+        </div>
 
-      <div className="smoke-actions">
-        <button type="button" onClick={() => void onCreate()}>
-          Crear sesión
-        </button>
-        <label className="smoke-field">
-          Código
-          <input
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            placeholder="AB12"
-          />
-        </label>
-        <button type="button" onClick={() => void onJoin()}>
-          Unir control (código)
-        </button>
-        <button type="button" onClick={onTouch} disabled={!wsTicket}>
-          Touch (mutar seq)
-        </button>
+        <div className="control-session-actions">
+          {!session.hasSession ? (
+            <>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => void session.create()}
+              >
+                {t(locale, "control.createSession")}
+              </button>
+              <label className="field-inline">
+                <span className="sr-only">{t(locale, "control.code")}</span>
+                <input
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  placeholder={t(locale, "control.joinPlaceholder")}
+                  maxLength={8}
+                />
+              </label>
+              <button
+                type="button"
+                className="btn"
+                disabled={!joinCode.trim()}
+                onClick={() => void session.join({ code: joinCode.trim() })}
+              >
+                {t(locale, "control.joinSession")}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="session-chip">
+                <span className="session-chip-label">{t(locale, "control.code")}</span>
+                <strong className="session-chip-value">{session.code}</strong>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => void copyText(session.code, "code")}
+                >
+                  {t(locale, "control.copyCode")}
+                </button>
+              </div>
+              {outputByToken ? (
+                <div className="session-chip session-chip-link">
+                  <span className="session-chip-label">
+                    {t(locale, "control.link")}
+                  </span>
+                  <code className="session-chip-mono" title={outputByToken}>
+                    {outputByToken}
+                  </code>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => void copyText(outputByToken, "link")}
+                  >
+                    {t(locale, "control.copyLink")}
+                  </button>
+                </div>
+              ) : null}
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={openOutput}
+              >
+                {t(locale, "control.openOutput")}
+              </button>
+            </>
+          )}
+        </div>
+      </header>
+
+      {session.hasSession ? (
+        <p className="control-drag-hint">{t(locale, "control.dragHint")}</p>
+      ) : null}
+
+      {popupBlockedUrl ? (
+        <div className="control-banner" role="status">
+          <p>{t(locale, "control.popupBlocked")}</p>
+          <a href={popupBlockedUrl} target="_blank" rel="noreferrer">
+            {popupBlockedUrl}
+          </a>
+        </div>
+      ) : null}
+
+      {session.error ? (
+        <div className="control-banner control-banner-error" role="alert">
+          {session.error}
+        </div>
+      ) : null}
+
+      <div className="control-zones">
+        <section className="zone zone-playlist" aria-label={t(locale, "control.playlist")}>
+          <h2>{t(locale, "control.playlist")}</h2>
+          <div className="zone-body zone-placeholder">
+            <p>{t(locale, "control.playlistEmpty")}</p>
+          </div>
+        </section>
+
+        <section className="zone zone-preview" aria-label={t(locale, "control.preview")}>
+          <h2>{t(locale, "control.preview")}</h2>
+          <div className="zone-body zone-stage">
+            <p>{t(locale, "control.previewEmpty")}</p>
+          </div>
+        </section>
+
+        <section className="zone zone-live" aria-label={t(locale, "control.live")}>
+          <h2>{t(locale, "control.live")}</h2>
+          <div className="zone-body zone-stage">
+            <p>{t(locale, "control.liveEmpty")}</p>
+          </div>
+          <div className="live-controls">
+            <button type="button" className="btn btn-primary" disabled>
+              {t(locale, "control.goLive")}
+            </button>
+            <button type="button" className="btn" disabled>
+              {t(locale, "control.sceneLogo")}
+            </button>
+            <button type="button" className="btn" disabled>
+              {t(locale, "control.sceneBlack")}
+            </button>
+            <button type="button" className="btn" disabled>
+              {t(locale, "control.sceneClear")}
+            </button>
+          </div>
+        </section>
       </div>
 
-      <dl className="smoke-meta">
-        <div>
-          <dt>status</dt>
-          <dd>{status}</dd>
-        </div>
-        <div>
-          <dt>code</dt>
-          <dd>{code || "—"}</dd>
-        </div>
-        <div>
-          <dt>sessionId</dt>
-          <dd className="mono">{sessionId || "—"}</dd>
-        </div>
-        <div>
-          <dt>accessToken</dt>
-          <dd className="mono">{accessToken || "—"}</dd>
-        </div>
-        <div>
-          <dt>lastSeq</dt>
-          <dd>{lastSeq}</dd>
-        </div>
-        <div>
-          <dt>touchNote</dt>
-          <dd>{snapshot?.touchNote ?? "—"}</dd>
-        </div>
-      </dl>
-
-      <pre className="smoke-log">{log.join("\n") || "log vacío"}</pre>
-    </main>
+      <footer className="control-footer">
+        <span
+          className={
+            session.wsStatus === "open" ? "status-dot on" : "status-dot"
+          }
+        />
+        <span>
+          {session.wsStatus === "open"
+            ? t(locale, "control.wsConnected")
+            : t(locale, "control.wsDisconnected")}
+        </span>
+        <span className="footer-sep">·</span>
+        <span>
+          seq {session.lastSeq >= 0 ? session.lastSeq : "—"}
+        </span>
+        {outputByCode ? (
+          <>
+            <span className="footer-sep">·</span>
+            <span className="footer-muted">salida {session.code}</span>
+          </>
+        ) : null}
+        {copied ? (
+          <>
+            <span className="footer-sep">·</span>
+            <span className="footer-muted">copiado</span>
+          </>
+        ) : null}
+      </footer>
+    </div>
   );
 }

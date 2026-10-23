@@ -1,195 +1,170 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import type { HubMessage, SessionSnapshot } from "@promedia/shared";
-import { buildWsUrl, joinSession } from "../lib/hub";
-import { SessionSocket } from "../lib/session-socket";
+import { useSearchParams } from "react-router-dom";
+import { DEFAULT_LOCALE, t } from "@promedia/i18n";
+import { useSessionConnection } from "../hooks/useSessionConnection";
 
-/** Smoke output stubs — audience shell is subtarea 3. */
+const locale = DEFAULT_LOCALE;
+
+/** Product Output shell — fullscreen-ready, no operator chrome (subtarea 3). */
 export function OutputPage() {
   const [params] = useSearchParams();
-  const [joinCode, setJoinCode] = useState("");
-  const [token, setToken] = useState(params.get("token") ?? "");
-  const [sessionId, setSessionId] = useState("");
-  const [code, setCode] = useState("");
-  const [wsTicket, setWsTicket] = useState("");
-  const [snapshot, setSnapshot] = useState<SessionSnapshot | null>(null);
-  const [lastSeq, setLastSeq] = useState(-1);
-  const [status, setStatus] = useState("idle");
-  const [log, setLog] = useState<string[]>([]);
-  const socketRef = useRef<SessionSocket | null>(null);
+  const {
+    hasSession,
+    code,
+    lastSeq,
+    wsStatus,
+    error,
+    join,
+    reconnect,
+  } = useSessionConnection("output");
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [manualCode, setManualCode] = useState("");
+  const autoJoinStarted = useRef(false);
+  const joinRef = useRef(join);
+  const reconnectRef = useRef(reconnect);
+  joinRef.current = join;
+  reconnectRef.current = reconnect;
 
-  const pushLog = (line: string) => {
-    setLog((prev) => [`${new Date().toISOString().slice(11, 19)} ${line}`, ...prev].slice(0, 40));
-  };
+  const queryCode = (params.get("code") ?? "").trim().toUpperCase();
+  const queryToken =
+    (params.get("token") ?? params.get("accessToken") ?? "").trim();
 
   useEffect(() => {
-    return () => {
-      socketRef.current?.disconnect();
+    const onFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
     };
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
-  const attachSocket = (url: string) => {
-    socketRef.current?.disconnect();
-    const sock = new SessionSocket(url, {
-      onOpen: () => {
-        setStatus("ws open");
-        pushLog("ws open");
-      },
-      onClose: () => {
-        setStatus("ws closed");
-        pushLog("ws closed");
-      },
-      onMessage: (msg: HubMessage) => {
-        setLastSeq(msg.seq);
-        if (msg.type === "session.snapshot") {
-          setSnapshot(msg.payload as SessionSnapshot);
-          pushLog(`snapshot seq=${msg.seq}`);
-        } else if (msg.type === "session.updated") {
-          const p = msg.payload as Partial<SessionSnapshot>;
-          setSnapshot((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  seq: msg.seq,
-                  lastTouchAt: p.lastTouchAt ?? prev.lastTouchAt,
-                  touchNote: p.touchNote ?? prev.touchNote,
-                  live: p.live ?? prev.live,
-                }
-              : prev,
-          );
-          pushLog(`updated seq=${msg.seq}`);
-        } else if (msg.type === "error") {
-          pushLog(`error ${JSON.stringify(msg.payload)}`);
-        } else {
-          pushLog(`${msg.type} seq=${msg.seq}`);
-        }
-      },
-    });
-    socketRef.current = sock;
-    sock.connect();
-  };
-
-  const onJoinCode = async () => {
-    try {
-      setStatus("joining…");
-      const res = await joinSession({ code: joinCode, role: "output" });
-      setSessionId(res.sessionId);
-      setCode(res.code);
-      setWsTicket(res.wsTicket);
-      setSnapshot(res.snapshot);
-      pushLog(`joined output code=${res.code}`);
-      attachSocket(buildWsUrl(res.sessionId, "output", res.wsTicket));
-    } catch (err) {
-      setStatus("join failed");
-      pushLog(String(err));
-    }
-  };
-
-  const onJoinToken = async () => {
-    try {
-      setStatus("joining…");
-      const res = await joinSession({ accessToken: token, role: "output" });
-      setSessionId(res.sessionId);
-      setCode(res.code);
-      setWsTicket(res.wsTicket);
-      setSnapshot(res.snapshot);
-      pushLog(`joined output via token`);
-      attachSocket(buildWsUrl(res.sessionId, "output", res.wsTicket));
-    } catch (err) {
-      setStatus("join failed");
-      pushLog(String(err));
-    }
-  };
-
-  const onDisconnect = () => {
-    socketRef.current?.disconnect();
-    pushLog("manual disconnect");
-  };
-
-  const onReconnect = () => {
-    if (!wsTicket || !sessionId) {
+  useEffect(() => {
+    if (autoJoinStarted.current || hasSession) {
       return;
     }
-    pushLog(`reconnect+resync from lastSeq=${socketRef.current?.appliedSeq ?? lastSeq}`);
-    if (!socketRef.current) {
-      attachSocket(buildWsUrl(sessionId, "output", wsTicket));
+    if (queryCode) {
+      autoJoinStarted.current = true;
+      void joinRef.current({ code: queryCode });
       return;
     }
-    socketRef.current.reconnectWithResync();
+    if (queryToken) {
+      autoJoinStarted.current = true;
+      void joinRef.current({ accessToken: queryToken });
+    }
+  }, [queryCode, queryToken, hasSession]);
+
+  useEffect(() => {
+    if (wsStatus !== "closed" || !hasSession) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      reconnectRef.current();
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [wsStatus, hasSession]);
+
+  const enterFullscreen = async () => {
+    const el = stageRef.current;
+    if (!el) {
+      return;
+    }
+    try {
+      if (el.requestFullscreen) {
+        await el.requestFullscreen();
+      }
+    } catch {
+      // Browser denied — F11 hint remains visible
+    }
   };
 
-  const onTryTouch = () => {
-    socketRef.current?.send("session.touch", { note: "output-should-fail" });
-    pushLog("sent illegal session.touch (expect error)");
+  const exitFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+    } catch {
+      // ignore
+    }
   };
+
+  const showJoinForm = !hasSession && !queryCode && !queryToken;
 
   return (
-    <main className="scaffold-page">
-      <h1>ProMedia — output smoke</h1>
-      <p>Stub de subtarea 2 (lectura + resync). Sin UI de audiencia.</p>
-      <nav className="scaffold-nav">
-        <Link to="/">Inicio</Link>
-        <Link to="/control">/control</Link>
-      </nav>
+    <div className="output-shell">
+      <div
+        ref={stageRef}
+        className={
+          isFullscreen ? "output-stage output-stage-fs" : "output-stage"
+        }
+      >
+        {wsStatus === "connecting" && !hasSession ? (
+          <p className="output-waiting">{t(locale, "output.joining")}</p>
+        ) : error && !hasSession ? (
+          <p className="output-waiting output-error">
+            {t(locale, "output.joinFailed")}
+          </p>
+        ) : (
+          <p className="output-waiting">{t(locale, "output.waiting")}</p>
+        )}
 
-      <div className="smoke-actions">
-        <label className="smoke-field">
-          Código
-          <input
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-            placeholder="AB12"
+        {!isFullscreen ? (
+          <div className="output-chrome">
+            {showJoinForm ? (
+              <form
+                className="output-join"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (manualCode.trim()) {
+                    void join({ code: manualCode.trim().toUpperCase() });
+                  }
+                }}
+              >
+                <label>
+                  {t(locale, "output.codeLabel")}
+                  <input
+                    value={manualCode}
+                    onChange={(e) =>
+                      setManualCode(e.target.value.toUpperCase())
+                    }
+                    placeholder="AB12"
+                    maxLength={8}
+                    autoFocus
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={!manualCode.trim()}
+                >
+                  {t(locale, "output.join")}
+                </button>
+              </form>
+            ) : null}
+
+            <p className="output-hint">{t(locale, "output.fullscreenHint")}</p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => void enterFullscreen()}
+            >
+              {t(locale, "output.enterFullscreen")}
+            </button>
+            {hasSession ? (
+              <p className="output-meta">
+                {code} · seq {lastSeq >= 0 ? lastSeq : "—"} ·{" "}
+                {wsStatus === "open" ? "WS" : wsStatus}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="output-exit-fs"
+            onClick={() => void exitFullscreen()}
+            aria-label="Exit fullscreen"
           />
-        </label>
-        <button type="button" onClick={() => void onJoinCode()}>
-          Unir output (código)
-        </button>
-        <label className="smoke-field">
-          Token opaco
-          <input
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder="accessToken"
-          />
-        </label>
-        <button type="button" onClick={() => void onJoinToken()}>
-          Unir output (token)
-        </button>
-        <button type="button" onClick={onDisconnect} disabled={!wsTicket}>
-          Desconectar
-        </button>
-        <button type="button" onClick={onReconnect} disabled={!wsTicket}>
-          Reconectar + resync
-        </button>
-        <button type="button" onClick={onTryTouch} disabled={!wsTicket}>
-          Probar mute ilegal
-        </button>
+        )}
       </div>
-
-      <dl className="smoke-meta">
-        <div>
-          <dt>status</dt>
-          <dd>{status}</dd>
-        </div>
-        <div>
-          <dt>code</dt>
-          <dd>{code || "—"}</dd>
-        </div>
-        <div>
-          <dt>sessionId</dt>
-          <dd className="mono">{sessionId || "—"}</dd>
-        </div>
-        <div>
-          <dt>lastSeq</dt>
-          <dd>{lastSeq}</dd>
-        </div>
-        <div>
-          <dt>touchNote</dt>
-          <dd>{snapshot?.touchNote ?? "—"}</dd>
-        </div>
-      </dl>
-
-      <pre className="smoke-log">{log.join("\n") || "log vacío"}</pre>
-    </main>
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 # ProMedia
 
-Proyección multimedia (culto / evento). Monorepo MVP — **subtarea 2: hub sesión + WebSocket + seq**.
+Proyección multimedia (culto / evento). Monorepo MVP — **subtarea 3: shell Control + Output**.
 
 > Colocado en `promedia/` porque la raíz del repositorio ya contiene AgentEvolver y otro contenido no relacionado.
 
@@ -8,12 +8,12 @@ Proyección multimedia (culto / evento). Monorepo MVP — **subtarea 2: hub sesi
 
 ```text
 promedia/
-  apps/web          Vite + React + TS — /control y /output (smoke stubs)
+  apps/web          Vite + React + TS — shell /control (3 zonas) + /output (fullscreen)
   apps/hub          Hono + TS — REST sesión + WS + GET /health
   packages/shared   tipos de protocolo (snapshot, envelope, seq)
   packages/item-types  registry vacío
   packages/media    contrato storage stub
-  packages/i18n     placeholders ES EN PT FR zh-CN
+  packages/i18n     ES (+ stubs EN PT FR zh-CN) — sin selector aún
   docker/           Dockerfile + compose (LAN smoke)
   portable/         esqueleto carpeta runnable (sin zip completo)
   scripts/          smoke headless hub/WS
@@ -37,39 +37,29 @@ pnpm dev
 | Web (Vite) | http://localhost:5173 | **5173** | opcional `VITE_HUB_URL` (por defecto proxy same-origin → hub) |
 | Hub (Hono) | http://localhost:8787 | **8787** | `PORT` (default `8787`) |
 
-### Smoke UI (subtarea 2)
+### Smoke UI (subtarea 3 — shell)
 
-1. Abrir http://localhost:5173/control → **Crear sesión** → copiar código / token.
-2. Abrir http://localhost:5173/output (otra pestaña) → unir por código o token → ver `seq`.
-3. En control: **Touch (mutar seq)** → ambas salidas reciben `session.updated`.
-4. En output: **Desconectar** → touch desde control → **Reconectar + resync** → catch-up o snapshot.
+1. Abrir http://localhost:5173/control → **Crear sesión**.
+2. Ver código corto + enlace opaco; footer muestra WS + `seq`.
+3. Clic **Abrir salida** → nueva ventana `/output?code=…` (si el popup se bloquea, usa la URL del aviso).
+4. Arrastra la ventana de salida al 2.º monitor → **Pantalla completa** (o F11).
+5. Segunda pestaña `/output?code=…` debe unirse a la misma sesión.
+6. Controles **Go Live / Logo / Negro / Clear** visibles pero deshabilitados.
+7. **No** hay botón Touch / “Probar sync” en la shell.
 
 ### REST + WS (curl / script)
 
 ```bash
-# health
 curl -s http://localhost:8787/health
 
-# create
 curl -s -X POST http://localhost:8787/api/v1/sessions \
   -H 'content-type: application/json' \
   -d '{"mode":"lan"}'
 
-# join by code
-curl -s -X POST http://localhost:8787/api/v1/sessions/join \
-  -H 'content-type: application/json' \
-  -d '{"code":"ABCD","role":"output"}'
-```
-
-Headless smoke (hub en :8787):
-
-```bash
+# headless protocolo (subtarea 2)
 pnpm --filter @promedia/hub start &
 node scripts/smoke-hub-ws.mjs
 ```
-
-WS URL (tras create/join):  
-`ws://localhost:8787/api/v1/ws?sessionId=…&role=control|output&credential=<wsTicket>`
 
 Credential WS = **ticket** emitido en create/join (no reusar código/token en el handshake WS).
 
@@ -82,12 +72,12 @@ Credential WS = **ticket** emitido en create/join (no reusar código/token en el
 | `pnpm build` | Build packages + apps |
 | `pnpm dev:web` / `pnpm dev:hub` | Solo una app |
 
-## Sesión (subtarea 2)
+## Sesión
 
 - **Código corto** + **accessToken** opaco: join REST; **sin caducidad**.
+- “Abrir salida” usa **código corto** (`/output?code=`).
 - Estado **en memoria** (reinicio del hub = sesiones perdidas).
-- Envelope hub → clientes con `seq` monótono; control muta (`session.touch`); output solo lectura + `client.resync`.
-- Buffer de ~100 eventos para catch-up; si el gap es grande → `session.snapshot`.
+- Envelope hub → clientes con `seq` monótono; catch-up vía `client.resync`.
 
 ## Docker (LAN smoke)
 
@@ -103,6 +93,6 @@ Ver [portable/README.md](./portable/README.md).
 
 ## Límites actuales
 
-**Incluye:** scaffold + sesión in-memory + WS + seq + smoke stubs.
+**Incluye:** scaffold + hub/WS + shell Control 3 zonas + Output fullscreen + Abrir salida.
 
-**No incluye:** playlist, medios, Go Live, shell de producto Control/Output (subtarea 3), SQLite, i18n UI.
+**No incluye:** playlist/ítems, Go Live funcional, scene modes activos, i18n selector (subt. 4), medios, YouTube, SQLite.
