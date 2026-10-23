@@ -6,6 +6,7 @@ import type {
   PlaylistItem,
   SessionSnapshot,
   TextPayload,
+  VideoPayload,
 } from "@promedia/shared";
 import { buildWsUrl, createSession, joinSession } from "../lib/hub";
 import { SessionSocket } from "../lib/session-socket";
@@ -138,7 +139,10 @@ export function useSessionConnection(role: ClientRole) {
   const updateItem = useCallback(
     (
       id: string,
-      patch: { payload?: TextPayload | ImagePayload; order?: number },
+      patch: {
+        payload?: TextPayload | ImagePayload | VideoPayload;
+        order?: number;
+      },
     ) => send("playlist.itemUpdate", { id, patch }),
     [send],
   );
@@ -157,6 +161,11 @@ export function useSessionConnection(role: ClientRole) {
   const clearLive = useCallback(() => send("live.clear", {}), [send]);
   const setSlide = useCallback(
     (index: number) => send("live.setSlide", { index }),
+    [send],
+  );
+  const setMediaClock = useCallback(
+    (patch: { playing: boolean; positionMs?: number }) =>
+      send("live.mediaClock.set", patch),
     [send],
   );
 
@@ -181,6 +190,7 @@ export function useSessionConnection(role: ClientRole) {
     goLive,
     clearLive,
     setSlide,
+    setMediaClock,
     hasSession: Boolean(sessionId && wsTicket),
   };
 }

@@ -5,8 +5,10 @@ import type {
   ClientToHubMessage,
   ErrorPayload,
   HubMessage,
+  ImagePayload,
   PlaylistItem,
   TextPayload,
+  VideoPayload,
 } from "@promedia/shared";
 import { sessionStore, type SessionRecord } from "./session-store.js";
 
@@ -82,7 +84,10 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
         type: "playlist.itemUpdate",
         payload: {
           id: p.id,
-          patch: p.patch as { payload?: TextPayload; order?: number },
+          patch: p.patch as {
+            payload?: TextPayload | ImagePayload | VideoPayload;
+            order?: number;
+          },
         },
       };
     }
@@ -119,6 +124,20 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
         return null;
       }
       return { type: "live.setSlide", payload: { index } };
+    }
+    if (type === "live.mediaClock.set") {
+      const p = payload as { playing?: unknown; positionMs?: unknown } | undefined;
+      if (!p || typeof p.playing !== "boolean") {
+        return null;
+      }
+      const positionMs =
+        typeof p.positionMs === "number" && Number.isFinite(p.positionMs)
+          ? p.positionMs
+          : undefined;
+      return {
+        type: "live.mediaClock.set",
+        payload: { playing: p.playing, positionMs },
+      };
     }
     return null;
   } catch {
@@ -317,6 +336,13 @@ export class WsHub {
           conn,
           session,
           sessionStore.setSlide(session, msg.payload.index),
+        );
+        return;
+      case "live.mediaClock.set":
+        this.applyResult(
+          conn,
+          session,
+          sessionStore.setMediaClock(session, msg.payload),
         );
         return;
       default:

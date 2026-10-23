@@ -7,8 +7,12 @@ import {
   normalizeImagePayload,
 } from "./image/schema.js";
 import { isTextPlaylistItem, normalizeTextPayload } from "./text/schema.js";
+import {
+  isVideoPlaylistItem,
+  normalizeVideoPayload,
+} from "./video/schema.js";
 
-const REGISTERED_TYPES = new Set(["text", "image"]);
+const REGISTERED_TYPES = new Set(["text", "image", "video"]);
 
 export function isRegisteredItemType(type: string): boolean {
   return REGISTERED_TYPES.has(type);
@@ -42,6 +46,17 @@ export function validatePlaylistItem(value: unknown): PlaylistItem | null {
       type: "image",
       order: value.order,
       payload: normalizeImagePayload(value.payload),
+    };
+  }
+  if (raw.type === "video") {
+    if (!isVideoPlaylistItem(value)) {
+      return null;
+    }
+    return {
+      id: value.id,
+      type: "video",
+      order: value.order,
+      payload: normalizeVideoPayload(value.payload),
     };
   }
   return null;

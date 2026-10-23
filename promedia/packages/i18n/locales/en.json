@@ -50,5 +50,17 @@
   "playlist.moveDown": "Move down",
   "itemTypes.image": "Image",
   "image.largeWarning": "Large file: may saturate LAN or browser memory (no hard size cap).",
-  "image.uploading": "Uploading image…"
+  "image.uploading": "Uploading image…",
+  "itemTypes.video": "Video",
+  "video.ingestTitle": "Add video",
+  "video.fromFile": "File (mp4 / webm / mov)",
+  "video.fromYoutube": "YouTube URL",
+  "video.youtubeUrl": "Public YouTube link",
+  "video.addYoutube": "Add YouTube",
+  "video.youtubeInvalid": "Invalid YouTube URL or missing videoId.",
+  "video.youtubeCaveat": "YouTube needs internet on Control and Output. Some videos block embed. Unmuted autoplay may require a click in the browser.",
+  "video.fileCaveat": "Codecs: mp4 and webm. QuickTime (.mov) with warning — may not play in all browsers. No hard size cap.",
+  "video.quicktimeWarning": "QuickTime (.mov): may not play in all browsers.",
+  "video.largeWarning": "Large video: may saturate LAN or browser memory (no hard size cap).",
+  "video.uploading": "Uploading…"
 }
