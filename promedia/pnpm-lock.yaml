@@ -13,6 +13,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.14.1
         version: 1.19.17(hono@4.13.13)
+      '@promedia/item-types':
+        specifier: workspace:*
+        version: link:../../packages/item-types
       '@promedia/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -41,6 +44,9 @@ importers:
       '@promedia/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@promedia/item-types':
+        specifier: workspace:*
+        version: link:../../packages/item-types
       '@promedia/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -77,7 +83,17 @@ importers:
         version: 5.9.3
 
   packages/item-types:
+    dependencies:
+      '@promedia/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
+      '@types/react':
+        specifier: ^19.0.12
+        version: 19.3.0
+      react:
+        specifier: ^19.0.0
+        version: 19.3.1
       typescript:
         specifier: ^5.8.2
         version: 5.9.3

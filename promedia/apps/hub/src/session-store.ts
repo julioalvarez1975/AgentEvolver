@@ -1,12 +1,16 @@
 import type {
   ClientRole,
   HubMessage,
+  PlaylistItem,
   SessionLiveState,
   SessionMode,
+  SessionPlaylist,
   SessionSnapshot,
   SessionUpdatedPayload,
+  TextPayload,
 } from "@promedia/shared";
-import { emptyLiveState } from "@promedia/shared";
+import { emptyLiveState, emptyPlaylist } from "@promedia/shared";
+import { validatePlaylistItem } from "@promedia/item-types/validate";
 import {
   generateAccessToken,
   generateSessionId,
@@ -31,14 +35,20 @@ export type SessionRecord = {
   createdAt: string;
   seq: number;
   live: SessionLiveState;
+  playlist: SessionPlaylist;
   lastTouchAt?: string;
   touchNote?: string;
-  /** Ring buffer of recent hub→client events for catch-up. */
   eventBuffer: HubMessage[];
 };
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function sortItems(items: PlaylistItem[]): PlaylistItem[] {
+  return [...items]
+    .sort((a, b) => a.order - b.order)
+    .map((item, index) => ({ ...item, order: index }));
 }
 
 export class SessionStore {
@@ -68,6 +78,7 @@ export class SessionStore {
       createdAt,
       seq: 0,
       live: emptyLiveState(),
+      playlist: emptyPlaylist(),
       eventBuffer: [],
     };
 
@@ -116,6 +127,7 @@ export class SessionStore {
       createdAt: session.createdAt,
       seq: session.seq,
       live: { ...session.live },
+      playlist: { items: session.playlist.items.map((item) => ({ ...item })) },
       lastTouchAt: session.lastTouchAt,
       touchNote: session.touchNote,
     };
@@ -142,31 +154,142 @@ export class SessionStore {
     }
   }
 
-  /**
-   * Control-only stub mutation. Increments seq and returns the broadcast message.
-   */
-  touch(session: SessionRecord, note?: string): HubMessage {
+  private bumpUpdated(session: SessionRecord): HubMessage {
     session.seq += 1;
-    session.lastTouchAt = nowIso();
-    if (note !== undefined) {
-      session.touchNote = note;
-    }
-
     const payload: SessionUpdatedPayload = {
       seq: session.seq,
+      live: { ...session.live },
+      playlist: { items: session.playlist.items.map((item) => ({ ...item })) },
       lastTouchAt: session.lastTouchAt,
       touchNote: session.touchNote,
-      live: { ...session.live },
     };
-
     const message = this.makeMessage(session, "session.updated", payload);
     this.pushEvent(session, message);
     return message;
   }
 
-  /**
-   * Catch-up: replay buffered events after lastSeq, or null → caller should send snapshot.
-   */
+  touch(session: SessionRecord, note?: string): HubMessage {
+    session.lastTouchAt = nowIso();
+    if (note !== undefined) {
+      session.touchNote = note;
+    }
+    return this.bumpUpdated(session);
+  }
+
+  addItem(session: SessionRecord, rawItem: unknown): HubMessage | { error: string } {
+    const item = validatePlaylistItem(rawItem);
+    if (!item) {
+      return { error: "invalid_item" };
+    }
+    if (session.playlist.items.some((existing) => existing.id === item.id)) {
+      return { error: "duplicate_id" };
+    }
+    const order =
+      session.playlist.items.length === 0
+        ? 0
+        : Math.max(...session.playlist.items.map((i) => i.order)) + 1;
+    session.playlist.items = sortItems([
+      ...session.playlist.items,
+      { ...item, order },
+    ]);
+    return this.bumpUpdated(session);
+  }
+
+  updateItem(
+    session: SessionRecord,
+    id: string,
+    patch: { payload?: TextPayload; order?: number },
+  ): HubMessage | { error: string } {
+    const idx = session.playlist.items.findIndex((i) => i.id === id);
+    if (idx < 0) {
+      return { error: "not_found" };
+    }
+    const current = session.playlist.items[idx]!;
+    const nextRaw: PlaylistItem = {
+      ...current,
+      order: patch.order ?? current.order,
+      payload: patch.payload ?? current.payload,
+    };
+    const validated = validatePlaylistItem(nextRaw);
+    if (!validated) {
+      return { error: "invalid_item" };
+    }
+    const items = [...session.playlist.items];
+    items[idx] = validated;
+    session.playlist.items = sortItems(items);
+    return this.bumpUpdated(session);
+  }
+
+  removeItem(session: SessionRecord, id: string): HubMessage | { error: string } {
+    const before = session.playlist.items.length;
+    session.playlist.items = sortItems(
+      session.playlist.items.filter((item) => item.id !== id),
+    );
+    if (session.playlist.items.length === before) {
+      return { error: "not_found" };
+    }
+    if (session.live.currentItemId === id) {
+      session.live.currentItemId = null;
+      session.live.currentSlideIndex = 0;
+    }
+    return this.bumpUpdated(session);
+  }
+
+  reorder(session: SessionRecord, orderedIds: string[]): HubMessage | { error: string } {
+    if (orderedIds.length !== session.playlist.items.length) {
+      return { error: "invalid_reorder" };
+    }
+    const byId = new Map(session.playlist.items.map((i) => [i.id, i]));
+    const next: PlaylistItem[] = [];
+    for (const id of orderedIds) {
+      const item = byId.get(id);
+      if (!item) {
+        return { error: "invalid_reorder" };
+      }
+      next.push(item);
+      byId.delete(id);
+    }
+    if (byId.size > 0) {
+      return { error: "invalid_reorder" };
+    }
+    session.playlist.items = sortItems(next);
+    return this.bumpUpdated(session);
+  }
+
+  goLive(session: SessionRecord, itemId: string): HubMessage | { error: string } {
+    const item = session.playlist.items.find((i) => i.id === itemId);
+    if (!item) {
+      return { error: "not_found" };
+    }
+    if (item.type !== "text") {
+      return { error: "unsupported_type" };
+    }
+    session.live.currentItemId = itemId;
+    session.live.currentSlideIndex = 0;
+    return this.bumpUpdated(session);
+  }
+
+  clearLive(session: SessionRecord): HubMessage {
+    session.live.currentItemId = null;
+    session.live.currentSlideIndex = 0;
+    return this.bumpUpdated(session);
+  }
+
+  setSlide(session: SessionRecord, index: number): HubMessage | { error: string } {
+    const itemId = session.live.currentItemId;
+    if (!itemId) {
+      return { error: "no_live_item" };
+    }
+    const item = session.playlist.items.find((i) => i.id === itemId);
+    if (!item || item.type !== "text") {
+      return { error: "no_live_item" };
+    }
+    const max = Math.max(item.payload.slides.length - 1, 0);
+    const clamped = Math.min(Math.max(Math.trunc(index), 0), max);
+    session.live.currentSlideIndex = clamped;
+    return this.bumpUpdated(session);
+  }
+
   eventsAfter(session: SessionRecord, lastSeq: number): HubMessage[] | null {
     if (session.eventBuffer.length === 0) {
       return null;

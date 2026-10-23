@@ -2,7 +2,7 @@
  * i18n placeholders (ES / EN / PT / FR / zh-CN).
  * Locale JSON files live in ../locales/ (source of truth for strings).
  * Catalogs below mirror those files so the package builds for Node + Vite.
- * UI language selector lands in subtarea 4.
+ * UI language selector lands in a later subtarea.
  */
 
 export type Locale = "es" | "en" | "pt" | "fr" | "zh-CN";
@@ -13,7 +13,7 @@ export const DEFAULT_LOCALE: Locale = "es";
 
 type Messages = Record<string, string>;
 
-/** Mirrors packages/i18n/locales/*.json — keep in sync when adding shell keys. */
+/** Mirrors packages/i18n/locales/*.json — keep in sync when adding keys. */
 const catalogs: Record<Locale, Messages> = {
   es: {
     "app.name": "ProMedia",
@@ -25,13 +25,11 @@ const catalogs: Record<Locale, Messages> = {
     "control.copyCode": "Copiar código",
     "control.copyLink": "Copiar enlace",
     "control.openOutput": "Abrir salida",
-    "control.dragHint":
-      "Arrastra la ventana de salida al 2.º monitor o proyector y activa pantalla completa.",
-    "control.playlistEmpty": "Añadir ítems — próximamente",
+    "control.dragHint": "Arrastra la ventana de salida al 2.º monitor o proyector y activa pantalla completa.",
+    "control.playlistEmpty": "Añade un ítem de texto para empezar",
     "control.previewEmpty": "Sin selección",
     "control.liveEmpty": "Sin live",
-    "control.popupBlocked":
-      "El navegador bloqueó la ventana. Permite emergentes o abre esta URL:",
+    "control.popupBlocked": "El navegador bloqueó la ventana. Permite emergentes o abre esta URL:",
     "control.wsConnected": "WS conectado",
     "control.wsDisconnected": "WS desconectado",
     "control.goLive": "Go Live",
@@ -44,13 +42,29 @@ const catalogs: Record<Locale, Messages> = {
     "control.joinPlaceholder": "Código",
     "output.waiting": "Esperando live…",
     "output.enterFullscreen": "Pantalla completa",
-    "output.fullscreenHint":
-      "Pulsa el botón o F11 para pantalla completa. Esc para salir.",
+    "output.fullscreenHint": "Pulsa el botón o F11 para pantalla completa. Esc para salir.",
     "output.joining": "Conectando a la sesión…",
     "output.joinFailed": "No se pudo unir a la sesión",
     "output.codeLabel": "Código de sesión",
     "output.join": "Unir salida",
     "home.tagline": "Proyección multimedia — control y salida",
+    "itemTypes.text": "Texto",
+    "text.editorTitle": "Título",
+    "text.editorTitlePlaceholder": "Opcional",
+    "text.editorAlign": "Alineación",
+    "text.alignLeft": "Izquierda",
+    "text.alignCenter": "Centro",
+    "text.alignRight": "Derecha",
+    "text.slide": "Slide",
+    "text.removeSlide": "Quitar",
+    "text.slidePlaceholder": "Escribe el texto del slide…",
+    "text.addSlide": "+ Slide",
+    "text.cancel": "Cancelar",
+    "text.save": "Guardar",
+    "playlist.edit": "Editar",
+    "playlist.remove": "Eliminar",
+    "playlist.moveUp": "Subir",
+    "playlist.moveDown": "Bajar"
   },
   en: {
     "app.name": "ProMedia",
@@ -62,9 +76,8 @@ const catalogs: Record<Locale, Messages> = {
     "control.copyCode": "Copy code",
     "control.copyLink": "Copy link",
     "control.openOutput": "Open output",
-    "control.dragHint":
-      "Drag the output window to the 2nd monitor or projector and enter fullscreen.",
-    "control.playlistEmpty": "Add items — coming soon",
+    "control.dragHint": "Drag the output window to the 2nd monitor or projector and enter fullscreen.",
+    "control.playlistEmpty": "Add a text item to get started",
     "control.previewEmpty": "Nothing selected",
     "control.liveEmpty": "Nothing live",
     "control.popupBlocked": "Popup blocked. Allow popups or open this URL:",
@@ -86,6 +99,23 @@ const catalogs: Record<Locale, Messages> = {
     "output.codeLabel": "Session code",
     "output.join": "Join output",
     "home.tagline": "Multimedia projection — control and output",
+    "itemTypes.text": "Text",
+    "text.editorTitle": "Title",
+    "text.editorTitlePlaceholder": "Optional",
+    "text.editorAlign": "Align",
+    "text.alignLeft": "Left",
+    "text.alignCenter": "Center",
+    "text.alignRight": "Right",
+    "text.slide": "Slide",
+    "text.removeSlide": "Remove",
+    "text.slidePlaceholder": "Write slide text…",
+    "text.addSlide": "+ Slide",
+    "text.cancel": "Cancel",
+    "text.save": "Save",
+    "playlist.edit": "Edit",
+    "playlist.remove": "Remove",
+    "playlist.moveUp": "Move up",
+    "playlist.moveDown": "Move down"
   },
   pt: {
     "app.name": "ProMedia",
@@ -97,13 +127,11 @@ const catalogs: Record<Locale, Messages> = {
     "control.copyCode": "Copiar código",
     "control.copyLink": "Copiar link",
     "control.openOutput": "Abrir saída",
-    "control.dragHint":
-      "Arraste a janela de saída para o 2.º monitor ou projetor e ative tela cheia.",
-    "control.playlistEmpty": "Adicionar itens — em breve",
+    "control.dragHint": "Arraste a janela de saída para o 2.º monitor ou projetor e ative tela cheia.",
+    "control.playlistEmpty": "Adicione um item de texto para começar",
     "control.previewEmpty": "Sem seleção",
     "control.liveEmpty": "Sem live",
-    "control.popupBlocked":
-      "Popup bloqueado. Permita pop-ups ou abra este URL:",
+    "control.popupBlocked": "Popup bloqueado. Permita pop-ups ou abra este URL:",
     "control.wsConnected": "WS conectado",
     "control.wsDisconnected": "WS desconectado",
     "control.goLive": "Go Live",
@@ -116,13 +144,29 @@ const catalogs: Record<Locale, Messages> = {
     "control.joinPlaceholder": "Código",
     "output.waiting": "Aguardando live…",
     "output.enterFullscreen": "Tela cheia",
-    "output.fullscreenHint":
-      "Use o botão ou F11 para tela cheia. Esc para sair.",
+    "output.fullscreenHint": "Use o botão ou F11 para tela cheia. Esc para sair.",
     "output.joining": "Entrando na sessão…",
     "output.joinFailed": "Não foi possível entrar na sessão",
     "output.codeLabel": "Código da sessão",
     "output.join": "Entrar na saída",
     "home.tagline": "Projeção multimídia — controle e saída",
+    "itemTypes.text": "Texto",
+    "text.editorTitle": "Título",
+    "text.editorTitlePlaceholder": "Opcional",
+    "text.editorAlign": "Alinhamento",
+    "text.alignLeft": "Esquerda",
+    "text.alignCenter": "Centro",
+    "text.alignRight": "Direita",
+    "text.slide": "Slide",
+    "text.removeSlide": "Remover",
+    "text.slidePlaceholder": "Escreva o texto do slide…",
+    "text.addSlide": "+ Slide",
+    "text.cancel": "Cancelar",
+    "text.save": "Salvar",
+    "playlist.edit": "Editar",
+    "playlist.remove": "Eliminar",
+    "playlist.moveUp": "Subir",
+    "playlist.moveDown": "Descer"
   },
   fr: {
     "app.name": "ProMedia",
@@ -134,13 +178,11 @@ const catalogs: Record<Locale, Messages> = {
     "control.copyCode": "Copier le code",
     "control.copyLink": "Copier le lien",
     "control.openOutput": "Ouvrir la sortie",
-    "control.dragHint":
-      "Faites glisser la fenêtre de sortie vers le 2e moniteur ou projecteur et activez le plein écran.",
-    "control.playlistEmpty": "Ajouter des éléments — bientôt",
+    "control.dragHint": "Faites glisser la fenêtre de sortie vers le 2e moniteur ou projecteur et activez le plein écran.",
+    "control.playlistEmpty": "Ajoutez un élément texte pour commencer",
     "control.previewEmpty": "Aucune sélection",
     "control.liveEmpty": "Rien en direct",
-    "control.popupBlocked":
-      "Popup bloquée. Autorisez les popups ou ouvrez cette URL :",
+    "control.popupBlocked": "Popup bloquée. Autorisez les popups ou ouvrez cette URL :",
     "control.wsConnected": "WS connecté",
     "control.wsDisconnected": "WS déconnecté",
     "control.goLive": "Go Live",
@@ -153,13 +195,29 @@ const catalogs: Record<Locale, Messages> = {
     "control.joinPlaceholder": "Code",
     "output.waiting": "En attente du live…",
     "output.enterFullscreen": "Plein écran",
-    "output.fullscreenHint":
-      "Utilisez le bouton ou F11 pour le plein écran. Échap pour quitter.",
+    "output.fullscreenHint": "Utilisez le bouton ou F11 pour le plein écran. Échap pour quitter.",
     "output.joining": "Connexion à la session…",
     "output.joinFailed": "Impossible de rejoindre la session",
     "output.codeLabel": "Code de session",
     "output.join": "Rejoindre la sortie",
     "home.tagline": "Projection multimédia — contrôle et sortie",
+    "itemTypes.text": "Texte",
+    "text.editorTitle": "Titre",
+    "text.editorTitlePlaceholder": "Facultatif",
+    "text.editorAlign": "Alignement",
+    "text.alignLeft": "Gauche",
+    "text.alignCenter": "Centre",
+    "text.alignRight": "Droite",
+    "text.slide": "Slide",
+    "text.removeSlide": "Retirer",
+    "text.slidePlaceholder": "Écrire le texte du slide…",
+    "text.addSlide": "+ Slide",
+    "text.cancel": "Annuler",
+    "text.save": "Enregistrer",
+    "playlist.edit": "Modifier",
+    "playlist.remove": "Supprimer",
+    "playlist.moveUp": "Monter",
+    "playlist.moveDown": "Descendre"
   },
   "zh-CN": {
     "app.name": "ProMedia",
@@ -172,7 +230,7 @@ const catalogs: Record<Locale, Messages> = {
     "control.copyLink": "复制链接",
     "control.openOutput": "打开输出",
     "control.dragHint": "将输出窗口拖到第二显示器或投影仪并进入全屏。",
-    "control.playlistEmpty": "添加项目 — 即将推出",
+    "control.playlistEmpty": "添加文本项开始",
     "control.previewEmpty": "未选择",
     "control.liveEmpty": "无直播",
     "control.popupBlocked": "弹窗被阻止。请允许弹窗或打开此 URL：",
@@ -194,6 +252,23 @@ const catalogs: Record<Locale, Messages> = {
     "output.codeLabel": "会话代码",
     "output.join": "加入输出",
     "home.tagline": "多媒体投影 — 控制与输出",
+    "itemTypes.text": "文本",
+    "text.editorTitle": "标题",
+    "text.editorTitlePlaceholder": "可选",
+    "text.editorAlign": "对齐",
+    "text.alignLeft": "左",
+    "text.alignCenter": "中",
+    "text.alignRight": "右",
+    "text.slide": "幻灯片",
+    "text.removeSlide": "删除",
+    "text.slidePlaceholder": "输入幻灯片文字…",
+    "text.addSlide": "+ 幻灯片",
+    "text.cancel": "取消",
+    "text.save": "保存",
+    "playlist.edit": "编辑",
+    "playlist.remove": "删除",
+    "playlist.moveUp": "上移",
+    "playlist.moveDown": "下移"
   },
 };
 

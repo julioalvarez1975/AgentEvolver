@@ -5,7 +5,7 @@
   "description": "ProMedia — proyección multimedia (scaffold MVP)",
   "packageManager": "pnpm@10.33.4",
   "scripts": {
-    "build:packages": "pnpm -r --filter @promedia/shared --filter @promedia/i18n --filter @promedia/item-types --filter @promedia/media build",
+    "build:packages": "pnpm --filter @promedia/shared build && pnpm --filter @promedia/i18n build && pnpm --filter @promedia/item-types build && pnpm --filter @promedia/media build",
     "dev": "pnpm run build:packages && pnpm -r --parallel --filter @promedia/web --filter @promedia/hub dev",
     "build": "pnpm run build:packages && pnpm -r --filter @promedia/hub --filter @promedia/web build",
     "dev:web": "pnpm run build:packages && pnpm --filter @promedia/web dev",

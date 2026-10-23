@@ -1,5 +1,5 @@
 /**
- * ProMedia shared protocol types (subtarea 2).
+ * ProMedia shared protocol types (subtarea 2–4).
  * No UI logic — hub and web import these shapes.
  */
 
@@ -7,15 +7,40 @@ export type SessionMode = "lan" | "cloud" | "portable";
 
 export type ClientRole = "control" | "output";
 
+export type TextAlign = "left" | "center" | "right";
+
+export type TextSlide = {
+  id: string;
+  lines: string[];
+};
+
+export type TextPayload = {
+  title?: string;
+  slides: TextSlide[];
+  align?: TextAlign;
+};
+
+export type PlaylistItemType = "text";
+
+export type PlaylistItem = {
+  id: string;
+  type: PlaylistItemType;
+  order: number;
+  payload: TextPayload;
+};
+
+export type SessionPlaylist = {
+  items: PlaylistItem[];
+};
+
 export type SessionLiveState = {
-  currentItemId: null;
+  currentItemId: string | null;
   currentSlideIndex: number;
   sceneMode: "normal";
   themeId: null;
   mediaClock: null;
 };
 
-/** Minimal session snapshot for subtarea 2 (no playlist/items). */
 export type SessionSnapshot = {
   id: string;
   code: string;
@@ -24,7 +49,8 @@ export type SessionSnapshot = {
   /** Monotonic seq assigned only by the hub. Starts at 0. */
   seq: number;
   live: SessionLiveState;
-  /** Smoke fields from session.touch */
+  playlist: SessionPlaylist;
+  /** Smoke fields from session.touch (protocol retained; UI hidden) */
   lastTouchAt?: string;
   touchNote?: string;
 };
@@ -42,9 +68,10 @@ export type SessionSnapshotPayload = SessionSnapshot;
 
 export type SessionUpdatedPayload = {
   seq: number;
+  live: SessionLiveState;
+  playlist: SessionPlaylist;
   lastTouchAt?: string;
   touchNote?: string;
-  live: SessionLiveState;
 };
 
 export type SessionEndedPayload = {
@@ -72,10 +99,52 @@ export type SessionTouchMessage = {
   payload?: { note?: string };
 };
 
+export type PlaylistItemAddMessage = {
+  type: "playlist.itemAdd";
+  payload: { item: PlaylistItem };
+};
+
+export type PlaylistItemUpdateMessage = {
+  type: "playlist.itemUpdate";
+  payload: { id: string; patch: Partial<Pick<PlaylistItem, "payload" | "order">> };
+};
+
+export type PlaylistItemRemoveMessage = {
+  type: "playlist.itemRemove";
+  payload: { id: string };
+};
+
+export type PlaylistReorderMessage = {
+  type: "playlist.reorder";
+  payload: { orderedIds: string[] };
+};
+
+export type LiveGoMessage = {
+  type: "live.go";
+  payload: { itemId: string };
+};
+
+export type LiveClearMessage = {
+  type: "live.clear";
+  payload?: Record<string, never>;
+};
+
+export type LiveSetSlideMessage = {
+  type: "live.setSlide";
+  payload: { index: number };
+};
+
 export type ClientToHubMessage =
   | ClientHelloMessage
   | ClientResyncMessage
-  | SessionTouchMessage;
+  | SessionTouchMessage
+  | PlaylistItemAddMessage
+  | PlaylistItemUpdateMessage
+  | PlaylistItemRemoveMessage
+  | PlaylistReorderMessage
+  | LiveGoMessage
+  | LiveClearMessage
+  | LiveSetSlideMessage;
 
 export type CreateSessionRequest = {
   mode?: SessionMode;
@@ -107,7 +176,7 @@ export type JoinSessionResponse = {
   snapshot: SessionSnapshot;
 };
 
-export const SHARED_PACKAGE_VERSION = "0.0.2-hub-ws" as const;
+export const SHARED_PACKAGE_VERSION = "0.0.4-registry-text" as const;
 
 export function emptyLiveState(): SessionLiveState {
   return {
@@ -117,4 +186,20 @@ export function emptyLiveState(): SessionLiveState {
     themeId: null,
     mediaClock: null,
   };
+}
+
+export function emptyPlaylist(): SessionPlaylist {
+  return { items: [] };
+}
+
+export function itemLabel(item: PlaylistItem): string {
+  if (item.type === "text") {
+    const title = item.payload.title?.trim();
+    if (title) {
+      return title;
+    }
+    const first = item.payload.slides[0]?.lines.find((l) => l.trim().length > 0);
+    return first?.trim() || "Texto";
+  }
+  return item.type;
 }

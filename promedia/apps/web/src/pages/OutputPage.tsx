@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { getItemType } from "@promedia/item-types";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 
 const locale = DEFAULT_LOCALE;
 
-/** Product Output shell — fullscreen-ready, no operator chrome (subtarea 3). */
+/** Product Output shell — renders live text via registry (subtarea 4). */
 export function OutputPage() {
   const [params] = useSearchParams();
   const {
@@ -16,6 +17,7 @@ export function OutputPage() {
     error,
     join,
     reconnect,
+    snapshot,
   } = useSessionConnection("output");
   const stageRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -29,6 +31,19 @@ export function OutputPage() {
   const queryCode = (params.get("code") ?? "").trim().toUpperCase();
   const queryToken =
     (params.get("token") ?? params.get("accessToken") ?? "").trim();
+
+  const liveItem = useMemo(() => {
+    const id = snapshot?.live.currentItemId;
+    if (!id || !snapshot) {
+      return null;
+    }
+    return snapshot.playlist.items.find((i) => i.id === id) ?? null;
+  }, [snapshot]);
+
+  const liveSlideIndex = snapshot?.live.currentSlideIndex ?? 0;
+  const OutputRenderer = liveItem
+    ? getItemType(liveItem.type)?.OutputRenderer
+    : undefined;
 
   useEffect(() => {
     const onFsChange = () => {
@@ -103,6 +118,8 @@ export function OutputPage() {
           <p className="output-waiting output-error">
             {t(locale, "output.joinFailed")}
           </p>
+        ) : liveItem && OutputRenderer ? (
+          <OutputRenderer item={liveItem} slideIndex={liveSlideIndex} />
         ) : (
           <p className="output-waiting">{t(locale, "output.waiting")}</p>
         )}

@@ -423,3 +423,205 @@ body {
   background: transparent;
   cursor: default;
 }
+
+/* —— Playlist / text (subtarea 4) —— */
+.playlist-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.playlist-list {
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0.5rem;
+  overflow: auto;
+}
+
+.playlist-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.playlist-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.playlist-row {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  cursor: pointer;
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.playlist-row.selected {
+  background: var(--accent-dim);
+}
+
+.playlist-row-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-live-badge {
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: #3ecf8e;
+  border: 1px solid #3ecf8e;
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+}
+
+.playlist-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  padding: 0 0.35rem 0.35rem;
+}
+
+.playlist-editor {
+  align-items: stretch;
+  justify-content: flex-start;
+  overflow: auto;
+}
+
+.zone-empty {
+  color: var(--muted);
+  text-align: center;
+  width: 100%;
+}
+
+.text-editor {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.text-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.text-editor-field input,
+.text-editor-field select,
+.text-editor-slide textarea {
+  padding: 0.4rem 0.55rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+
+.text-editor-slide textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.text-editor-slides {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.text-editor-slide-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.text-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.text-editor-actions-right {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.text-preview,
+.text-live-panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.text-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  padding: 0.75rem;
+  min-height: 8rem;
+}
+
+.text-line {
+  margin: 0.15rem 0;
+  font-size: 1.15rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.text-slide-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.text-output {
+  width: 100%;
+  max-width: 56rem;
+  min-height: 40vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.text-output-line {
+  margin: 0.35rem 0;
+  font-size: clamp(1.75rem, 4.5vw, 3.25rem);
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #f2f5f8;
+}

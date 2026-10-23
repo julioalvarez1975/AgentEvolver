@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ClientRole, HubMessage, SessionSnapshot } from "@promedia/shared";
+import type {
+  ClientRole,
+  HubMessage,
+  PlaylistItem,
+  SessionSnapshot,
+  TextPayload,
+} from "@promedia/shared";
 import { buildWsUrl, createSession, joinSession } from "../lib/hub";
 import { SessionSocket } from "../lib/session-socket";
 
@@ -23,6 +29,7 @@ function applyHubMessage(
       lastTouchAt: p.lastTouchAt ?? prev.lastTouchAt,
       touchNote: p.touchNote ?? prev.touchNote,
       live: p.live ?? prev.live,
+      playlist: p.playlist ?? prev.playlist,
     };
   }
   return prev;
@@ -30,7 +37,6 @@ function applyHubMessage(
 
 /**
  * Shared create/join + WS wiring for Control and Output shells.
- * Does not expose session.touch — product shell keeps that hidden.
  */
 export function useSessionConnection(role: ClientRole) {
   const [code, setCode] = useState("");
@@ -64,6 +70,10 @@ export function useSessionConnection(role: ClientRole) {
     });
     socketRef.current = sock;
     sock.connect();
+  }, []);
+
+  const send = useCallback((type: string, payload?: unknown) => {
+    socketRef.current?.send(type, payload);
   }, []);
 
   const create = useCallback(async () => {
@@ -120,6 +130,33 @@ export function useSessionConnection(role: ClientRole) {
     socketRef.current.reconnectWithResync();
   }, [attachSocket, role, sessionId, wsTicket]);
 
+  const addItem = useCallback(
+    (item: PlaylistItem) => send("playlist.itemAdd", { item }),
+    [send],
+  );
+  const updateItem = useCallback(
+    (id: string, patch: { payload?: TextPayload; order?: number }) =>
+      send("playlist.itemUpdate", { id, patch }),
+    [send],
+  );
+  const removeItem = useCallback(
+    (id: string) => send("playlist.itemRemove", { id }),
+    [send],
+  );
+  const reorder = useCallback(
+    (orderedIds: string[]) => send("playlist.reorder", { orderedIds }),
+    [send],
+  );
+  const goLive = useCallback(
+    (itemId: string) => send("live.go", { itemId }),
+    [send],
+  );
+  const clearLive = useCallback(() => send("live.clear", {}), [send]);
+  const setSlide = useCallback(
+    (index: number) => send("live.setSlide", { index }),
+    [send],
+  );
+
   return {
     code,
     accessToken,
@@ -133,6 +170,14 @@ export function useSessionConnection(role: ClientRole) {
     join,
     reconnect,
     detach,
+    send,
+    addItem,
+    updateItem,
+    removeItem,
+    reorder,
+    goLive,
+    clearLive,
+    setSlide,
     hasSession: Boolean(sessionId && wsTicket),
   };
 }
