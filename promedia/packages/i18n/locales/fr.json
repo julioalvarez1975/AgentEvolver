@@ -15,7 +15,6 @@
   "control.openOutput": "Ouvrir la sortie",
   "control.startProjection": "Démarrer la projection",
   "control.startProjectionBusy": "Démarrage…",
-  "control.startProjectionTip": "Cliquez sur « Démarrer la projection » : crée/reprend la session, ouvre la Sortie et demande le plein écran sur le 2e écran si Chrome le permet. Le navigateur ne peut pas toujours forcer l’autre moniteur sans permission ; sinon, glissez la fenêtre et utilisez Plein écran / F11. « Ouvrir la sortie » reste disponible.",
   "control.projectionOnSecondary": "Sortie ouverte sur l’autre moniteur (plein écran demandé si le navigateur le permet).",
   "control.projectionOpened": "Sortie ouverte. Si elle n’est pas sur le 2e moniteur ou en plein écran, glissez-la et utilisez Plein écran.",
   "control.dragHint": "Faites glisser la fenêtre de sortie vers le 2e moniteur ou projecteur et activez le plein écran.",

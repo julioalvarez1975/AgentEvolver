@@ -15,7 +15,6 @@
   "control.openOutput": "Abrir saída",
   "control.startProjection": "Iniciar projeção",
   "control.startProjectionBusy": "Iniciando…",
-  "control.startProjectionTip": "Clique em «Iniciar projeção»: cria/retoma a sessão, abre a Saída e pede tela cheia no 2.º monitor quando o Chrome permitir. O navegador nem sempre força o outro monitor sem permissão; se falhar, arraste a janela e use Tela cheia / F11. «Abrir saída» continua disponível.",
   "control.projectionOnSecondary": "Saída aberta no outro monitor (tela cheia pedida se o navegador permitir).",
   "control.projectionOpened": "Saída aberta. Se não estiver no 2.º monitor ou em tela cheia, arraste-a e use Tela cheia.",
   "control.dragHint": "Arraste a janela de saída para o 2.º monitor ou projetor e ative tela cheia.",

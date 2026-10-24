@@ -15,7 +15,6 @@
   "control.openOutput": "打开输出",
   "control.startProjection": "开始投影",
   "control.startProjectionBusy": "正在启动…",
-  "control.startProjectionTip": "点击「开始投影」：创建/恢复会话、打开输出窗口，并在 Chrome 允许时于第二屏请求全屏。浏览器未必能在无权限时强制第二屏；失败时请拖到投影仪并使用全屏/F11。「打开输出」仍可用。",
   "control.projectionOnSecondary": "已在另一显示器打开输出（若浏览器允许则请求全屏）。",
   "control.projectionOpened": "输出已打开。若不在第二屏或全屏，请拖动窗口并点击全屏。",
   "control.dragHint": "将输出窗口拖到第二显示器或投影仪并进入全屏。",

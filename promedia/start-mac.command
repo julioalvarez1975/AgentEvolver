@@ -1,5 +1,6 @@
 #!/bin/bash
-# ProMedia — doble clic en Finder (Mac) para arrancar hub + web.
+# ProMedia — doble clic en Finder (Mac) para arrancar hub + web
+# y abrir Control en el navegador predeterminado.
 # Mantiene la ventana abierta si algo falla.
 
 set -e
@@ -61,6 +62,47 @@ if [ ! -d node_modules ] || [ ! -f node_modules/.modules.yaml ]; then
   echo ""
 fi
 
+# Espera a que Vite responda y abre Control (puerto real, no asume 5173).
+# Corre en segundo plano mientras pnpm dev ocupa la terminal.
+open_control_when_ready() {
+  local max_wait="${PROMEDIA_OPEN_WAIT_S:-90}"
+  local elapsed=0
+  local port url
+  echo "Cuando hub+web estén listos, se abrirá Control en el navegador…"
+  while [ "$elapsed" -lt "$max_wait" ]; do
+    for port in 5173 5174 5175 5176 5177 5178; do
+      if curl -sf -o /dev/null --connect-timeout 1 "http://127.0.0.1:${port}/" 2>/dev/null; then
+        url="http://localhost:${port}/control"
+        echo ""
+        echo "Abriendo Control → ${url}"
+        if command -v open >/dev/null 2>&1; then
+          open "$url" || true
+        elif command -v xdg-open >/dev/null 2>&1; then
+          xdg-open "$url" >/dev/null 2>&1 || true
+        else
+          echo "Abrí manualmente: ${url}"
+        fi
+        return 0
+      fi
+    done
+    sleep 1
+    elapsed=$((elapsed + 1))
+  done
+  echo ""
+  echo "AVISO: no se detectó Vite a tiempo."
+  echo "Mirás en los logs la línea [dev] ready — Control http://… y abrila."
+  echo "También podés abrir ProMedia-Control.url (asume :5173) o open-control.html."
+  return 0
+}
+
+open_control_when_ready &
+OPENER_PID=$!
+
+cleanup_opener() {
+  kill "$OPENER_PID" 2>/dev/null || true
+}
+trap cleanup_opener EXIT INT TERM
+
 echo "Arrancando hub + web (pnpm dev)…"
 echo "Esperá la línea [dev] ready — ahí está la URL REAL de Control (puede no ser :5173)."
 echo "Hub health: http://localhost:8787/health"
@@ -68,6 +110,7 @@ echo "Una sola instancia a la vez. Para detener: Ctrl+C en esta ventana."
 echo ""
 
 pnpm dev || {
+  cleanup_opener
   echo ""
   echo "ERROR: pnpm dev terminó con fallo."
   echo "¿Estás en la carpeta correcta? Debe ser …/AgentEvolver/promedia"
@@ -77,9 +120,10 @@ pnpm dev || {
   echo "  lsof -nP -iTCP:8787 -sTCP:LISTEN"
   echo "  lsof -nP -iTCP:5173 -sTCP:LISTEN"
   echo "  kill <PID>"
-  echo "Luego volvé a abrir start-mac.command."
+  echo "Luego volvé a abrir start-mac.command (o Abrir-ProMedia.command)."
   read -r -p "Pulsá Enter para cerrar…"
   exit 1
 }
 
+cleanup_opener
 read -r -p "ProMedia se detuvo. Pulsá Enter para cerrar…"
