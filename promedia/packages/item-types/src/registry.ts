@@ -23,6 +23,8 @@ export type MediaTypeModule = {
     onSlideIndexChange?: (index: number) => void;
     assetSrc?: string;
     onFitChange?: (fit: ImageFit) => void;
+    /** Video/YouTube: true when this item is live — avoid a second YT iframe. */
+    projecting?: boolean;
   }>;
   LivePanel: ComponentType<{
     item: PlaylistItem;

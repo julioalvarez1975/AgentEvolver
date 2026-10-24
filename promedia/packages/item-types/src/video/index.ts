@@ -10,4 +10,6 @@ export {
 export { VideoPreview } from "./Preview.js";
 export { VideoLivePanel } from "./LivePanel.js";
 export { VideoOutputRenderer } from "./OutputRenderer.js";
+export { YouTubeThumb, youtubeThumbUrl } from "./YouTubeThumb.js";
+export { youtubeErrorMessage } from "./YouTubePlayer.js";
 export { MEDIA_CLOCK_DRIFT_MS, shouldCorrectSeek } from "./clock.js";

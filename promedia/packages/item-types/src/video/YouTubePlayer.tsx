@@ -19,6 +19,7 @@ declare global {
         el: string | HTMLElement,
         opts: {
           videoId: string;
+          host?: string;
           playerVars?: Record<string, string | number>;
           events?: {
             onReady?: (e: { target: YtPlayer }) => void;
@@ -58,6 +59,23 @@ function loadYouTubeApi(): Promise<void> {
   return apiPromise;
 }
 
+/** Map YouTube IFrame API onError codes to Spanish operator messages. */
+export function youtubeErrorMessage(code: number): string {
+  switch (code) {
+    case 101:
+    case 150:
+      return "Este vídeo no permite embed (el dueño lo bloqueó en YouTube).";
+    case 100:
+      return "Vídeo no encontrado o privado en YouTube.";
+    case 2:
+      return "Parámetro de YouTube no válido (revisá la URL / videoId).";
+    case 5:
+      return "Error HTML5 al reproducir YouTube.";
+    default:
+      return `Error de YouTube (${code}). Si Control también embebe el mismo vídeo, puede ser conflicto de doble reproductor — la salida Output debe ser el único embed.`;
+  }
+}
+
 export type YouTubePlayerProps = {
   videoId: string;
   mediaClock?: MediaClock | null;
@@ -92,15 +110,20 @@ export function YouTubePlayer({
         return;
       }
       playerRef.current?.destroy();
+      const origin =
+        typeof window !== "undefined" ? window.location.origin : undefined;
       playerRef.current = new window.YT.Player(elId, {
         videoId,
+        host: "https://www.youtube-nocookie.com",
         playerVars: {
           controls: preview ? 1 : 0,
           rel: 0,
           modestbranding: 1,
           playsinline: 1,
+          enablejsapi: 1,
+          ...(origin ? { origin } : {}),
           loop: loop ? 1 : 0,
-          playlist: loop ? videoId : undefined as unknown as string,
+          playlist: loop ? videoId : (undefined as unknown as string),
           autoplay: 0,
           mute: muted ? 1 : 0,
         },
@@ -113,8 +136,8 @@ export function YouTubePlayer({
             }
             setReady(true);
           },
-          onError: () => {
-            setError("youtube_embed_error");
+          onError: (e) => {
+            setError(youtubeErrorMessage(e.data));
           },
         },
       });

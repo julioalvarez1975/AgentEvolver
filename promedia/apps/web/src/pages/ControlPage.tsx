@@ -140,7 +140,8 @@ export function ControlPage() {
       return;
     }
     const url = codeOutputUrl(session.code);
-    const win = window.open(url, "promedia-output", "noopener,noreferrer");
+    // Keep referrer/origin for YouTube embeds in the popup (noreferrer breaks them).
+    const win = window.open(url, "promedia-output", "noopener");
     if (!win) {
       setPopupBlockedUrl(url);
       return;
@@ -496,7 +497,7 @@ export function ControlPage() {
       {popupBlockedUrl ? (
         <div className="control-banner" role="status">
           <p>{t(locale, "control.popupBlocked")}</p>
-          <a href={popupBlockedUrl} target="_blank" rel="noreferrer">
+          <a href={popupBlockedUrl} target="_blank" rel="noopener">
             {popupBlockedUrl}
           </a>
         </div>
@@ -776,6 +777,10 @@ export function ControlPage() {
                 assetSrc={previewSrc}
                 onFitChange={
                   selectedItem.type === "image" ? onFitChange : undefined
+                }
+                projecting={
+                  selectedItem.type === "video" &&
+                  selectedItem.id === liveItemId
                 }
               />
             ) : (
