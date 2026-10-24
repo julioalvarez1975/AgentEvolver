@@ -29,12 +29,16 @@ export function OutputPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const autoJoinStarted = useRef(false);
+  const autofullscreenTried = useRef(false);
   const joinRef = useRef(join);
   joinRef.current = join;
 
   const queryCode = (params.get("code") ?? "").trim().toUpperCase();
   const queryToken =
     (params.get("token") ?? params.get("accessToken") ?? "").trim();
+  const wantAutofullscreen =
+    params.get("autofullscreen") === "1" ||
+    params.get("autofullscreen") === "true";
 
   const liveItem = useMemo(() => {
     const id = snapshot?.live.currentItemId;
@@ -102,7 +106,7 @@ export function OutputPage() {
         await el.requestFullscreen();
       }
     } catch {
-      // Browser denied — F11 hint remains visible
+      // Browser denied — F11 / button hint remains visible
     }
   };
 
@@ -115,6 +119,55 @@ export function OutputPage() {
       // ignore
     }
   };
+
+  // postMessage from Control — best-effort fullscreen (needs gesture in many browsers).
+  useEffect(() => {
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) {
+        return;
+      }
+      const data = ev.data as { type?: string } | null;
+      if (data?.type !== "promedia.requestFullscreen") {
+        return;
+      }
+      if (document.fullscreenElement) {
+        return;
+      }
+      const el = stageRef.current;
+      if (el?.requestFullscreen) {
+        void el.requestFullscreen().catch(() => undefined);
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  // ?autofullscreen=1 — try a few times after load / join.
+  useEffect(() => {
+    if (!wantAutofullscreen || autofullscreenTried.current) {
+      return;
+    }
+    if (!hasSession && wsStatus === "connecting") {
+      return;
+    }
+    autofullscreenTried.current = true;
+    const timers = [200, 600, 1500].map((ms) =>
+      window.setTimeout(() => {
+        if (document.fullscreenElement) {
+          return;
+        }
+        const el = stageRef.current;
+        if (el?.requestFullscreen) {
+          void el.requestFullscreen().catch(() => undefined);
+        }
+      }, ms),
+    );
+    return () => {
+      for (const id of timers) {
+        window.clearTimeout(id);
+      }
+    };
+  }, [wantAutofullscreen, hasSession, wsStatus]);
 
   const showJoinForm = !hasSession && !queryCode && !queryToken;
 

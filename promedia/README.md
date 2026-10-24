@@ -75,11 +75,14 @@ Sin hub, Control muestra: *“El hub no está corriendo…”* con botón para r
 
 ### Ver Control y Output
 
-1. Abre **http://localhost:5173/control**
-2. Pulsa **Crear sesión** — el pie debe decir **WS conectado** y un **seq** ≥ 0
-3. Pulsa **Abrir salida** (o abre http://localhost:5173/output?code=`CÓDIGO`)
-4. Arrastra la ventana de Output al 2.º monitor / proyector → **Pantalla completa**
-5. Añade texto / imagen / vídeo / YouTube → **Go Live**
+1. Abre **http://localhost:5173/control** (o la URL real que imprima Vite)
+2. Al cargar (hub sano), Control **crea o reanuda** la sesión sola — el pie debe decir **WS conectado**
+3. Pulsa **Iniciar proyección** (CTA principal, un clic): abre/enfoca **Salida**, intenta colocarla en el **2.º monitor** (Chrome: Window Management / `getScreenDetails` si hay permiso) y pide **pantalla completa**
+4. Si el navegador no puede forzar el otro monitor o el fullscreen sin gesto, arrastra la ventana al proyector y pulsa **Pantalla completa** / F11 en Salida (el tip en Control lo explica)
+5. **Abrir salida** sigue disponible (abre/enfoca sin re-crear sesión)
+6. Añade texto / imagen / vídeo / YouTube → **Go Live**
+
+**Límite del navegador:** no se puede abrir el popup de Salida ni pedir el 2.º monitor sin un gesto del usuario (y a veces sin permiso). Por eso el arranque automático prepara la sesión/WS; el clic en **Iniciar proyección** completa ventanas + fullscreen.
 
 Atajos en Control (fuera de inputs): `G` Go Live · `O` Abrir salida · `L`/`B`/`C`/`N` escenas · `1`/`2`/`3` temas · `←`/`→` slides.
 
@@ -124,4 +127,5 @@ Ver `scripts/qa-church-event.md`.
 
 - Assets de archivo son **por sesión**; al cargar una playlist guardada, ítems de archivo sin asset se omiten (texto/YouTube sí).
 - Adapter S3 = stub (escribe en disco local hasta cablear SDK completo); LAN siempre funciona.
+- **Multi-monitor / fullscreen:** depende del navegador. Chrome puede usar la Window Management API; Safari/Firefox suelen exigir arrastrar la ventana y un clic en pantalla completa. Los popups bloqueados muestran la URL de Salida.
 - Sin Biblia / Stage / remoto / import Quelea (fase 2).

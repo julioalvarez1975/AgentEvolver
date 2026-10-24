@@ -67,6 +67,11 @@ body {
   border-color: var(--accent);
 }
 
+.btn-start-projection {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
 .btn-ghost {
   background: transparent;
   border-color: transparent;
@@ -206,7 +211,9 @@ body {
   padding: 0.55rem 1rem;
   background: #152033;
   color: #b8c9dc;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  max-width: 72rem;
   border-bottom: 1px solid var(--border);
 }
 

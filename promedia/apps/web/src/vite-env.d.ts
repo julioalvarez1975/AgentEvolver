@@ -9,3 +9,24 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** Chrome Window Management API (optional). */
+interface ScreenDetailed extends Screen {
+  readonly availLeft: number;
+  readonly availTop: number;
+  readonly left: number;
+  readonly top: number;
+  readonly isPrimary: boolean;
+  readonly isInternal: boolean;
+  readonly devicePixelRatio: number;
+  readonly label: string;
+}
+
+interface ScreenDetails {
+  readonly screens: ReadonlyArray<ScreenDetailed>;
+  readonly currentScreen: ScreenDetailed;
+}
+
+interface Window {
+  getScreenDetails?: () => Promise<ScreenDetails>;
+}
