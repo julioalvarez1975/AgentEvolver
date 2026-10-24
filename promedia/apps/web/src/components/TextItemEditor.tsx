@@ -1,15 +1,13 @@
 import { useRef, useState } from "react";
+import { useLocale } from "../locale/LocaleContext";
 import type { TextAlign, TextPayload, TextSlide } from "@promedia/shared";
 import { cryptoRandomId } from "@promedia/item-types";
-import { DEFAULT_LOCALE, t } from "@promedia/i18n";
 import {
   TEXT_IMPORT_MAX_BYTES,
   TEXT_IMPORT_MAX_SLIDES,
   importFileToTextSlides,
   isSupportedTextImport,
 } from "../lib/textImport";
-
-const locale = DEFAULT_LOCALE;
 
 export type TextItemEditorProps = {
   initial: TextPayload;
@@ -27,6 +25,8 @@ function textToLines(text: string): string[] {
 
 /** One textarea per slide (Q2) + PDF/XML/text import. */
 export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProps) {
+  const { t } = useLocale();
+
   const [title, setTitle] = useState(initial.title ?? "");
   const [align, setAlign] = useState<TextAlign>(initial.align ?? "center");
   const [slides, setSlides] = useState<TextSlide[]>(
@@ -65,11 +65,11 @@ export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProp
     }
     setImportHint(null);
     if (!isSupportedTextImport(file)) {
-      setImportHint(t(locale, "text.importUnsupported"));
+      setImportHint(t("text.importUnsupported"));
       return;
     }
     if (file.size > TEXT_IMPORT_MAX_BYTES) {
-      setImportHint(t(locale, "text.importTooLarge"));
+      setImportHint(t("text.importTooLarge"));
       return;
     }
     setImporting(true);
@@ -81,11 +81,11 @@ export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProp
       }
       setImportHint(
         result.truncated
-          ? t(locale, "text.importTruncated").replace(
+          ? t("text.importTruncated").replace(
               "{n}",
               String(TEXT_IMPORT_MAX_SLIDES),
             )
-          : t(locale, "text.importOk").replace(
+          : t("text.importOk").replace(
               "{n}",
               String(result.slides.length),
             ),
@@ -93,11 +93,11 @@ export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProp
     } catch (err) {
       const msg = String(err);
       if (msg.includes("file_too_large")) {
-        setImportHint(t(locale, "text.importTooLarge"));
+        setImportHint(t("text.importTooLarge"));
       } else if (msg.includes("unsupported_type")) {
-        setImportHint(t(locale, "text.importUnsupported"));
+        setImportHint(t("text.importUnsupported"));
       } else {
-        setImportHint(t(locale, "text.importFailed"));
+        setImportHint(t("text.importFailed"));
       }
     } finally {
       setImporting(false);
@@ -118,22 +118,22 @@ export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProp
   return (
     <div className="text-editor">
       <label className="text-editor-field">
-        {t(locale, "text.editorTitle")}
+        {t("text.editorTitle")}
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder={t(locale, "text.editorTitlePlaceholder")}
+          placeholder={t("text.editorTitlePlaceholder")}
         />
       </label>
       <label className="text-editor-field">
-        {t(locale, "text.editorAlign")}
+        {t("text.editorAlign")}
         <select
           value={align}
           onChange={(e) => setAlign(e.target.value as TextAlign)}
         >
-          <option value="left">{t(locale, "text.alignLeft")}</option>
-          <option value="center">{t(locale, "text.alignCenter")}</option>
-          <option value="right">{t(locale, "text.alignRight")}</option>
+          <option value="left">{t("text.alignLeft")}</option>
+          <option value="center">{t("text.alignCenter")}</option>
+          <option value="right">{t("text.alignRight")}</option>
         </select>
       </label>
 
@@ -152,10 +152,10 @@ export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProp
           onClick={() => importInputRef.current?.click()}
         >
           {importing
-            ? t(locale, "text.importing")
-            : t(locale, "text.importFile")}
+            ? t("text.importing")
+            : t("text.importFile")}
         </button>
-        <p className="text-editor-import-hint">{t(locale, "text.importLimits")}</p>
+        <p className="text-editor-import-hint">{t("text.importLimits")}</p>
         {importHint ? (
           <p className="text-editor-import-status" role="status">
             {importHint}
@@ -168,7 +168,7 @@ export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProp
           <div key={slide.id} className="text-editor-slide">
             <div className="text-editor-slide-head">
               <span>
-                {t(locale, "text.slide")} {index + 1}
+                {t("text.slide")} {index + 1}
               </span>
               <button
                 type="button"
@@ -176,14 +176,14 @@ export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProp
                 disabled={slides.length <= 1}
                 onClick={() => removeSlide(index)}
               >
-                {t(locale, "text.removeSlide")}
+                {t("text.removeSlide")}
               </button>
             </div>
             <textarea
               rows={4}
               value={slideToText(slide)}
               onChange={(e) => updateSlideText(index, e.target.value)}
-              placeholder={t(locale, "text.slidePlaceholder")}
+              placeholder={t("text.slidePlaceholder")}
             />
           </div>
         ))}
@@ -191,14 +191,14 @@ export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProp
 
       <div className="text-editor-actions">
         <button type="button" className="btn" onClick={addSlide}>
-          {t(locale, "text.addSlide")}
+          {t("text.addSlide")}
         </button>
         <div className="text-editor-actions-right">
           <button type="button" className="btn" onClick={onCancel}>
-            {t(locale, "text.cancel")}
+            {t("text.cancel")}
           </button>
           <button type="button" className="btn btn-primary" onClick={save}>
-            {t(locale, "text.save")}
+            {t("text.save")}
           </button>
         </div>
       </div>

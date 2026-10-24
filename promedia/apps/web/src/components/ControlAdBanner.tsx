@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { DEFAULT_LOCALE, t } from "@promedia/i18n";
+import { useLocale } from "../locale/LocaleContext";
 import {
   GAM_HEADER_SIZES,
   getGamConfig,
@@ -7,7 +7,6 @@ import {
 } from "../lib/gam";
 import { StatusTip } from "./StatusTip";
 
-const locale = DEFAULT_LOCALE;
 const GPT_SCRIPT_SRC = "https://securepubads.g.doubleclick.net/tag/js/gpt.js";
 
 type GptSize = [number, number] | "fluid";
@@ -168,6 +167,8 @@ function destroyHeaderSlot(): void {
  * Contained (overflow + low z-index) so creatives cannot cover Guion / Preview / Live.
  */
 export function ControlAdBanner() {
+  const { t } = useLocale();
+
   const config = getGamConfig();
   const [loadError, setLoadError] = useState(false);
   const mounted = useRef(true);
@@ -209,13 +210,13 @@ export function ControlAdBanner() {
       <div
         className="control-ad-slot control-ad-slot-placeholder"
         role="complementary"
-        aria-label={t(locale, "control.adSlotLabel")}
+        aria-label={t("control.adSlotLabel")}
       >
         <span className="control-ad-placeholder-tip">
           <StatusTip
             tone="info"
-            label={t(locale, "control.adSlotLabel")}
-            message={`${t(locale, "control.adSlotPlaceholder")} — ${t(locale, "control.adSlotHint")}`}
+            label={t("control.adSlotLabel")}
+            message={`${t("control.adSlotPlaceholder")} — ${t("control.adSlotHint")}`}
           />
         </span>
       </div>
@@ -226,15 +227,15 @@ export function ControlAdBanner() {
     <div
       className="control-ad-slot"
       role="complementary"
-      aria-label={t(locale, "control.adSlotLabel")}
+      aria-label={t("control.adSlotLabel")}
     >
       {loadError ? (
         <div className="control-ad-slot-placeholder control-ad-slot-error">
           <span className="control-ad-placeholder-tip">
             <StatusTip
               tone="warn"
-              label={t(locale, "control.statusTipWarn")}
-              message={t(locale, "control.adSlotLoadError")}
+              label={t("control.statusTipWarn")}
+              message={t("control.adSlotLoadError")}
             />
           </span>
         </div>

@@ -5,7 +5,6 @@ import {
   getItemType,
   parseYouTubeUrl,
 } from "@promedia/item-types";
-import { DEFAULT_LOCALE, t } from "@promedia/i18n";
 import type {
   BiblePayload,
   ImageFit,
@@ -17,15 +16,22 @@ import type {
   VideoPayload,
 } from "@promedia/shared";
 import { DEFAULT_THEME_ID, itemHasSlides } from "@promedia/shared";
+import { AboutDialog } from "../components/AboutDialog";
 import { BibleDialog } from "../components/BibleDialog";
 import { ControlAdBanner } from "../components/ControlAdBanner";
+import { ControlHeaderToolbar } from "../components/ControlHeaderToolbar";
+import {
+  ControlNotifications,
+  type ProMediaNotice,
+} from "../components/ControlNotifications";
 import { LinkAddDialog } from "../components/LinkAddDialog";
+import { LiveClockStrip } from "../components/LiveClockStrip";
 import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { SchedulePanel } from "../components/SchedulePanel";
 import { StatusTip } from "../components/StatusTip";
 import { TextItemEditor } from "../components/TextItemEditor";
-import { ThemePanel } from "../components/ThemePanel";
 import { IconGoLive, IconNext, IconPrev } from "../components/UiIcons";
+import { useLocale } from "../locale/LocaleContext";
 import { useControlShortcuts } from "../hooks/useControlShortcuts";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import {
@@ -50,8 +56,6 @@ import {
 } from "../lib/textImport";
 import { themeSurfaceStyle } from "../lib/theme";
 
-const locale = DEFAULT_LOCALE;
-
 function assetSrcFor(
   sessionId: string,
   wsTicket: string,
@@ -71,6 +75,7 @@ function assetSrcFor(
 
 /** Product Control — text + image + video playlist (subtarea 6). */
 export function ControlPage() {
+  const { t, locale } = useLocale();
   const session = useSessionConnection("control");
   const [joinCode, setJoinCode] = useState("");
   const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null);
@@ -89,9 +94,45 @@ export function ControlPage() {
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   const [uploadHint, setUploadHint] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [notices, setNotices] = useState<ProMediaNotice[]>([]);
+  /** Remember video durations (preview metadata) for remaining-time / scrub max. */
+  const [durationByItemId, setDurationByItemId] = useState<
+    Record<string, number>
+  >({});
   const unifiedInputRef = useRef<HTMLInputElement>(null);
   /** Track item count for sequential multi-file order without stale closure. */
   const itemsLenRef = useRef(0);
+  const noticeSeqRef = useRef(0);
+  const lastWsStatusRef = useRef<string | null>(null);
+
+  const pushNotice = (
+    tone: ProMediaNotice["tone"],
+    text: string,
+  ) => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return;
+    }
+    noticeSeqRef.current += 1;
+    const id = `n-${noticeSeqRef.current}`;
+    setNotices((prev) => {
+      const next = [
+        { id, at: Date.now(), tone, text: trimmed },
+        ...prev,
+      ];
+      return next.slice(0, 80);
+    });
+  };
+
+  const rememberDuration = (itemId: string | null, ms: number) => {
+    if (!itemId || !(ms > 0)) {
+      return;
+    }
+    setDurationByItemId((prev) =>
+      prev[itemId] === ms ? prev : { ...prev, [itemId]: ms },
+    );
+  };
 
   const items = session.snapshot?.playlist.items ?? [];
   itemsLenRef.current = items.length;
@@ -124,10 +165,60 @@ export function ControlPage() {
     session.setSceneMode(sceneMode === mode ? "normal" : mode);
   };
 
-  const sceneBtnClass = (mode: SceneMode) =>
-    sceneMode === mode ? "btn btn-scene active" : "btn btn-scene";
-
   const wsReady = session.wsStatus === "open";
+
+  // ProMedia notifications: WS / hub / projection / upload hints.
+  useEffect(() => {
+    const prev = lastWsStatusRef.current;
+    const cur = session.hubUnreachable
+      ? "hub-down"
+      : session.wsStatus;
+    if (prev === cur) {
+      return;
+    }
+    lastWsStatusRef.current = cur;
+    if (cur === "hub-down") {
+      pushNotice("error", t("control.hubUnreachable"));
+    } else if (cur === "open") {
+      pushNotice("ok", t("control.wsConnected"));
+    } else if (cur === "connecting") {
+      pushNotice("info", t("control.wsConnecting"));
+    } else if (cur === "closed" || cur === "error") {
+      pushNotice("warn", t("control.wsDisconnected"));
+    }
+  }, [
+    session.wsStatus,
+    session.hubUnreachable,
+    t,
+  ]);
+
+  useEffect(() => {
+    if (projectionNote) {
+      pushNotice("info", projectionNote);
+    }
+  }, [projectionNote]);
+
+  useEffect(() => {
+    if (uploadHint) {
+      pushNotice("warn", uploadHint);
+    }
+  }, [uploadHint]);
+
+  useEffect(() => {
+    if (popupBlockedUrl) {
+      pushNotice("warn", t("control.popupBlocked"));
+    }
+  }, [popupBlockedUrl, t]);
+
+  useEffect(() => {
+    if (
+      session.error &&
+      !session.hubUnreachable &&
+      !session.error.startsWith("HUB_UNREACHABLE")
+    ) {
+      pushNotice("error", session.error);
+    }
+  }, [session.error, session.hubUnreachable]);
   const sessionReady = session.hasSession;
   /** Playlist chrome needs a session; mutations need WS (auto-reconnects if down). */
   const canMutate = sessionReady && wsReady;
@@ -218,7 +309,7 @@ export function ControlPage() {
    */
   const onStartProjection = () => {
     if (session.hubUnreachable) {
-      setProjectionNote(t(locale, "control.hubUnreachable"));
+      setProjectionNote(t("control.hubUnreachable"));
       void session.checkHubHealth();
       return;
     }
@@ -249,14 +340,14 @@ export function ControlPage() {
         });
         if (result.popupBlocked) {
           setPopupBlockedUrl(result.url);
-          setProjectionNote(t(locale, "control.popupBlocked"));
+          setProjectionNote(t("control.popupBlocked"));
           return;
         }
         setPopupBlockedUrl(null);
         if (result.placement?.onSecondary) {
-          setProjectionNote(t(locale, "control.projectionOnSecondary"));
+          setProjectionNote(t("control.projectionOnSecondary"));
         } else {
-          setProjectionNote(t(locale, "control.projectionOpened"));
+          setProjectionNote(t("control.projectionOpened"));
         }
       } catch (err) {
         setProjectionNote(String(err));
@@ -323,12 +414,12 @@ export function ControlPage() {
       return true;
     }
     if (session.hubUnreachable) {
-      setUploadHint(t(locale, "control.hubUnreachable"));
+      setUploadHint(t("control.hubUnreachable"));
       void session.checkHubHealth();
       return false;
     }
     session.reconnect();
-    setUploadHint(t(locale, "control.wsDisconnectedHint"));
+    setUploadHint(t("control.wsDisconnectedHint"));
     return false;
   };
 
@@ -343,7 +434,7 @@ export function ControlPage() {
       payload,
     };
     if (!session.addItem(item)) {
-      setUploadHint(t(locale, "control.wsDisconnectedHint"));
+      setUploadHint(t("control.wsDisconnectedHint"));
       session.reconnect();
       return;
     }
@@ -394,7 +485,7 @@ export function ControlPage() {
       payload,
     };
     if (!session.addItem(item)) {
-      setUploadHint(t(locale, "control.wsDisconnectedHint"));
+      setUploadHint(t("control.wsDisconnectedHint"));
       session.reconnect();
       return;
     }
@@ -402,7 +493,7 @@ export function ControlPage() {
     setPreviewSlideIndex(0);
     closeBibleDialog();
     if (payload.fromCache) {
-      setUploadHint(t(locale, "bible.addedFromCache"));
+      setUploadHint(t("bible.addedFromCache"));
     } else {
       setUploadHint(null);
     }
@@ -414,7 +505,7 @@ export function ControlPage() {
     }
     const parsed = parseYouTubeUrl(url);
     if (!parsed) {
-      setUploadHint(t(locale, "video.youtubeInvalid"));
+      setUploadHint(t("video.youtubeInvalid"));
       return;
     }
     const payload: VideoPayload = {
@@ -432,13 +523,13 @@ export function ControlPage() {
       payload,
     };
     if (!session.addItem(item)) {
-      setUploadHint(t(locale, "control.wsDisconnectedHint"));
+      setUploadHint(t("control.wsDisconnectedHint"));
       session.reconnect();
       return;
     }
     setSelectedItemId(item.id);
     closeLinkDialog();
-    setUploadHint(t(locale, "video.youtubeCaveat"));
+    setUploadHint(t("video.youtubeCaveat"));
   };
 
   const addGenericLink = (url: string) => {
@@ -452,7 +543,7 @@ export function ControlPage() {
       // keep raw
     }
     const payload: TextPayload = {
-      title: host || t(locale, "link.itemTitle"),
+      title: host || t("link.itemTitle"),
       align: "center",
       slides: [
         {
@@ -468,14 +559,14 @@ export function ControlPage() {
       payload,
     };
     if (!session.addItem(item)) {
-      setUploadHint(t(locale, "control.wsDisconnectedHint"));
+      setUploadHint(t("control.wsDisconnectedHint"));
       session.reconnect();
       return;
     }
     setSelectedItemId(item.id);
     setPreviewSlideIndex(0);
     closeLinkDialog();
-    setUploadHint(t(locale, "link.added"));
+    setUploadHint(t("link.added"));
   };
 
   const ingestOneFile = async (
@@ -484,11 +575,11 @@ export function ControlPage() {
   ): Promise<{ ok: boolean; itemId?: string; hint?: string }> => {
     const kind = classifyMediaFile(file);
     if (kind === "unsupported") {
-      return { ok: false, hint: t(locale, "text.importUnsupported") };
+      return { ok: false, hint: t("text.importUnsupported") };
     }
     if (kind === "text") {
       if (file.size > TEXT_IMPORT_MAX_BYTES) {
-        return { ok: false, hint: t(locale, "text.importTooLarge") };
+        return { ok: false, hint: t("text.importTooLarge") };
       }
       try {
         const result = await importFileToTextSlides(file);
@@ -504,17 +595,17 @@ export function ControlPage() {
           payload,
         };
         if (!session.addItem(item)) {
-          return { ok: false, hint: t(locale, "control.wsDisconnectedHint") };
+          return { ok: false, hint: t("control.wsDisconnectedHint") };
         }
         return {
           ok: true,
           itemId: item.id,
           hint: result.truncated
-            ? t(locale, "text.importTruncated").replace(
+            ? t("text.importTruncated").replace(
                 "{n}",
                 String(TEXT_IMPORT_MAX_SLIDES),
               )
-            : t(locale, "text.importAdded").replace(
+            : t("text.importAdded").replace(
                 "{n}",
                 String(result.slides.length),
               ),
@@ -522,29 +613,29 @@ export function ControlPage() {
       } catch (err) {
         const msg = String(err);
         if (msg.includes("file_too_large")) {
-          return { ok: false, hint: t(locale, "text.importTooLarge") };
+          return { ok: false, hint: t("text.importTooLarge") };
         }
         if (msg.includes("unsupported_type")) {
-          return { ok: false, hint: t(locale, "text.importUnsupported") };
+          return { ok: false, hint: t("text.importUnsupported") };
         }
-        return { ok: false, hint: t(locale, "text.importFailed") };
+        return { ok: false, hint: t("text.importFailed") };
       }
     }
 
     if (!session.sessionId || !session.wsTicket) {
-      return { ok: false, hint: t(locale, "control.wsDisconnectedHint") };
+      return { ok: false, hint: t("control.wsDisconnectedHint") };
     }
 
     const hints: string[] = [];
     if (kind === "image" && file.size > LARGE_IMAGE_WARN_BYTES) {
-      hints.push(t(locale, "image.largeWarning"));
+      hints.push(t("image.largeWarning"));
     }
     if (kind === "video") {
       if (file.type === "video/quicktime") {
-        hints.push(t(locale, "video.quicktimeWarning"));
+        hints.push(t("video.quicktimeWarning"));
       }
       if (file.size > LARGE_VIDEO_WARN_BYTES) {
-        hints.push(t(locale, "video.largeWarning"));
+        hints.push(t("video.largeWarning"));
       }
     }
 
@@ -638,7 +729,7 @@ export function ControlPage() {
         setUploadHint(hints.slice(-3).join(" · "));
       } else if (added > 1) {
         setUploadHint(
-          t(locale, "playlist.filesAdded").replace("{n}", String(added)),
+          t("playlist.filesAdded").replace("{n}", String(added)),
         );
       }
     } finally {
@@ -808,6 +899,19 @@ export function ControlPage() {
   );
   const liveSrc = assetSrcFor(session.sessionId, session.wsTicket, liveItem);
 
+  const liveDurationMs =
+    (liveItemId && durationByItemId[liveItemId]) || 0;
+  const localeTag =
+    locale === "zh-CN"
+      ? "zh-CN"
+      : locale === "en"
+        ? "en-US"
+        : locale === "pt"
+          ? "pt-BR"
+          : locale === "fr"
+            ? "fr-FR"
+            : "es-ES";
+
   return (
     <div className="control-shell">
       <header className="control-header">
@@ -821,25 +925,25 @@ export function ControlPage() {
             decoding="async"
           />
           <h1 className="control-brand-title">
-            {t(locale, "control.headerTitle")}
+            {t("control.headerTitle")}
           </h1>
         </div>
 
         <div className="control-header-cluster">
-          <div className="control-session-actions">
-            <button
-              type="button"
-              className="btn btn-primary btn-start-projection"
-              disabled={projectionBusy || session.hubUnreachable}
-              title={t(locale, "shortcuts.startProjection")}
-              aria-label={t(locale, "shortcuts.startProjection")}
-              onClick={onStartProjection}
-            >
-              {projectionBusy
-                ? t(locale, "control.startProjectionBusy")
-                : t(locale, "control.startProjection")}
-            </button>
-            {!session.hasSession ? (
+          <ControlHeaderToolbar
+            projectionBusy={projectionBusy}
+            hubUnreachable={session.hubUnreachable}
+            canMutate={canMutate}
+            hasSession={session.hasSession}
+            sceneMode={sceneMode}
+            themeId={themeId}
+            themeOverrides={themeOverrides}
+            onProject={onStartProjection}
+            onSceneNormal={() => session.setSceneMode("normal")}
+            onToggleScene={(mode) => toggleSceneMode(mode)}
+            onThemeChange={(patch) => session.setTheme(patch)}
+            onAbout={() => setAboutOpen(true)}
+            sessionFallback={
               <>
                 <button
                   type="button"
@@ -853,14 +957,14 @@ export function ControlPage() {
                       .catch(() => undefined);
                   }}
                 >
-                  {t(locale, "control.createSession")}
+                  {t("control.createSession")}
                 </button>
                 <label className="field-inline">
-                  <span className="sr-only">{t(locale, "control.code")}</span>
+                  <span className="sr-only">{t("control.code")}</span>
                   <input
                     value={joinCode}
                     onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    placeholder={t(locale, "control.joinPlaceholder")}
+                    placeholder={t("control.joinPlaceholder")}
                     maxLength={8}
                   />
                 </label>
@@ -877,90 +981,11 @@ export function ControlPage() {
                       .catch(() => undefined);
                   }}
                 >
-                  {t(locale, "control.joinSession")}
+                  {t("control.joinSession")}
                 </button>
               </>
-            ) : (
-              <button
-                type="button"
-                className="btn"
-                title={t(locale, "shortcuts.openOutput")}
-                aria-label={t(locale, "shortcuts.openOutput")}
-                onClick={openOutput}
-              >
-                {t(locale, "control.openOutput")}
-              </button>
-            )}
-            {(projectionNote || uploadHint) && (
-              <span className="control-session-tips" role="status">
-                {projectionNote ? (
-                  <StatusTip
-                    tone="info"
-                    label={t(locale, "control.statusTipInfo")}
-                    message={projectionNote}
-                  />
-                ) : null}
-                {uploadHint ? (
-                  <StatusTip
-                    tone="warn"
-                    label={t(locale, "control.statusTipWarn")}
-                    message={uploadHint}
-                  />
-                ) : null}
-              </span>
-            )}
-          </div>
-
-          <div
-            className="live-controls live-controls-header"
-            role="group"
-            aria-label={t(locale, "control.live")}
-          >
-            <button
-              type="button"
-              className={sceneBtnClass("normal")}
-              disabled={!canMutate}
-              aria-pressed={sceneMode === "normal"}
-              title={t(locale, "shortcuts.sceneNormal")}
-              aria-label={t(locale, "shortcuts.sceneNormal")}
-              onClick={() => session.setSceneMode("normal")}
-            >
-              {t(locale, "control.sceneNormal")}
-            </button>
-            <button
-              type="button"
-              className={sceneBtnClass("logo")}
-              disabled={!canMutate}
-              aria-pressed={sceneMode === "logo"}
-              title={t(locale, "shortcuts.sceneLogo")}
-              aria-label={t(locale, "shortcuts.sceneLogo")}
-              onClick={() => toggleSceneMode("logo")}
-            >
-              {t(locale, "control.sceneLogo")}
-            </button>
-            <button
-              type="button"
-              className={sceneBtnClass("black")}
-              disabled={!canMutate}
-              aria-pressed={sceneMode === "black"}
-              title={t(locale, "shortcuts.sceneBlack")}
-              aria-label={t(locale, "shortcuts.sceneBlack")}
-              onClick={() => toggleSceneMode("black")}
-            >
-              {t(locale, "control.sceneBlack")}
-            </button>
-            <button
-              type="button"
-              className={sceneBtnClass("clear")}
-              disabled={!canMutate}
-              aria-pressed={sceneMode === "clear"}
-              title={t(locale, "shortcuts.sceneClear")}
-              aria-label={t(locale, "shortcuts.sceneClear")}
-              onClick={() => toggleSceneMode("clear")}
-            >
-              {t(locale, "control.sceneClear")}
-            </button>
-          </div>
+            }
+          />
         </div>
 
         <div className="control-header-end">
@@ -968,37 +993,20 @@ export function ControlPage() {
             className="control-header-sep"
             role="separator"
             aria-orientation="vertical"
-            aria-label={t(locale, "control.headerSeparator")}
+            aria-label={t("control.headerSeparator")}
           />
-
-          <div className="control-header-theme">
-            <h2 className="theme-controls-title">{t(locale, "theme.title")}</h2>
-            <ThemePanel
-              compact
-              themeId={themeId}
-              themeOverrides={themeOverrides}
-              disabled={!canMutate}
-              onChange={(patch) => session.setTheme(patch)}
-            />
-          </div>
-
-          <div
-            className="control-header-sep"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={t(locale, "control.headerSeparator")}
-          />
-
           <ControlAdBanner />
         </div>
       </header>
+
+      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
 
       {popupBlockedUrl ? (
         <div className="control-banner control-banner-compact" role="status">
           <StatusTip
             tone="warn"
-            label={t(locale, "control.statusTipWarn")}
-            message={t(locale, "control.popupBlocked")}
+            label={t("control.statusTipWarn")}
+            message={t("control.popupBlocked")}
           />
           <a
             className="control-banner-link"
@@ -1006,7 +1014,7 @@ export function ControlPage() {
             target="_blank"
             rel="noopener"
           >
-            {t(locale, "control.openOutput")}
+            {t("control.openOutput")}
           </a>
         </div>
       ) : null}
@@ -1018,8 +1026,8 @@ export function ControlPage() {
         >
           <StatusTip
             tone="error"
-            label={t(locale, "control.statusTipWarn")}
-            message={t(locale, "control.hubUnreachable")}
+            label={t("control.statusTipWarn")}
+            message={t("control.hubUnreachable")}
           />
           <p className="control-banner-hub-cmd">
             <code>pnpm dev</code>
@@ -1037,8 +1045,8 @@ export function ControlPage() {
             }}
           >
             {session.hubChecking
-              ? t(locale, "control.hubChecking")
-              : t(locale, "control.retryHealth")}
+              ? t("control.hubChecking")
+              : t("control.retryHealth")}
           </button>
         </div>
       ) : null}
@@ -1052,7 +1060,7 @@ export function ControlPage() {
         >
           <StatusTip
             tone="error"
-            label={t(locale, "control.statusTipWarn")}
+            label={t("control.statusTipWarn")}
             message={session.error}
           />
         </div>
@@ -1065,11 +1073,11 @@ export function ControlPage() {
         >
           <StatusTip
             tone="error"
-            label={t(locale, "control.statusTipWarn")}
+            label={t("control.statusTipWarn")}
             message={
               session.wsStatus === "connecting"
-                ? t(locale, "control.wsConnectingHint")
-                : t(locale, "control.wsDisconnectedHint")
+                ? t("control.wsConnectingHint")
+                : t("control.wsDisconnectedHint")
             }
           />
           <button
@@ -1077,7 +1085,7 @@ export function ControlPage() {
             className="btn btn-primary"
             onClick={() => session.reconnect()}
           >
-            {t(locale, "control.reconnect")}
+            {t("control.reconnect")}
           </button>
         </div>
       ) : null}
@@ -1138,7 +1146,7 @@ export function ControlPage() {
               }
               if (!wsReady) {
                 session.reconnect();
-                setUploadHint(t(locale, "control.wsDisconnectedHint"));
+                setUploadHint(t("control.wsDisconnectedHint"));
               }
               onPickUnifiedFiles();
             }}
@@ -1148,7 +1156,7 @@ export function ControlPage() {
               }
               if (!wsReady) {
                 session.reconnect();
-                setUploadHint(t(locale, "control.wsDisconnectedHint"));
+                setUploadHint(t("control.wsDisconnectedHint"));
               }
               openLinkDialog();
             }}
@@ -1158,7 +1166,7 @@ export function ControlPage() {
               }
               if (!wsReady) {
                 session.reconnect();
-                setUploadHint(t(locale, "control.wsDisconnectedHint"));
+                setUploadHint(t("control.wsDisconnectedHint"));
               }
               openBibleDialog();
             }}
@@ -1186,7 +1194,7 @@ export function ControlPage() {
               }
               if (!wsReady) {
                 session.reconnect();
-                setUploadHint(t(locale, "control.wsDisconnectedHint"));
+                setUploadHint(t("control.wsDisconnectedHint"));
                 return;
               }
               void ingestFiles(files);
@@ -1225,18 +1233,23 @@ export function ControlPage() {
 
           <section
             className="zone zone-live zone-live-sidebar"
-            aria-label={t(locale, "control.live")}
+            aria-label={t("control.live")}
           >
+            <LiveClockStrip
+              mediaClock={liveItem?.type === "video" ? mediaClock : null}
+              durationMs={liveDurationMs}
+              localeTag={localeTag}
+            />
             <div className="zone-body zone-stage pm-theme" style={themeStyle}>
               <span className="stage-overlay-label" aria-hidden="true">
-                {t(locale, "control.live")}
+                {t("control.live")}
               </span>
               {sceneMode !== "normal" ? (
                 <span
                   className="scene-mode-badge stage-overlay-badge"
                   data-mode={sceneMode}
                 >
-                  {t(locale, `scene.${sceneMode}`)}
+                  {t(`scene.${sceneMode}`)}
                 </span>
               ) : null}
               {liveItem && LivePanel ? (
@@ -1245,6 +1258,8 @@ export function ControlPage() {
                   slideIndex={liveSlideIndex}
                   assetSrc={liveSrc}
                   mediaClock={mediaClock}
+                  durationMsHint={liveDurationMs}
+                  onDurationMs={(ms) => rememberDuration(liveItem.id, ms)}
                   onMediaClockSet={
                     liveItem.type === "video"
                       ? (patch) => session.setMediaClock(patch)
@@ -1262,17 +1277,17 @@ export function ControlPage() {
                   }
                 />
               ) : (
-                <p>{t(locale, "control.liveEmpty")}</p>
+                <p>{t("control.liveEmpty")}</p>
               )}
             </div>
           </section>
         </div>
 
-        {/* Right column: maximized Vista previa (En vivo / scene strip removed). */}
+        {/* Right column: maximized Vista previa + ProMedia notifications. */}
         <div className="control-stages control-stages-preview-only">
           <section
             className="zone zone-preview"
-            aria-label={t(locale, "control.preview")}
+            aria-label={t("control.preview")}
           >
             {/*
               Always-visible Preview toolbar: prev/next, send-to-live, and
@@ -1282,14 +1297,14 @@ export function ControlPage() {
             <div
               className="preview-toolbar preview-toolbar-lite preview-toolbar-persistent"
               role="toolbar"
-              aria-label={t(locale, "preview.nav")}
+              aria-label={t("preview.nav")}
             >
               <button
                 type="button"
                 className="btn preview-tb-btn"
                 disabled={!selectedItem || !canPreviewPrev}
-                title={t(locale, "shortcuts.prev")}
-                aria-label={t(locale, "shortcuts.prev")}
+                title={t("shortcuts.prev")}
+                aria-label={t("shortcuts.prev")}
                 onClick={previewGoPrev}
               >
                 <IconPrev />
@@ -1298,8 +1313,8 @@ export function ControlPage() {
                 type="button"
                 className="btn preview-tb-btn"
                 disabled={!selectedItem || !canPreviewNext}
-                title={t(locale, "shortcuts.next")}
-                aria-label={t(locale, "shortcuts.next")}
+                title={t("shortcuts.next")}
+                aria-label={t("shortcuts.next")}
                 onClick={previewGoNext}
               >
                 <IconNext />
@@ -1309,8 +1324,8 @@ export function ControlPage() {
                 type="button"
                 className="btn btn-primary preview-tb-golive"
                 disabled={!canGoLive}
-                title={t(locale, "shortcuts.goLive")}
-                aria-label={t(locale, "shortcuts.goLive")}
+                title={t("shortcuts.goLive")}
+                aria-label={t("shortcuts.goLive")}
                 onClick={() => {
                   if (selectedItemId) {
                     session.goLive(selectedItemId);
@@ -1319,20 +1334,20 @@ export function ControlPage() {
               >
                 <IconGoLive />
                 <span className="preview-tb-golive-label">
-                  {t(locale, "playlist.goLiveShort")}
+                  {t("playlist.goLiveShort")}
                 </span>
               </button>
               <span className="preview-tb-spacer" />
               <StatusTip
                 tone="info"
                 className="preview-tb-shortcuts"
-                label={t(locale, "shortcuts.help")}
-                message={t(locale, "shortcuts.hint")}
+                label={t("shortcuts.help")}
+                message={t("shortcuts.hint")}
               />
             </div>
             <div className="zone-body zone-stage pm-theme" style={themeStyle}>
               <span className="stage-overlay-label" aria-hidden="true">
-                {t(locale, "control.preview")}
+                {t("control.preview")}
               </span>
               {selectedItem && Preview ? (
                 <Preview
@@ -1347,12 +1362,31 @@ export function ControlPage() {
                     selectedItem.type === "video" &&
                     selectedItem.id === liveItemId
                   }
+                  mediaClock={
+                    selectedItem.type === "video" &&
+                    selectedItem.id === liveItemId
+                      ? mediaClock
+                      : undefined
+                  }
+                  onMediaClockSet={
+                    selectedItem.type === "video" &&
+                    selectedItem.id === liveItemId
+                      ? (patch) => session.setMediaClock(patch)
+                      : undefined
+                  }
+                  onDurationMs={(ms) =>
+                    rememberDuration(selectedItem.id, ms)
+                  }
+                  durationMsHint={
+                    durationByItemId[selectedItem.id] ?? 0
+                  }
                 />
               ) : (
-                <p>{t(locale, "control.previewEmpty")}</p>
+                <p>{t("control.previewEmpty")}</p>
               )}
             </div>
           </section>
+          <ControlNotifications notices={notices} />
         </div>
       </div>
 
@@ -1366,19 +1400,19 @@ export function ControlPage() {
         />
         <span>
           {session.hubUnreachable
-            ? t(locale, "control.hubDownFooter")
+            ? t("control.hubDownFooter")
             : session.wsStatus === "open"
-              ? t(locale, "control.wsConnected")
+              ? t("control.wsConnected")
               : session.wsStatus === "connecting"
-                ? t(locale, "control.wsConnecting")
-                : t(locale, "control.wsDisconnected")}
+                ? t("control.wsConnecting")
+                : t("control.wsDisconnected")}
         </span>
         <span className="footer-sep">·</span>
         <span>seq {session.lastSeq >= 0 ? session.lastSeq : "—"}</span>
         {uploading ? (
           <>
             <span className="footer-sep">·</span>
-            <span className="footer-muted">{t(locale, "video.uploading")}</span>
+            <span className="footer-muted">{t("video.uploading")}</span>
           </>
         ) : null}
       </footer>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { DEFAULT_LOCALE, t } from "@promedia/i18n";
+import { useLocale } from "../locale/LocaleContext";
 import type { PlaylistItem } from "@promedia/shared";
 import { itemLabel } from "@promedia/shared";
 import {
@@ -13,8 +13,6 @@ import {
   IconFolderOpen,
   IconSave,
 } from "./UiIcons";
-
-const locale = DEFAULT_LOCALE;
 
 export type SchedulePanelProps = {
   items: PlaylistItem[];
@@ -89,6 +87,8 @@ export function SchedulePanel({
   saveLoadDialogs,
   editor,
 }: SchedulePanelProps) {
+  const { t } = useLocale();
+
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [fileDragOver, setFileDragOver] = useState(false);
@@ -161,7 +161,7 @@ export function SchedulePanel({
       ]
         .filter(Boolean)
         .join(" ")}
-      aria-label={t(locale, "control.playlist")}
+      aria-label={t("control.playlist")}
       onDragEnter={(e) => {
         if (!hasExternalFiles(e.dataTransfer) || dragIdRef.current) {
           return;
@@ -200,8 +200,8 @@ export function SchedulePanel({
       }}
     >
       <header className="schedule-header">
-        <h2>{t(locale, "control.playlist")}</h2>
-        <span className="schedule-count" title={t(locale, "playlist.itemCount")}>
+        <h2>{t("control.playlist")}</h2>
+        <span className="schedule-count" title={t("playlist.itemCount")}>
           {sorted.length}
         </span>
       </header>
@@ -209,19 +209,19 @@ export function SchedulePanel({
       <div
         className="schedule-toolbar schedule-toolbar-unified"
         role="toolbar"
-        aria-label={t(locale, "playlist.addMenu")}
+        aria-label={t("playlist.addMenu")}
       >
         <div className="schedule-split" ref={chooserRef}>
           <button
             type="button"
             className="schedule-primary-add"
             disabled={addDisabled}
-            title={t(locale, "playlist.addFilesTip")}
-            aria-label={t(locale, "playlist.addFilesTip")}
+            title={t("playlist.addFilesTip")}
+            aria-label={t("playlist.addFilesTip")}
             onClick={onAddFiles}
           >
             <IconAddFiles className="schedule-icon-svg" size={18} />
-            <span>{t(locale, "playlist.add")}</span>
+            <span>{t("playlist.add")}</span>
           </button>
           <button
             type="button"
@@ -229,8 +229,8 @@ export function SchedulePanel({
             disabled={addDisabled}
             aria-expanded={chooserOpen}
             aria-haspopup="menu"
-            title={t(locale, "playlist.addMoreTip")}
-            aria-label={t(locale, "playlist.addMoreTip")}
+            title={t("playlist.addMoreTip")}
+            aria-label={t("playlist.addMoreTip")}
             onClick={() => setChooserOpen((o) => !o)}
           >
             <IconChevronDown className="schedule-icon-svg" size={14} />
@@ -247,7 +247,7 @@ export function SchedulePanel({
                 }}
               >
                 <ScheduleTypeIcon kind="youtube" />
-                {t(locale, "playlist.addLink")}
+                {t("playlist.addLink")}
               </button>
               <button
                 type="button"
@@ -259,7 +259,7 @@ export function SchedulePanel({
                 }}
               >
                 <ScheduleTypeIcon kind="bible" />
-                {t(locale, "itemTypes.bible")}
+                {t("itemTypes.bible")}
               </button>
               <button
                 type="button"
@@ -271,7 +271,7 @@ export function SchedulePanel({
                 }}
               >
                 <ScheduleTypeIcon kind="text" />
-                {t(locale, "text.blankManual")}
+                {t("text.blankManual")}
               </button>
             </div>
           ) : null}
@@ -281,8 +281,8 @@ export function SchedulePanel({
           type="button"
           className="schedule-icon-btn"
           disabled={!sessionReady || uploading}
-          title={t(locale, "playlist.load")}
-          aria-label={t(locale, "playlist.load")}
+          title={t("playlist.load")}
+          aria-label={t("playlist.load")}
           onClick={onOpenLoad}
         >
           <IconFolderOpen className="schedule-icon-svg" size={18} />
@@ -291,8 +291,8 @@ export function SchedulePanel({
           type="button"
           className="schedule-icon-btn"
           disabled={!canMutate}
-          title={t(locale, "playlist.save")}
-          aria-label={t(locale, "playlist.save")}
+          title={t("playlist.save")}
+          aria-label={t("playlist.save")}
           onClick={onOpenSave}
         >
           <IconSave className="schedule-icon-svg" size={18} />
@@ -303,17 +303,17 @@ export function SchedulePanel({
             type="button"
             className="schedule-add-btn schedule-add-btn-danger schedule-remove-checked"
             disabled={!canMutate}
-            title={t(locale, "playlist.removeSelected")}
+            title={t("playlist.removeSelected")}
             onClick={onRemoveChecked}
           >
-            {t(locale, "playlist.removeSelected")} ({checkedIds.size})
+            {t("playlist.removeSelected")} ({checkedIds.size})
           </button>
         ) : null}
       </div>
 
       {fileDragOver ? (
         <div className="schedule-drop-overlay" aria-hidden>
-          {t(locale, "playlist.dropFiles")}
+          {t("playlist.dropFiles")}
         </div>
       ) : null}
 
@@ -325,9 +325,9 @@ export function SchedulePanel({
         <div className="zone-body schedule-list">
           {sorted.length === 0 ? (
             <p className="zone-empty">
-              {t(locale, "control.playlistEmpty")}
+              {t("control.playlistEmpty")}
               <span className="schedule-drop-hint">
-                {t(locale, "playlist.dropHint")}
+                {t("playlist.dropHint")}
               </span>
             </p>
           ) : (
@@ -391,12 +391,12 @@ export function SchedulePanel({
                         type="checkbox"
                         checked={checkedIds.has(item.id)}
                         onChange={() => onToggleChecked(item.id)}
-                        aria-label={t(locale, "playlist.selectItem")}
+                        aria-label={t("playlist.selectItem")}
                       />
                     </label>
                     <span
                       className="schedule-drag-handle"
-                      title={t(locale, "playlist.dragReorder")}
+                      title={t("playlist.dragReorder")}
                       draggable={canMutate}
                       onDragStart={(e) => {
                         if (!canMutate) {
@@ -425,11 +425,11 @@ export function SchedulePanel({
                           onGoLive(item.id);
                         }
                       }}
-                      title={t(locale, "playlist.doubleClickLive")}
+                      title={t("playlist.doubleClickLive")}
                     >
                       <span
                         className={`schedule-type schedule-type-${kind}`}
-                        title={t(locale, kindLabelKey(kind))}
+                        title={t(kindLabelKey(kind))}
                       >
                         <ScheduleTypeIcon kind={kind} />
                       </span>
@@ -438,7 +438,7 @@ export function SchedulePanel({
                       </span>
                       {isLive ? (
                         <span className="schedule-live-badge">
-                          {t(locale, "playlist.liveBadge")}
+                          {t("playlist.liveBadge")}
                         </span>
                       ) : null}
                     </button>
@@ -447,17 +447,17 @@ export function SchedulePanel({
                         type="button"
                         className="btn btn-ghost schedule-go-btn"
                         disabled={!canMutate || isLive}
-                        title={t(locale, "control.goLive")}
+                        title={t("control.goLive")}
                         onClick={() => onGoLive(item.id)}
                       >
-                        {t(locale, "playlist.goLiveShort")}
+                        {t("playlist.goLiveShort")}
                       </button>
                       <button
                         type="button"
                         className="btn btn-ghost"
                         disabled={!canMutate || index === 0}
                         onClick={() => onMove(item.id, -1)}
-                        title={t(locale, "playlist.moveUp")}
+                        title={t("playlist.moveUp")}
                       >
                         ↑
                       </button>
@@ -466,7 +466,7 @@ export function SchedulePanel({
                         className="btn btn-ghost"
                         disabled={!canMutate || index === sorted.length - 1}
                         onClick={() => onMove(item.id, 1)}
-                        title={t(locale, "playlist.moveDown")}
+                        title={t("playlist.moveDown")}
                       >
                         ↓
                       </button>
@@ -479,9 +479,9 @@ export function SchedulePanel({
                             onSelect(item.id);
                             onEditText(item.id);
                           }}
-                          title={t(locale, "playlist.edit")}
+                          title={t("playlist.edit")}
                         >
-                          {t(locale, "playlist.edit")}
+                          {t("playlist.edit")}
                         </button>
                       ) : null}
                       <button
@@ -489,7 +489,7 @@ export function SchedulePanel({
                         className="btn btn-ghost schedule-remove-btn"
                         disabled={!canMutate}
                         onClick={() => onRemove(item.id)}
-                        title={t(locale, "playlist.remove")}
+                        title={t("playlist.remove")}
                       >
                         ×
                       </button>

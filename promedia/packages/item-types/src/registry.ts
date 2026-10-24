@@ -29,6 +29,13 @@ export type MediaTypeModule = {
     onFitChange?: (fit: ImageFit) => void;
     /** Video/YouTube: true when this item is live — avoid a second YT iframe. */
     projecting?: boolean;
+    mediaClock?: MediaClock | null;
+    onMediaClockSet?: (patch: {
+      playing: boolean;
+      positionMs?: number;
+    }) => void;
+    onDurationMs?: (ms: number) => void;
+    durationMsHint?: number;
   }>;
   LivePanel: ComponentType<{
     item: PlaylistItem;
@@ -41,6 +48,8 @@ export type MediaTypeModule = {
       playing: boolean;
       positionMs?: number;
     }) => void;
+    durationMsHint?: number;
+    onDurationMs?: (ms: number) => void;
   }>;
   OutputRenderer: ComponentType<{
     item: PlaylistItem;

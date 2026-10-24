@@ -10,6 +10,7 @@ export type FileVideoProps = {
   muted?: boolean;
   fit?: VideoFit;
   onBlocked?: () => void;
+  onDurationMs?: (ms: number) => void;
 };
 
 export function FileVideo({
@@ -20,9 +21,30 @@ export function FileVideo({
   muted = false,
   fit = "contain",
   onBlocked,
+  onDurationMs,
 }: FileVideoProps) {
   const ref = useRef<HTMLVideoElement>(null);
   const [blocked, setBlocked] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) {
+      return;
+    }
+    const report = () => {
+      const ms = (el.duration || 0) * 1000;
+      if (ms > 0) {
+        onDurationMs?.(ms);
+      }
+    };
+    el.addEventListener("loadedmetadata", report);
+    el.addEventListener("durationchange", report);
+    report();
+    return () => {
+      el.removeEventListener("loadedmetadata", report);
+      el.removeEventListener("durationchange", report);
+    };
+  }, [src, onDurationMs]);
 
   useEffect(() => {
     const el = ref.current;

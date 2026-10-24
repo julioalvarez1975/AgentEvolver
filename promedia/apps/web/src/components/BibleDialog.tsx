@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DEFAULT_LOCALE, t } from "@promedia/i18n";
+import { useLocale } from "../locale/LocaleContext";
 import type { BiblePayload } from "@promedia/shared";
 import {
   fetchBibleBooks,
@@ -10,8 +10,6 @@ import {
 } from "../lib/bible";
 import { DialogBrand } from "./DialogBrand";
 
-const locale = DEFAULT_LOCALE;
-
 export type BibleDialogProps = {
   open: boolean;
   onClose: () => void;
@@ -19,6 +17,8 @@ export type BibleDialogProps = {
 };
 
 export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
+  const { t } = useLocale();
+
   const searchRef = useRef<HTMLInputElement>(null);
   const [versions, setVersions] = useState<BibleVersionInfo[]>([]);
   const [books, setBooks] = useState<BibleBookInfo[]>([]);
@@ -123,11 +123,11 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
     } catch (err) {
       const e = err as Error & { code?: string };
       if (e.code === "api_failed" || /api_failed|bible_http_502/.test(e.message)) {
-        setError(t(locale, "bible.apiFailed"));
+        setError(t("bible.apiFailed"));
       } else if (e.code === "invalid_reference") {
-        setError(t(locale, "bible.invalidReference"));
+        setError(t("bible.invalidReference"));
       } else {
-        setError(e.message || t(locale, "bible.apiFailed"));
+        setError(e.message || t("bible.apiFailed"));
       }
     } finally {
       setLoadingPassage(false);
@@ -158,15 +158,15 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
         aria-labelledby="bible-dialog-title"
       >
         <DialogBrand id="bible-dialog-title">
-          {t(locale, "bible.dialogTitle")}
+          {t("bible.dialogTitle")}
         </DialogBrand>
 
         {loadingMeta ? (
-          <p className="promedia-dialog-hint">{t(locale, "bible.loading")}</p>
+          <p className="promedia-dialog-hint">{t("bible.loading")}</p>
         ) : (
           <>
             <label className="promedia-dialog-field">
-              {t(locale, "bible.version")}
+              {t("bible.version")}
               <select
                 value={versionId}
                 onChange={(e) => {
@@ -183,12 +183,12 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
             </label>
 
             <label className="promedia-dialog-field">
-              {t(locale, "bible.searchRef")}
+              {t("bible.searchRef")}
               <input
                 ref={searchRef}
                 value={searchQ}
                 onChange={(e) => setSearchQ(e.target.value)}
-                placeholder={t(locale, "bible.searchPlaceholder")}
+                placeholder={t("bible.searchPlaceholder")}
                 autoComplete="off"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && searchQ.trim()) {
@@ -208,15 +208,15 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                 disabled={!searchQ.trim() || loadingPassage}
                 onClick={() => void runLookup("search")}
               >
-                {t(locale, "bible.search")}
+                {t("bible.search")}
               </button>
             </div>
 
-            <p className="bible-dialog-or">{t(locale, "bible.orPick")}</p>
+            <p className="bible-dialog-or">{t("bible.orPick")}</p>
 
             <div className="bible-dialog-grid">
               <label className="promedia-dialog-field">
-                {t(locale, "bible.book")}
+                {t("bible.book")}
                 <select
                   value={bookId}
                   onChange={(e) => {
@@ -235,7 +235,7 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                 </select>
               </label>
               <label className="promedia-dialog-field">
-                {t(locale, "bible.chapter")}
+                {t("bible.chapter")}
                 <input
                   type="number"
                   min={1}
@@ -248,7 +248,7 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                 />
               </label>
               <label className="promedia-dialog-field">
-                {t(locale, "bible.verseFrom")}
+                {t("bible.verseFrom")}
                 <input
                   type="number"
                   min={1}
@@ -264,7 +264,7 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                 />
               </label>
               <label className="promedia-dialog-field">
-                {t(locale, "bible.verseTo")}
+                {t("bible.verseTo")}
                 <input
                   type="number"
                   min={verseStart}
@@ -287,8 +287,8 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                 onClick={() => void runLookup("fields")}
               >
                 {loadingPassage
-                  ? t(locale, "bible.loading")
-                  : t(locale, "bible.preview")}
+                  ? t("bible.loading")
+                  : t("bible.preview")}
               </button>
             </div>
           </>
@@ -304,7 +304,7 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
           <div className="bible-preview-box">
             <p className="bible-preview-ref">
               {preview.reference} · {preview.versionLabel}
-              {preview.fromCache ? ` · ${t(locale, "bible.fromCache")}` : ""}
+              {preview.fromCache ? ` · ${t("bible.fromCache")}` : ""}
             </p>
             <ul className="bible-preview-verses">
               {preview.slides.map((slide) => (
@@ -327,12 +327,12 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
         {licenseNote && !preview ? (
           <p className="promedia-dialog-hint">{licenseNote}</p>
         ) : (
-          <p className="promedia-dialog-hint">{t(locale, "bible.hint")}</p>
+          <p className="promedia-dialog-hint">{t("bible.hint")}</p>
         )}
 
         <div className="promedia-dialog-actions">
           <button type="button" className="btn" onClick={onClose}>
-            {t(locale, "text.cancel")}
+            {t("text.cancel")}
           </button>
           <button
             type="button"
@@ -340,7 +340,7 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
             disabled={!preview || loadingPassage}
             onClick={addToGuion}
           >
-            {t(locale, "bible.add")}
+            {t("bible.add")}
           </button>
         </div>
       </div>

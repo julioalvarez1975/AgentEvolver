@@ -130,18 +130,17 @@ body {
 .control-header {
   display: flex;
   flex-wrap: nowrap;
-  align-items: center;
-  gap: 0.55rem 0.75rem;
-  padding: 0.4rem 0.75rem;
+  align-items: stretch;
+  gap: 0.45rem 0.65rem;
+  padding: 0.35rem 0.65rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev);
   /* Keep banner below dialogs / menus; never cover Guion / Preview / Live.
-     Ad creatives are clipped inside .control-ad-slot, not the whole header
-     (so Tema tooltips can open). */
+     Ad creatives are clipped inside .control-ad-slot, not the whole header. */
   position: relative;
   z-index: 2;
   overflow: visible;
-  min-height: 5.75rem;
+  min-height: 4.75rem;
   flex-shrink: 0;
 }
 
@@ -149,8 +148,8 @@ body {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 0.55rem;
-  max-width: min(14rem, 28vw);
+  gap: 0.4rem;
+  max-width: min(11.5rem, 18vw);
 }
 
 .control-header-sep {
@@ -167,19 +166,9 @@ body {
   flex-direction: column;
   justify-content: center;
   gap: 0.2rem;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
-  max-width: min(34rem, 48vw);
-  padding: 0.1rem 0.35rem 0.1rem 0;
-}
-
-.control-header-theme .theme-controls-title {
-  margin: 0;
-  font-size: 0.68rem;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
+  padding: 0;
 }
 
 .control-brand-logo {
@@ -214,11 +203,12 @@ body {
   letter-spacing: 0.06em;
 }
 
-/* GPT / placeholder: compact so Tema stays readable at far right. */
+/* GPT / placeholder: ~half of header / window width (Julio yellow zone). */
 .control-ad-slot {
-  flex: 0 1 10rem;
-  min-width: 5.5rem;
-  max-width: 12rem;
+  flex: 1 1 50%;
+  min-width: min(18rem, 42vw);
+  max-width: 50vw;
+  width: 50%;
   height: 90px;
   max-height: 90px;
   display: flex;
@@ -282,15 +272,175 @@ body {
   max-height: 90px !important;
 }
 
-/* Brand-adjacent cluster: projection actions + scene modes. */
+/* Left toolbar cluster — single row, icon above / label below. */
 .control-header-cluster {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.4rem 0.65rem;
-  flex: 0 1 auto;
+  gap: 0.25rem;
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: min(42rem, 52vw);
+  max-width: calc(50% - 0.5rem);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.control-header-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.2rem 0.3rem;
+  min-width: 0;
+}
+
+.toolbar-icon-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  min-width: 2.7rem;
+  max-width: 3.6rem;
+  padding: 0.22rem 0.18rem 0.18rem;
+  line-height: 1.1;
+  flex: 0 0 auto;
+}
+
+.toolbar-icon-btn-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg);
+}
+
+.toolbar-icon-btn-label {
+  display: block;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-align: center;
+  white-space: normal;
+  overflow: hidden;
+  max-height: 1.7em;
+  line-height: 1.15;
+  color: var(--muted);
+}
+
+.toolbar-icon-btn.active,
+.toolbar-icon-btn.btn-primary {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.toolbar-icon-btn.active .toolbar-icon-btn-label,
+.toolbar-icon-btn.btn-primary .toolbar-icon-btn-label {
+  color: var(--fg);
+}
+
+.toolbar-lang {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.08rem;
+  min-width: 3.1rem;
+  max-width: 4rem;
+  padding: 0.2rem 0.2rem 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.toolbar-lang-select {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0;
+  cursor: pointer;
+  width: 100%;
+}
+
+.toolbar-scenes,
+.toolbar-theme {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.15rem;
+  flex: 0 0 auto;
+}
+
+.toolbar-session-fallback {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.theme-panel-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0;
+}
+
+.toolbar-theme-title {
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  writing-mode: horizontal-tb;
+  margin-right: 0.1rem;
+}
+
+.theme-panel-toolbar .theme-presets {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.15rem;
+}
+
+.theme-editor-toolbar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0;
+  padding: 0 0.15rem;
+}
+
+.theme-editor-toolbar label {
+  display: inline-flex;
+  margin: 0;
+  gap: 0;
+}
+
+.theme-editor-toolbar input[type="color"] {
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+}
+
+.theme-editor-toolbar select {
+  max-width: 4.2rem;
+  font-size: 0.68rem;
+  padding: 0.15rem 0.2rem;
+}
+
+.theme-toolbar-reset {
+  padding: 0.15rem 0.35rem;
+  font-size: 0.85rem;
 }
 
 .control-session-actions {
@@ -316,16 +466,17 @@ body {
   font-size: 0.78rem;
 }
 
-/* Tema + optional GAM pushed to the far right of the header. */
+/* GAM occupies ~half the header on the right. */
 .control-header-end {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 0.55rem 0.75rem;
+  gap: 0.45rem 0.55rem;
   margin-left: auto;
-  flex: 0 1 auto;
+  flex: 1 1 50%;
   min-width: 0;
-  max-width: min(48rem, 55vw);
+  max-width: 52%;
+  justify-content: flex-end;
 }
 
 .field-inline input {
@@ -357,10 +508,17 @@ body {
     max-width: 100%;
   }
 
+  .control-header-cluster {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
   .control-header-end {
     margin-left: 0;
     flex-wrap: wrap;
     width: 100%;
+    max-width: 100%;
+    flex: 1 1 100%;
   }
 
   .control-header-sep {
@@ -370,6 +528,7 @@ body {
   .control-ad-slot {
     flex: 1 1 100%;
     max-width: 100%;
+    width: 100%;
     height: 50px;
     max-height: 50px;
   }
@@ -594,9 +753,11 @@ body {
 
 .control-guion-column > .zone-live-sidebar {
   flex: 0 0 auto;
-  height: clamp(9.5rem, 28vh, 15rem);
-  min-height: 9.5rem;
-  max-height: 40%;
+  height: clamp(12.5rem, 34vh, 18rem);
+  min-height: 12.5rem;
+  max-height: 46%;
+  display: flex;
+  flex-direction: column;
 }
 
 .control-stages {
@@ -608,20 +769,176 @@ body {
   background: var(--bg-zone);
 }
 
-/* Preview fills the entire right column after En vivo moved under Guion. */
+/* Preview + notifications stack in the right column. */
 .control-stages-preview-only {
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--border);
+  gap: 1px;
 }
 
 .control-stages-preview-only > .zone-preview {
   flex: 1 1 0;
   min-height: 0;
-  height: 100%;
+}
+
+.control-stages-preview-only > .zone-notifications {
+  flex: 0 0 auto;
+  height: clamp(7rem, 18vh, 10.5rem);
+  min-height: 6.5rem;
+  max-height: 28%;
 }
 
 .control-stages-preview-only .zone-stage {
   flex: 1;
   min-height: 0;
+}
+
+.live-clock-strip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.28rem 0.55rem;
+  border-bottom: 1px solid var(--border);
+  background: #0a121a;
+}
+
+.live-clock-remaining {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.live-clock-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.live-clock-value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--fg);
+}
+
+.live-clock-datetime {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.05rem;
+  min-width: 0;
+  text-align: right;
+}
+
+.live-clock-date {
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
+.live-clock-time {
+  font-size: 0.85rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+.zone-notifications {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-zone);
+}
+
+.zone-notifications-head {
+  flex-shrink: 0;
+  padding: 0.3rem 0.55rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.zone-notifications-head h2 {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.zone-notifications-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.35rem 0.55rem 0.5rem;
+}
+
+.zone-notifications-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.zone-notifications-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.zone-notifications-list .notice {
+  display: grid;
+  grid-template-columns: 4.2rem 1fr;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.zone-notifications-list .notice time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.notice-ok span {
+  color: #3ecf8e;
+}
+
+.notice-warn span {
+  color: #e0b44c;
+}
+
+.notice-error span {
+  color: var(--danger);
+}
+
+.notice-info span {
+  color: var(--fg);
+}
+
+.about-dialog .about-credit {
+  margin: 0.35rem 0 0.75rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.preview-toolbar-note-inline {
+  margin: 0.25rem 0.5rem 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.video-time-remaining {
+  min-width: 2.8rem;
+  text-align: right;
+  opacity: 0.9;
 }
 
 /* Legacy equal stack (kept for any residual references). */
