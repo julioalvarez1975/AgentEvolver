@@ -64,6 +64,8 @@ export function ControlPage() {
   const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  /** Multi-select for bulk remove (checkboxes); separate from preview selection. */
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set());
   const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -178,6 +180,20 @@ export function ControlPage() {
     setEditingId(null);
     setVideoMode(null);
   };
+
+  const toggleChecked = (id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const clearChecked = () => setCheckedIds(new Set());
 
   const startCreateText = () => {
     setCreating(true);
@@ -387,7 +403,10 @@ export function ControlPage() {
     session.reorder(next.map((i) => i.id));
   };
 
-  const removeSelected = (id: string) => {
+  const removeOne = (id: string) => {
+    if (!ensureWsOrHint()) {
+      return;
+    }
     session.removeItem(id);
     if (selectedItemId === id) {
       setSelectedItemId(null);
@@ -395,6 +414,34 @@ export function ControlPage() {
     if (editingId === id) {
       setEditingId(null);
     }
+    setCheckedIds((prev) => {
+      if (!prev.has(id)) {
+        return prev;
+      }
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const removeChecked = () => {
+    if (checkedIds.size === 0) {
+      return;
+    }
+    if (!ensureWsOrHint()) {
+      return;
+    }
+    const ids = [...checkedIds];
+    for (const id of ids) {
+      session.removeItem(id);
+    }
+    if (selectedItemId && checkedIds.has(selectedItemId)) {
+      setSelectedItemId(null);
+    }
+    if (editingId && checkedIds.has(editingId)) {
+      setEditingId(null);
+    }
+    clearChecked();
   };
 
   const previewModule = selectedItem
@@ -622,7 +669,26 @@ export function ControlPage() {
                 + {t(locale, mod.labelKey)}
               </button>
             ))}
+            <button
+              type="button"
+              className="btn"
+              disabled={!canMutate || checkedIds.size === 0}
+              onClick={removeChecked}
+            >
+              {t(locale, "playlist.removeSelected")}
+              {checkedIds.size > 0 ? ` (${checkedIds.size})` : ""}
+            </button>
           </div>
+
+          {session.hasSession && session.sessionId && session.wsTicket ? (
+            <SavedPlaylistPanel
+              sessionId={session.sessionId}
+              wsTicket={session.wsTicket}
+              disabled={!canMutate}
+              onHint={setUploadHint}
+              compact
+            />
+          ) : null}
 
           {videoMode ? (
             <div className="zone-body video-ingest">
@@ -699,23 +765,37 @@ export function ControlPage() {
                 <ul>
                   {items.map((item, index) => (
                     <li key={item.id}>
-                      <button
-                        type="button"
+                      <div
                         className={
                           item.id === selectedItemId
                             ? "playlist-row selected"
                             : "playlist-row"
                         }
-                        onClick={() => selectItem(item.id)}
                       >
-                        <span className="playlist-row-label">
-                          {itemLabel(item)}
-                        </span>
-                        <span className="playlist-type-badge">{item.type}</span>
-                        {item.id === liveItemId ? (
-                          <span className="playlist-live-badge">LIVE</span>
-                        ) : null}
-                      </button>
+                        <label className="playlist-check">
+                          <input
+                            type="checkbox"
+                            checked={checkedIds.has(item.id)}
+                            onChange={() => toggleChecked(item.id)}
+                            aria-label={t(locale, "playlist.selectItem")}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          className="playlist-row-main"
+                          onClick={() => selectItem(item.id)}
+                        >
+                          <span className="playlist-row-label">
+                            {itemLabel(item)}
+                          </span>
+                          <span className="playlist-type-badge">
+                            {item.type}
+                          </span>
+                          {item.id === liveItemId ? (
+                            <span className="playlist-live-badge">LIVE</span>
+                          ) : null}
+                        </button>
+                      </div>
                       <div className="playlist-row-actions">
                         <button
                           type="button"
@@ -750,7 +830,7 @@ export function ControlPage() {
                         <button
                           type="button"
                           className="btn btn-ghost"
-                          onClick={() => removeSelected(item.id)}
+                          onClick={() => removeOne(item.id)}
                         >
                           {t(locale, "playlist.remove")}
                         </button>
@@ -884,14 +964,6 @@ export function ControlPage() {
               onChange={(patch) => session.setTheme(patch)}
             />
           </div>
-          {session.hasSession && session.sessionId && session.wsTicket ? (
-            <SavedPlaylistPanel
-              sessionId={session.sessionId}
-              wsTicket={session.wsTicket}
-              disabled={!canMutate}
-              onHint={setUploadHint}
-            />
-          ) : null}
           <p className="shortcuts-hint">{t(locale, "shortcuts.hint")}</p>
         </section>
       </div>

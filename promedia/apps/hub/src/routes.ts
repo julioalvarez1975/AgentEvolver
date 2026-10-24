@@ -14,6 +14,10 @@ import { authorizeSessionAccess } from "./auth.js";
 import { broadcastSession } from "./broadcast.js";
 import { playlistStore } from "./playlist-store.js";
 import { sessionStore } from "./session-store.js";
+import {
+  TEXT_IMPORT_MAX_BYTES,
+  parsePdfBuffer,
+} from "./text-import.js";
 
 function publicBase(c: {
   req: { url: string; header: (name: string) => string | undefined };
@@ -189,6 +193,37 @@ export function createApiRoutes(): Hono {
       return c.json({ error: result.error }, 400);
     }
     return c.json({ asset: result }, 201);
+  });
+
+  /**
+   * Parse an uploaded document into page/paragraph text for Control text import.
+   * PDF only on hub (pdf-parse). Auth not required — no session mutation.
+   */
+  api.post("/parse/document", async (c) => {
+    const body = await c.req.parseBody();
+    const file = body.file;
+    if (!(file instanceof File)) {
+      return c.json({ error: "missing_file" }, 400);
+    }
+    if (file.size > TEXT_IMPORT_MAX_BYTES) {
+      return c.json({ error: "file_too_large" }, 400);
+    }
+    const name = file.name.toLowerCase();
+    const isPdf =
+      name.endsWith(".pdf") || file.type === "application/pdf";
+    if (!isPdf) {
+      return c.json({ error: "unsupported_type" }, 400);
+    }
+    try {
+      const bytes = Buffer.from(await file.arrayBuffer());
+      const result = await parsePdfBuffer(bytes);
+      return c.json(result);
+    } catch (err) {
+      return c.json(
+        { error: "parse_failed", detail: String(err) },
+        400,
+      );
+    }
   });
 
   /** List named SavedPlaylists (global to hub process / data file). */

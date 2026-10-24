@@ -270,11 +270,16 @@ body {
   gap: 1px;
   background: var(--border);
   min-height: 0;
+  /* Fill remaining shell row so playlist column can scroll internally */
+  height: 100%;
+  max-height: calc(100vh - 9rem);
 }
 
 @media (max-width: 900px) {
   .control-zones {
     grid-template-columns: 1fr;
+    max-height: none;
+    height: auto;
   }
 }
 
@@ -283,6 +288,12 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 16rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.zone-playlist {
+  min-height: 0;
 }
 
 .zone h2 {
@@ -556,13 +567,18 @@ body {
   gap: 0.45rem;
   padding: 0.55rem 0.85rem;
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .playlist-list {
   align-items: stretch;
   justify-content: flex-start;
   padding: 0.5rem;
-  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(55vh, 32rem);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .playlist-list ul {
@@ -585,21 +601,46 @@ body {
 }
 
 .playlist-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.35rem 0.25rem 0.45rem;
+  color: var(--fg);
+}
+
+.playlist-row.selected {
+  background: var(--accent-dim);
+}
+
+.playlist-check {
+  display: flex;
+  align-items: center;
+  padding: 0.3rem 0.2rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.playlist-check input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.playlist-row-main {
   appearance: none;
   border: 0;
   background: transparent;
-  color: var(--fg);
+  color: inherit;
   text-align: left;
-  padding: 0.55rem 0.65rem;
+  padding: 0.35rem 0.35rem;
   cursor: pointer;
   font: inherit;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-
-.playlist-row.selected {
-  background: var(--accent-dim);
+  flex: 1;
+  min-width: 0;
 }
 
 .playlist-row-label {
@@ -628,6 +669,9 @@ body {
 .playlist-editor {
   align-items: stretch;
   justify-content: flex-start;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(55vh, 32rem);
   overflow: auto;
 }
 
@@ -837,6 +881,39 @@ body {
 .saved-playlist-panel {
   padding: 0 0.85rem 0.85rem;
   border-top: 1px solid var(--border);
+}
+
+.saved-playlist-panel-compact {
+  border-top: 0;
+  border-bottom: 1px solid var(--border);
+  padding-top: 0.55rem;
+  flex-shrink: 0;
+  max-height: 11rem;
+  overflow-y: auto;
+}
+
+.saved-playlist-panel-compact .theme-controls-title {
+  margin-top: 0;
+}
+
+.text-editor-import {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.text-editor-import-hint,
+.text-editor-import-status {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.text-editor-import-status {
+  color: var(--accent);
 }
 
 .saved-playlist-save {
