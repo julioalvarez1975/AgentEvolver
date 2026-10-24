@@ -1,5 +1,9 @@
 import type { ComponentType } from "react";
 import type { ImageFit, MediaClock, PlaylistItem } from "@promedia/shared";
+import { BibleLivePanel } from "./bible/LivePanel.js";
+import { BibleOutputRenderer } from "./bible/OutputRenderer.js";
+import { BiblePreview } from "./bible/Preview.js";
+import { isBiblePlaylistItem } from "./bible/schema.js";
 import { ImageLivePanel } from "./image/LivePanel.js";
 import { ImageOutputRenderer } from "./image/OutputRenderer.js";
 import { ImagePreview } from "./image/Preview.js";
@@ -73,7 +77,21 @@ const videoModule: MediaTypeModule = {
   OutputRenderer: VideoOutputRenderer,
 };
 
-const modules: MediaTypeModule[] = [textModule, imageModule, videoModule];
+const bibleModule: MediaTypeModule = {
+  type: "bible",
+  labelKey: "itemTypes.bible",
+  validate: isBiblePlaylistItem,
+  Preview: BiblePreview,
+  LivePanel: BibleLivePanel,
+  OutputRenderer: BibleOutputRenderer,
+};
+
+const modules: MediaTypeModule[] = [
+  textModule,
+  imageModule,
+  videoModule,
+  bibleModule,
+];
 
 export const itemTypeRegistry: readonly MediaTypeModule[] = modules;
 

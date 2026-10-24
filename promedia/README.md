@@ -99,8 +99,8 @@ node scripts/smoke-hub-ws.mjs
 ## Qué incluye el MVP
 
 - Sesión + WS + código corto / enlace opaco
-- Playlist: texto, imagen, vídeo (mp4/webm/mov), YouTube público
-- Columna playlist: **Guardar / Cargar**, multi-selección + **Quitar seleccionados**, lista con scroll
+- Guion: texto, imagen, vídeo (mp4/webm/mov), YouTube público, **Biblia** (versículos)
+- Columna Guion: **Guardar / Cargar**, multi-selección + **Quitar seleccionados**, lista con scroll
 - Texto: importar **PDF** (parse en hub), **XML** o **.txt/.md** a slides (límites en UI); editor manual intacto
 - Preview ≠ live hasta Go Live; `mediaClock` sync
 - Scene modes: normal / logo / negro / clear
@@ -108,6 +108,21 @@ node scripts/smoke-hub-ws.mjs
 - Guardar / cargar playlists con nombre (SavedPlaylist)
 - Modo cloud vía env (`PROMEDIA_MODE`, adapter S3 stub con fallback local)
 - i18n ES · EN · PT · FR · ZH-Hans (cadenas base)
+
+### Biblia (versículos en el Guion)
+
+Botón **Biblia** en la barra del Guion: elegí libro / capítulo / rango de versículos o buscá por referencia (`Juan 3:16-17`), más selector de **versión**. Se inserta como ítem de tipo `bible` (slides de texto; Enviar en vivo / Output como texto).
+
+| Id | Nombre | Idioma | Fuente API | Licencia |
+|----|--------|--------|------------|----------|
+| `rvr1909` | Reina-Valera 1909 (RV1909) | ES (por defecto) | [Midvash](https://api.midvash.com) | Dominio público |
+| `pdt` | Palabra de Dios para ti | ES | Midvash | CC BY 4.0 (mostrar atribución) |
+| `kjv` | King James Version | EN | [bible-api.com](https://bible-api.com) | Public domain |
+| `asv` | American Standard Version | EN | bible-api.com | Public domain |
+
+**RVR1960 no está incluida:** sigue bajo copyright (Sociedades Bíblicas / UBS) y las APIs libres que usamos no la redistribuyen legalmente. Usá **RV1909** como opción española de dominio público.
+
+Si la API falla: mensaje claro en el diálogo. Hay un **subconjunto local mínimo** (p. ej. Juan 3:16-17 en RV1909/KJV) como fallback; no es un canon offline completo.
 
 ## Deploy dual
 
@@ -128,4 +143,4 @@ Ver `scripts/qa-church-event.md`.
 - Assets de archivo son **por sesión**; al cargar una playlist guardada, ítems de archivo sin asset se omiten (texto/YouTube sí).
 - Adapter S3 = stub (escribe en disco local hasta cablear SDK completo); LAN siempre funciona.
 - **Multi-monitor / fullscreen:** depende del navegador. Chrome puede usar la Window Management API; Safari/Firefox suelen exigir arrastrar la ventana y un clic en pantalla completa. Los popups bloqueados muestran la URL de Salida.
-- Sin Biblia / Stage / remoto / import Quelea (fase 2).
+- Biblia: sin canon offline completo (solo subconjunto de emergencia + APIs). Sin Stage / remoto / import Quelea (fase 2).

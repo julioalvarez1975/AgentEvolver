@@ -3,6 +3,10 @@
  */
 import type { PlaylistItem } from "@promedia/shared";
 import {
+  isBiblePlaylistItem,
+  normalizeBiblePayload,
+} from "./bible/schema.js";
+import {
   isImagePlaylistItem,
   normalizeImagePayload,
 } from "./image/schema.js";
@@ -12,7 +16,7 @@ import {
   normalizeVideoPayload,
 } from "./video/schema.js";
 
-const REGISTERED_TYPES = new Set(["text", "image", "video"]);
+const REGISTERED_TYPES = new Set(["text", "image", "video", "bible"]);
 
 export function isRegisteredItemType(type: string): boolean {
   return REGISTERED_TYPES.has(type);
@@ -57,6 +61,17 @@ export function validatePlaylistItem(value: unknown): PlaylistItem | null {
       type: "video",
       order: value.order,
       payload: normalizeVideoPayload(value.payload),
+    };
+  }
+  if (raw.type === "bible") {
+    if (!isBiblePlaylistItem(value)) {
+      return null;
+    }
+    return {
+      id: value.id,
+      type: "bible",
+      order: value.order,
+      payload: normalizeBiblePayload(value.payload),
     };
   }
   return null;

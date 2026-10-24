@@ -40,3 +40,11 @@ export {
   MEDIA_CLOCK_DRIFT_MS,
   shouldCorrectSeek,
 } from "./video/index.js";
+export {
+  isBiblePayload,
+  isBiblePlaylistItem,
+  normalizeBiblePayload,
+  BiblePreview,
+  BibleLivePanel,
+  BibleOutputRenderer,
+} from "./bible/index.js";

@@ -7,6 +7,7 @@ import {
 } from "@promedia/item-types";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
 import type {
+  BiblePayload,
   ImageFit,
   ImagePayload,
   PlaylistItem,
@@ -15,7 +16,8 @@ import type {
   ThemeId,
   VideoPayload,
 } from "@promedia/shared";
-import { DEFAULT_THEME_ID } from "@promedia/shared";
+import { DEFAULT_THEME_ID, itemHasSlides } from "@promedia/shared";
+import { BibleDialog } from "../components/BibleDialog";
 import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { SchedulePanel } from "../components/SchedulePanel";
 import { TextItemEditor } from "../components/TextItemEditor";
@@ -79,6 +81,7 @@ export function ControlPage() {
   const [youtubeDialogError, setYoutubeDialogError] = useState<string | null>(
     null,
   );
+  const [bibleDialogOpen, setBibleDialogOpen] = useState(false);
   const [uploadHint, setUploadHint] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -124,7 +127,8 @@ export function ControlPage() {
     selectedItem &&
       (selectedItem.type === "text" ||
         selectedItem.type === "image" ||
-        selectedItem.type === "video") &&
+        selectedItem.type === "video" ||
+        selectedItem.type === "bible") &&
       canMutate,
   );
 
@@ -264,12 +268,12 @@ export function ControlPage() {
     setSceneMode: (mode) => session.setSceneMode(mode),
     setTheme: (id) => session.setTheme({ themeId: id }),
     prevSlide: () => {
-      if (liveItem?.type === "text") {
+      if (liveItem && itemHasSlides(liveItem)) {
         session.setSlide(liveSlideIndex - 1);
       }
     },
     nextSlide: () => {
-      if (liveItem?.type === "text") {
+      if (liveItem && itemHasSlides(liveItem)) {
         session.setSlide(liveSlideIndex + 1);
       }
     },
@@ -281,6 +285,7 @@ export function ControlPage() {
     setCreating(false);
     setEditingId(null);
     setYoutubeDialogOpen(false);
+    setBibleDialogOpen(false);
   };
 
   const toggleChecked = (id: string) => {
@@ -491,6 +496,7 @@ export function ControlPage() {
     setUploadHint(null);
     setCreating(false);
     setEditingId(null);
+    setBibleDialogOpen(false);
     setYoutubeUrl("");
     setYoutubeDialogError(null);
     setYoutubeDialogOpen(true);
@@ -501,6 +507,43 @@ export function ControlPage() {
     setYoutubeDialogOpen(false);
     setYoutubeUrl("");
     setYoutubeDialogError(null);
+  };
+
+  const openBibleDialog = () => {
+    setUploadHint(null);
+    setCreating(false);
+    setEditingId(null);
+    setYoutubeDialogOpen(false);
+    setBibleDialogOpen(true);
+  };
+
+  const closeBibleDialog = () => {
+    setBibleDialogOpen(false);
+  };
+
+  const addBiblePassage = (payload: BiblePayload) => {
+    if (!ensureWsOrHint()) {
+      return;
+    }
+    const item: PlaylistItem = {
+      id: cryptoRandomId(),
+      type: "bible",
+      order: items.length,
+      payload,
+    };
+    if (!session.addItem(item)) {
+      setUploadHint(t(locale, "control.wsDisconnectedHint"));
+      session.reconnect();
+      return;
+    }
+    setSelectedItemId(item.id);
+    setPreviewSlideIndex(0);
+    closeBibleDialog();
+    if (payload.fromCache) {
+      setUploadHint(t(locale, "bible.addedFromCache"));
+    } else {
+      setUploadHint(null);
+    }
   };
 
   const onVideoFile = async (file: File | undefined) => {
@@ -625,6 +668,7 @@ export function ControlPage() {
     setCreating(false);
     setEditingId(null);
     setYoutubeDialogOpen(false);
+    setBibleDialogOpen(false);
     session.goLive(id);
   };
 
@@ -921,6 +965,12 @@ export function ControlPage() {
         </div>
       ) : null}
 
+      <BibleDialog
+        open={bibleDialogOpen}
+        onClose={closeBibleDialog}
+        onAdd={addBiblePassage}
+      />
+
       <div className="control-zones">
         <SchedulePanel
           items={items}
@@ -988,6 +1038,16 @@ export function ControlPage() {
               setUploadHint(t(locale, "control.wsDisconnectedHint"));
             }
             openYoutubeDialog();
+          }}
+          onAddBible={() => {
+            if (!sessionReady) {
+              return;
+            }
+            if (!wsReady) {
+              session.reconnect();
+              setUploadHint(t(locale, "control.wsDisconnectedHint"));
+            }
+            openBibleDialog();
           }}
           saveLoad={
             session.hasSession && session.sessionId && session.wsTicket ? (
@@ -1065,12 +1125,12 @@ export function ControlPage() {
                     : undefined
                 }
                 onPrev={
-                  liveItem.type === "text"
+                  itemHasSlides(liveItem)
                     ? () => session.setSlide(liveSlideIndex - 1)
                     : undefined
                 }
                 onNext={
-                  liveItem.type === "text"
+                  itemHasSlides(liveItem)
                     ? () => session.setSlide(liveSlideIndex + 1)
                     : undefined
                 }

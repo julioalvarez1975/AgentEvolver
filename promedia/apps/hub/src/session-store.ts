@@ -327,7 +327,12 @@ export class SessionStore {
     if (!item) {
       return { error: "not_found" };
     }
-    if (item.type !== "text" && item.type !== "image" && item.type !== "video") {
+    if (
+      item.type !== "text" &&
+      item.type !== "image" &&
+      item.type !== "video" &&
+      item.type !== "bible"
+    ) {
       return { error: "unsupported_type" };
     }
     session.live.currentItemId = itemId;
@@ -417,7 +422,7 @@ export class SessionStore {
       return { error: "no_live_item" };
     }
     const item = session.playlist.items.find((i) => i.id === itemId);
-    if (!item || item.type !== "text") {
+    if (!item || (item.type !== "text" && item.type !== "bible")) {
       return { error: "no_live_item" };
     }
     const max = Math.max(item.payload.slides.length - 1, 0);

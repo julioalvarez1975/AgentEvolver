@@ -31,6 +31,7 @@ export type SchedulePanelProps = {
   onAddImage: () => void;
   onAddVideo: () => void;
   onAddYoutube: () => void;
+  onAddBible: () => void;
   /** Saved playlist save/load chrome (already present). */
   saveLoad?: ReactNode;
   /** Inline text editor when creating/editing. */
@@ -40,6 +41,9 @@ export type SchedulePanelProps = {
 function kindLabelKey(kind: ScheduleKind): string {
   if (kind === "youtube") {
     return "itemTypes.youtube";
+  }
+  if (kind === "bible") {
+    return "itemTypes.bible";
   }
   return `itemTypes.${kind}`;
 }
@@ -69,6 +73,7 @@ export function SchedulePanel({
   onAddImage,
   onAddVideo,
   onAddYoutube,
+  onAddBible,
   saveLoad,
   editor,
 }: SchedulePanelProps) {
@@ -150,6 +155,16 @@ export function SchedulePanel({
         >
           <ScheduleTypeIcon kind="youtube" />
           <span>{t(locale, "itemTypes.youtube")}</span>
+        </button>
+        <button
+          type="button"
+          className="schedule-add-btn"
+          disabled={addDisabled}
+          title={t(locale, "bible.toolbarTip")}
+          onClick={onAddBible}
+        >
+          <ScheduleTypeIcon kind="bible" />
+          <span>{t(locale, "itemTypes.bible")}</span>
         </button>
         <button
           type="button"

@@ -14,6 +14,10 @@ import { authorizeSessionAccess } from "./auth.js";
 import { broadcastSession } from "./broadcast.js";
 import { playlistStore } from "./playlist-store.js";
 import { sessionStore } from "./session-store.js";
+import { BIBLE_BOOKS } from "./bible/books.js";
+import { lookupPassage, passageToSlides } from "./bible/lookup.js";
+import { parseBibleReference } from "./bible/parse.js";
+import { BIBLE_VERSIONS, defaultVersionId } from "./bible/versions.js";
 import {
   TEXT_IMPORT_MAX_BYTES,
   parsePdfBuffer,
@@ -329,6 +333,105 @@ export function createApiRoutes(): Hono {
       return c.json({ error: "not_found" }, 404);
     }
     return c.json({ ok: true });
+  });
+
+  /** Bible versions (Spanish-first free / public-domain set). */
+  api.get("/bible/versions", (c) =>
+    c.json({
+      defaultVersionId: defaultVersionId(),
+      versions: BIBLE_VERSIONS.map((v) => ({
+        id: v.id,
+        label: v.label,
+        shortLabel: v.shortLabel,
+        language: v.language,
+        license: v.license,
+        default: Boolean(v.default),
+      })),
+      note: "RVR1960 no está incluida: sigue bajo copyright. Usá RV1909 (dominio público).",
+    }),
+  );
+
+  api.get("/bible/books", (c) =>
+    c.json({
+      books: BIBLE_BOOKS.map((b) => ({
+        id: b.id,
+        nameEs: b.nameEs,
+        nameEn: b.nameEn,
+        chapters: b.chapters,
+      })),
+    }),
+  );
+
+  /**
+   * Lookup a passage by structured fields or free-text reference.
+   * Query: version, book, chapter, verseStart, verseEnd
+   *    or: version, q=Juan+3:16-17
+   */
+  api.get("/bible/passage", async (c) => {
+    const version =
+      (c.req.query("version") ?? defaultVersionId()).trim() ||
+      defaultVersionId();
+    const q = (c.req.query("q") ?? "").trim();
+
+    let bookId = (c.req.query("book") ?? "").trim().toLowerCase();
+    let chapter = Number(c.req.query("chapter"));
+    let verseStart = Number(c.req.query("verseStart") ?? c.req.query("from"));
+    let verseEnd = Number(c.req.query("verseEnd") ?? c.req.query("to"));
+
+    if (q) {
+      const parsed = parseBibleReference(q);
+      if (!parsed) {
+        return c.json({ error: "invalid_reference", q }, 400);
+      }
+      bookId = parsed.book.id;
+      chapter = parsed.chapter;
+      verseStart = parsed.verseStart;
+      verseEnd = parsed.verseEnd;
+    }
+
+    if (!bookId || !Number.isFinite(chapter) || !Number.isFinite(verseStart)) {
+      return c.json(
+        { error: "missing_params", need: "book+chapter+verseStart or q" },
+        400,
+      );
+    }
+    if (!Number.isFinite(verseEnd)) {
+      verseEnd = verseStart;
+    }
+
+    const looked = await lookupPassage({
+      versionId: version,
+      bookId,
+      chapter,
+      verseStart,
+      verseEnd,
+    });
+    if (!looked.ok) {
+      const status =
+        looked.error === "api_failed"
+          ? 502
+          : looked.error === "unknown_version" ||
+              looked.error === "unknown_book"
+            ? 400
+            : 400;
+      return c.json(
+        {
+          error: looked.error,
+          detail: looked.detail,
+          message:
+            looked.error === "api_failed"
+              ? "No se pudo obtener el pasaje (API o red). Probá otra versión o más tarde."
+              : undefined,
+        },
+        status,
+      );
+    }
+
+    const slides = passageToSlides(looked.result);
+    return c.json({
+      ...looked.result,
+      slides,
+    });
   });
 
   /**
