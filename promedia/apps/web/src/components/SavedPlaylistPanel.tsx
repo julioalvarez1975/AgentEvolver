@@ -7,6 +7,7 @@ import {
   saveSessionPlaylist,
   type SavedPlaylistSummary,
 } from "../lib/playlists";
+import { DialogBrand } from "./DialogBrand";
 
 const locale = DEFAULT_LOCALE;
 
@@ -128,9 +129,9 @@ export function SavedPlaylistPanel({
               aria-modal="true"
               aria-labelledby="playlist-save-title"
             >
-              <h3 id="playlist-save-title" className="promedia-dialog-title">
+              <DialogBrand id="playlist-save-title">
                 {t(locale, "playlist.save")}
-              </h3>
+              </DialogBrand>
               <label className="promedia-dialog-field">
                 {t(locale, "playlist.saveName")}
                 <input
@@ -185,9 +186,9 @@ export function SavedPlaylistPanel({
               aria-modal="true"
               aria-labelledby="playlist-load-title"
             >
-              <h3 id="playlist-load-title" className="promedia-dialog-title">
+              <DialogBrand id="playlist-load-title">
                 {t(locale, "playlist.load")}
-              </h3>
+              </DialogBrand>
               {list.length === 0 ? (
                 <p className="promedia-dialog-hint">
                   {t(locale, "playlist.savedEmpty")}

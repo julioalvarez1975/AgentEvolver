@@ -8,6 +8,7 @@ import {
   type BibleBookInfo,
   type BibleVersionInfo,
 } from "../lib/bible";
+import { DialogBrand } from "./DialogBrand";
 
 const locale = DEFAULT_LOCALE;
 
@@ -156,9 +157,9 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
         aria-modal="true"
         aria-labelledby="bible-dialog-title"
       >
-        <h3 id="bible-dialog-title" className="promedia-dialog-title">
+        <DialogBrand id="bible-dialog-title">
           {t(locale, "bible.dialogTitle")}
-        </h3>
+        </DialogBrand>
 
         {loadingMeta ? (
           <p className="promedia-dialog-hint">{t(locale, "bible.loading")}</p>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { parseYouTubeUrl } from "@promedia/item-types";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
+import { DialogBrand } from "./DialogBrand";
 
 const locale = DEFAULT_LOCALE;
 
@@ -78,9 +79,9 @@ export function LinkAddDialog({
         aria-modal="true"
         aria-labelledby="link-dialog-title"
       >
-        <h3 id="link-dialog-title" className="promedia-dialog-title">
+        <DialogBrand id="link-dialog-title">
           {t(locale, "link.dialogTitle")}
-        </h3>
+        </DialogBrand>
         <label className="promedia-dialog-field">
           {t(locale, "link.urlLabel")}
           <input

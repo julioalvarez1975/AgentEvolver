@@ -7,6 +7,12 @@ import {
   scheduleKindOf,
   type ScheduleKind,
 } from "./ScheduleTypeIcon";
+import {
+  IconAddFiles,
+  IconChevronDown,
+  IconFolderOpen,
+  IconSave,
+} from "./UiIcons";
 
 const locale = DEFAULT_LOCALE;
 
@@ -50,40 +56,6 @@ function kindLabelKey(kind: ScheduleKind): string {
     return "itemTypes.bible";
   }
   return `itemTypes.${kind}`;
-}
-
-function IconFolderOpen() {
-  return (
-    <svg
-      className="schedule-icon-svg"
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      aria-hidden
-    >
-      <path
-        fill="currentColor"
-        d="M2 6a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v1H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-1V8a1 1 0 0 0-1-1H10.83l-2-2H4a1 1 0 0 0-1 1v1H2V6z"
-      />
-    </svg>
-  );
-}
-
-function IconSave() {
-  return (
-    <svg
-      className="schedule-icon-svg"
-      viewBox="0 0 24 24"
-      width="18"
-      height="18"
-      aria-hidden
-    >
-      <path
-        fill="currentColor"
-        d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zm-5 16a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm3-10H5V5h10v4z"
-      />
-    </svg>
-  );
 }
 
 /**
@@ -245,11 +217,10 @@ export function SchedulePanel({
             className="schedule-primary-add"
             disabled={addDisabled}
             title={t(locale, "playlist.addFilesTip")}
+            aria-label={t(locale, "playlist.addFilesTip")}
             onClick={onAddFiles}
           >
-            <span className="schedule-primary-plus" aria-hidden>
-              +
-            </span>
+            <IconAddFiles className="schedule-icon-svg" size={18} />
             <span>{t(locale, "playlist.add")}</span>
           </button>
           <button
@@ -259,9 +230,10 @@ export function SchedulePanel({
             aria-expanded={chooserOpen}
             aria-haspopup="menu"
             title={t(locale, "playlist.addMoreTip")}
+            aria-label={t(locale, "playlist.addMoreTip")}
             onClick={() => setChooserOpen((o) => !o)}
           >
-            ▾
+            <IconChevronDown className="schedule-icon-svg" size={14} />
           </button>
           {chooserOpen ? (
             <div className="schedule-chooser" role="menu">
@@ -313,7 +285,7 @@ export function SchedulePanel({
           aria-label={t(locale, "playlist.load")}
           onClick={onOpenLoad}
         >
-          <IconFolderOpen />
+          <IconFolderOpen className="schedule-icon-svg" size={18} />
         </button>
         <button
           type="button"
@@ -323,7 +295,7 @@ export function SchedulePanel({
           aria-label={t(locale, "playlist.save")}
           onClick={onOpenSave}
         >
-          <IconSave />
+          <IconSave className="schedule-icon-svg" size={18} />
         </button>
 
         {checkedIds.size > 0 ? (
