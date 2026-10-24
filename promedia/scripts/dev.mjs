@@ -128,7 +128,7 @@ async function waitForHub(timeoutMs) {
         "[dev] ERROR: el hub no pudo enlazar el puerto (EADDRINUSE).",
       );
       console.error(
-        "[dev] Hay una instancia anterior en :8787. Cerrala o usá start-mac.command (libera 8787/5173).",
+        "[dev] Hay una instancia anterior en :8787. Cerrala o usá el launcher (start-mac / start-windows / start-linux).",
       );
       console.error(
         "[dev] Manual: lsof -nP -iTCP:8787 -sTCP:LISTEN  →  kill <PID>",
