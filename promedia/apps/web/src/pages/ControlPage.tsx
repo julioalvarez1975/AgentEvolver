@@ -24,6 +24,7 @@ import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { SchedulePanel } from "../components/SchedulePanel";
 import { TextItemEditor } from "../components/TextItemEditor";
 import { ThemePanel } from "../components/ThemePanel";
+import { IconNext, IconPrev } from "../components/UiIcons";
 import { useControlShortcuts } from "../hooks/useControlShortcuts";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import {
@@ -812,9 +813,9 @@ export function ControlPage() {
         <div className="control-brand">
           <img
             className="control-brand-logo"
-            src="/logo-default.svg"
+            src="/logo-mark.svg"
             alt=""
-            width={120}
+            width={40}
             height={40}
             decoding="async"
           />
@@ -1106,40 +1107,47 @@ export function ControlPage() {
             >
               <header className="stage-header">
                 <h2>{t(locale, "control.preview")}</h2>
+              </header>
+              {/*
+                Lite item/slide nav when anything is selected (no empty bar).
+                Video/YouTube also render a dedicated play/scrub/mute bar
+                under the media inside Preview.
+              */}
+              {selectedItem ? (
                 <div
-                  className="preview-nav"
-                  role="group"
+                  className="preview-toolbar preview-toolbar-lite"
+                  role="toolbar"
                   aria-label={t(locale, "preview.nav")}
                 >
                   <button
                     type="button"
-                    className="btn btn-ghost preview-nav-btn"
+                    className="btn preview-tb-btn"
                     disabled={!canPreviewPrev}
                     title={t(locale, "preview.prev")}
+                    aria-label={t(locale, "preview.prev")}
                     onClick={previewGoPrev}
                   >
-                    ←
+                    <IconPrev />
                   </button>
                   <span className="preview-nav-meta">
-                    {selectedItem
-                      ? itemHasSlides(selectedItem) && slideCount > 1
-                        ? `${previewSlideIndex + 1}/${slideCount}`
-                        : selectedIndex >= 0
-                          ? `${selectedIndex + 1}/${items.length}`
-                          : "—"
-                      : "—"}
+                    {itemHasSlides(selectedItem) && slideCount > 1
+                      ? `${previewSlideIndex + 1}/${slideCount}`
+                      : selectedIndex >= 0
+                        ? `${selectedIndex + 1}/${items.length}`
+                        : "—"}
                   </span>
                   <button
                     type="button"
-                    className="btn btn-ghost preview-nav-btn"
+                    className="btn preview-tb-btn"
                     disabled={!canPreviewNext}
                     title={t(locale, "preview.next")}
+                    aria-label={t(locale, "preview.next")}
                     onClick={previewGoNext}
                   >
-                    →
+                    <IconNext />
                   </button>
                 </div>
-              </header>
+              ) : null}
               <div className="zone-body zone-stage pm-theme" style={themeStyle}>
                 {selectedItem && Preview ? (
                   <Preview
