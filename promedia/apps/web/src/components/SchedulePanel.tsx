@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
 import type { PlaylistItem } from "@promedia/shared";
 import { itemLabel } from "@promedia/shared";
@@ -26,14 +26,18 @@ export type SchedulePanelProps = {
   onRemoveChecked: () => void;
   onGoLive: (id: string) => void;
   onEditText: (id: string) => void;
-  onAddTextFile: () => void;
-  onAddTextBlank: () => void;
-  onAddImage: () => void;
-  onAddVideo: () => void;
-  onAddYoutube: () => void;
+  /** Primary «+»: open native multi-file picker. */
+  onAddFiles: () => void;
+  /** Split menu: YouTube / generic link. */
+  onAddLink: () => void;
   onAddBible: () => void;
-  /** Saved playlist save/load chrome (already present). */
-  saveLoad?: ReactNode;
+  onAddTextBlank: () => void;
+  onOpenLoad: () => void;
+  onOpenSave: () => void;
+  /** External file drag onto Guion (not item reorder). */
+  onFilesDropped: (files: File[]) => void;
+  /** Saved playlist dialogs (icons open them). */
+  saveLoadDialogs?: ReactNode;
   /** Inline text editor when creating/editing. */
   editor?: ReactNode;
 };
@@ -48,9 +52,44 @@ function kindLabelKey(kind: ScheduleKind): string {
   return `itemTypes.${kind}`;
 }
 
+function IconFolderOpen() {
+  return (
+    <svg
+      className="schedule-icon-svg"
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      aria-hidden
+    >
+      <path
+        fill="currentColor"
+        d="M2 6a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v1H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-1V8a1 1 0 0 0-1-1H10.83l-2-2H4a1 1 0 0 0-1 1v1H2V6z"
+      />
+    </svg>
+  );
+}
+
+function IconSave() {
+  return (
+    <svg
+      className="schedule-icon-svg"
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      aria-hidden
+    >
+      <path
+        fill="currentColor"
+        d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7l-4-4zm-5 16a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm3-10H5V5h10v4z"
+      />
+    </svg>
+  );
+}
+
 /**
  * Left schedule column — denser list patterned after Quelea «Guion»
  * and EasyWorship Schedule (type icons, reorder, per-item go-live).
+ * Toolbar: one unified «+» (files + chooser) + load/save icons.
  */
 export function SchedulePanel({
   items,
@@ -68,21 +107,50 @@ export function SchedulePanel({
   onRemoveChecked,
   onGoLive,
   onEditText,
-  onAddTextFile,
-  onAddTextBlank,
-  onAddImage,
-  onAddVideo,
-  onAddYoutube,
+  onAddFiles,
+  onAddLink,
   onAddBible,
-  saveLoad,
+  onAddTextBlank,
+  onOpenLoad,
+  onOpenSave,
+  onFilesDropped,
+  saveLoadDialogs,
   editor,
 }: SchedulePanelProps) {
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [fileDragOver, setFileDragOver] = useState(false);
+  const [chooserOpen, setChooserOpen] = useState(false);
   const dragIdRef = useRef<string | null>(null);
+  const chooserRef = useRef<HTMLDivElement>(null);
 
   const addDisabled = !sessionReady || uploading;
   const sorted = items;
+
+  useEffect(() => {
+    if (!chooserOpen) {
+      return;
+    }
+    const onDoc = (e: MouseEvent) => {
+      if (
+        chooserRef.current &&
+        !chooserRef.current.contains(e.target as Node)
+      ) {
+        setChooserOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setChooserOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [chooserOpen]);
 
   const applyReorder = (fromId: string, toId: string) => {
     if (fromId === toId || !canMutate) {
@@ -103,10 +171,61 @@ export function SchedulePanel({
     onReorder(next);
   };
 
+  const hasExternalFiles = (dt: DataTransfer | null): boolean => {
+    if (!dt) {
+      return false;
+    }
+    if (dt.types.includes("Files")) {
+      return true;
+    }
+    return Array.from(dt.items ?? []).some((it) => it.kind === "file");
+  };
+
   return (
     <section
-      className="zone zone-playlist zone-schedule"
+      className={[
+        "zone zone-playlist zone-schedule",
+        fileDragOver ? "is-file-drop" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       aria-label={t(locale, "control.playlist")}
+      onDragEnter={(e) => {
+        if (!hasExternalFiles(e.dataTransfer) || dragIdRef.current) {
+          return;
+        }
+        e.preventDefault();
+        setFileDragOver(true);
+      }}
+      onDragOver={(e) => {
+        if (!hasExternalFiles(e.dataTransfer) || dragIdRef.current) {
+          return;
+        }
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        setFileDragOver(true);
+      }}
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node)) {
+          return;
+        }
+        setFileDragOver(false);
+      }}
+      onDrop={(e) => {
+        if (dragIdRef.current) {
+          return;
+        }
+        if (!hasExternalFiles(e.dataTransfer)) {
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        setFileDragOver(false);
+        const files = Array.from(e.dataTransfer.files ?? []);
+        if (files.length) {
+          onFilesDropped(files);
+        }
+      }}
     >
       <header className="schedule-header">
         <h2>{t(locale, "control.playlist")}</h2>
@@ -115,86 +234,130 @@ export function SchedulePanel({
         </span>
       </header>
 
-      <div className="schedule-toolbar" role="toolbar" aria-label={t(locale, "playlist.addMenu")}>
+      <div
+        className="schedule-toolbar schedule-toolbar-unified"
+        role="toolbar"
+        aria-label={t(locale, "playlist.addMenu")}
+      >
+        <div className="schedule-split" ref={chooserRef}>
+          <button
+            type="button"
+            className="schedule-primary-add"
+            disabled={addDisabled}
+            title={t(locale, "playlist.addFilesTip")}
+            onClick={onAddFiles}
+          >
+            <span className="schedule-primary-plus" aria-hidden>
+              +
+            </span>
+            <span>{t(locale, "playlist.add")}</span>
+          </button>
+          <button
+            type="button"
+            className="schedule-primary-chevron"
+            disabled={addDisabled}
+            aria-expanded={chooserOpen}
+            aria-haspopup="menu"
+            title={t(locale, "playlist.addMoreTip")}
+            onClick={() => setChooserOpen((o) => !o)}
+          >
+            ▾
+          </button>
+          {chooserOpen ? (
+            <div className="schedule-chooser" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                className="schedule-chooser-item"
+                onClick={() => {
+                  setChooserOpen(false);
+                  onAddLink();
+                }}
+              >
+                <ScheduleTypeIcon kind="youtube" />
+                {t(locale, "playlist.addLink")}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="schedule-chooser-item"
+                onClick={() => {
+                  setChooserOpen(false);
+                  onAddBible();
+                }}
+              >
+                <ScheduleTypeIcon kind="bible" />
+                {t(locale, "itemTypes.bible")}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="schedule-chooser-item"
+                onClick={() => {
+                  setChooserOpen(false);
+                  onAddTextBlank();
+                }}
+              >
+                <ScheduleTypeIcon kind="text" />
+                {t(locale, "text.blankManual")}
+              </button>
+            </div>
+          ) : null}
+        </div>
+
         <button
           type="button"
-          className="schedule-add-btn"
-          disabled={addDisabled}
-          title={t(locale, "text.importFile")}
-          onClick={onAddTextFile}
+          className="schedule-icon-btn"
+          disabled={!sessionReady || uploading}
+          title={t(locale, "playlist.load")}
+          aria-label={t(locale, "playlist.load")}
+          onClick={onOpenLoad}
         >
-          <ScheduleTypeIcon kind="text" />
-          <span>{t(locale, "itemTypes.text")}</span>
+          <IconFolderOpen />
         </button>
         <button
           type="button"
-          className="schedule-add-btn"
-          disabled={addDisabled}
-          title={t(locale, "itemTypes.image")}
-          onClick={onAddImage}
+          className="schedule-icon-btn"
+          disabled={!canMutate}
+          title={t(locale, "playlist.save")}
+          aria-label={t(locale, "playlist.save")}
+          onClick={onOpenSave}
         >
-          <ScheduleTypeIcon kind="image" />
-          <span>{t(locale, "itemTypes.image")}</span>
+          <IconSave />
         </button>
-        <button
-          type="button"
-          className="schedule-add-btn"
-          disabled={addDisabled}
-          title={t(locale, "video.fromFile")}
-          onClick={onAddVideo}
-        >
-          <ScheduleTypeIcon kind="video" />
-          <span>{t(locale, "itemTypes.video")}</span>
-        </button>
-        <button
-          type="button"
-          className="schedule-add-btn"
-          disabled={addDisabled}
-          title={t(locale, "video.fromYoutube")}
-          onClick={onAddYoutube}
-        >
-          <ScheduleTypeIcon kind="youtube" />
-          <span>{t(locale, "itemTypes.youtube")}</span>
-        </button>
-        <button
-          type="button"
-          className="schedule-add-btn"
-          disabled={addDisabled}
-          title={t(locale, "bible.toolbarTip")}
-          onClick={onAddBible}
-        >
-          <ScheduleTypeIcon kind="bible" />
-          <span>{t(locale, "itemTypes.bible")}</span>
-        </button>
-        <button
-          type="button"
-          className="schedule-add-btn schedule-add-btn-quiet"
-          disabled={addDisabled}
-          title={t(locale, "text.blankManual")}
-          onClick={onAddTextBlank}
-        >
-          <span>{t(locale, "text.blankManual")}</span>
-        </button>
-        <button
-          type="button"
-          className="schedule-add-btn schedule-add-btn-danger"
-          disabled={!canMutate || checkedIds.size === 0}
-          title={t(locale, "playlist.removeSelected")}
-          onClick={onRemoveChecked}
-        >
-          {t(locale, "playlist.removeSelected")}
-          {checkedIds.size > 0 ? ` (${checkedIds.size})` : ""}
-        </button>
+
+        {checkedIds.size > 0 ? (
+          <button
+            type="button"
+            className="schedule-add-btn schedule-add-btn-danger schedule-remove-checked"
+            disabled={!canMutate}
+            title={t(locale, "playlist.removeSelected")}
+            onClick={onRemoveChecked}
+          >
+            {t(locale, "playlist.removeSelected")} ({checkedIds.size})
+          </button>
+        ) : null}
       </div>
 
-      {saveLoad}
+      {fileDragOver ? (
+        <div className="schedule-drop-overlay" aria-hidden>
+          {t(locale, "playlist.dropFiles")}
+        </div>
+      ) : null}
+
+      {saveLoadDialogs}
 
       {editor ? (
         <div className="zone-body playlist-editor">{editor}</div>
       ) : (
         <div className="zone-body schedule-list">
           {sorted.length === 0 ? (
-            <p className="zone-empty">{t(locale, "control.playlistEmpty")}</p>
+            <p className="zone-empty">
+              {t(locale, "control.playlistEmpty")}
+              <span className="schedule-drop-hint">
+                {t(locale, "playlist.dropHint")}
+              </span>
+            </p>
           ) : (
             <ul
               className="schedule-ul"
@@ -236,6 +399,9 @@ export function SchedulePanel({
                       );
                     }}
                     onDrop={(e) => {
+                      if (hasExternalFiles(e.dataTransfer)) {
+                        return;
+                      }
                       e.preventDefault();
                       const from =
                         e.dataTransfer.getData("text/plain") ||
