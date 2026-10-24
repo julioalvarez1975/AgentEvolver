@@ -18,6 +18,7 @@ import type {
 } from "@promedia/shared";
 import { DEFAULT_THEME_ID, itemHasSlides } from "@promedia/shared";
 import { BibleDialog } from "../components/BibleDialog";
+import { ControlAdBanner } from "../components/ControlAdBanner";
 import { LinkAddDialog } from "../components/LinkAddDialog";
 import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { SchedulePanel } from "../components/SchedulePanel";
@@ -809,10 +810,22 @@ export function ControlPage() {
     <div className="control-shell">
       <header className="control-header">
         <div className="control-brand">
-          <span className="control-brand-name">{t(locale, "app.name")}</span>
-          <span className="control-brand-role">Control</span>
+          <img
+            className="control-brand-logo"
+            src="/logo-default.svg"
+            alt=""
+            width={120}
+            height={40}
+            decoding="async"
+          />
+          <h1 className="control-brand-title">
+            {t(locale, "control.headerTitle")}
+          </h1>
         </div>
+        <ControlAdBanner />
+      </header>
 
+      <div className="control-session-bar">
         <div className="control-session-actions">
           <button
             type="button"
@@ -871,9 +884,8 @@ export function ControlPage() {
             </button>
           )}
         </div>
-      </header>
-
-      <p className="control-drag-hint">{t(locale, "control.startProjectionTip")}</p>
+        <p className="control-drag-hint">{t(locale, "control.startProjectionTip")}</p>
+      </div>
 
       {projectionNote ? (
         <div className="control-banner" role="status">
