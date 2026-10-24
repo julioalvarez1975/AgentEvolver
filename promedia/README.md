@@ -97,10 +97,12 @@ node scripts/smoke-hub-ws.mjs
 
 - Sesión + WS + código corto / enlace opaco
 - Playlist: texto, imagen, vídeo (mp4/webm/mov), YouTube público
+- Columna playlist: **Guardar / Cargar**, multi-selección + **Quitar seleccionados**, lista con scroll
+- Texto: importar **PDF** (parse en hub), **XML** o **.txt/.md** a slides (límites en UI); editor manual intacto
 - Preview ≠ live hasta Go Live; `mediaClock` sync
 - Scene modes: normal / logo / negro / clear
 - Temas: Oscuro / Claro / Acento + editor simple
-- Guardar / cargar playlists con nombre
+- Guardar / cargar playlists con nombre (SavedPlaylist)
 - Modo cloud vía env (`PROMEDIA_MODE`, adapter S3 stub con fallback local)
 - i18n ES · EN · PT · FR · ZH-Hans (cadenas base)
 

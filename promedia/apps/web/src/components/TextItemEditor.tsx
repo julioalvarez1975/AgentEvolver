@@ -1,7 +1,13 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { TextAlign, TextPayload, TextSlide } from "@promedia/shared";
 import { cryptoRandomId } from "@promedia/item-types";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
+import {
+  TEXT_IMPORT_MAX_BYTES,
+  TEXT_IMPORT_MAX_SLIDES,
+  importFileToTextSlides,
+  isSupportedTextImport,
+} from "../lib/textImport";
 
 const locale = DEFAULT_LOCALE;
 
@@ -19,7 +25,7 @@ function textToLines(text: string): string[] {
   return text.split("\n");
 }
 
-/** One textarea per slide (Q2). */
+/** One textarea per slide (Q2) + PDF/XML/text import. */
 export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProps) {
   const [title, setTitle] = useState(initial.title ?? "");
   const [align, setAlign] = useState<TextAlign>(initial.align ?? "center");
@@ -28,6 +34,9 @@ export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProp
       ? initial.slides.map((s) => ({ ...s, lines: [...s.lines] }))
       : [{ id: cryptoRandomId(), lines: [""] }],
   );
+  const [importHint, setImportHint] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const updateSlideText = (index: number, text: string) => {
     setSlides((prev) =>
@@ -48,6 +57,54 @@ export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProp
       }
       return prev.filter((_, i) => i !== index);
     });
+  };
+
+  const onImportFile = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+    setImportHint(null);
+    if (!isSupportedTextImport(file)) {
+      setImportHint(t(locale, "text.importUnsupported"));
+      return;
+    }
+    if (file.size > TEXT_IMPORT_MAX_BYTES) {
+      setImportHint(t(locale, "text.importTooLarge"));
+      return;
+    }
+    setImporting(true);
+    try {
+      const result = await importFileToTextSlides(file);
+      setSlides(result.slides);
+      if (result.title && !title.trim()) {
+        setTitle(result.title);
+      }
+      setImportHint(
+        result.truncated
+          ? t(locale, "text.importTruncated").replace(
+              "{n}",
+              String(TEXT_IMPORT_MAX_SLIDES),
+            )
+          : t(locale, "text.importOk").replace(
+              "{n}",
+              String(result.slides.length),
+            ),
+      );
+    } catch (err) {
+      const msg = String(err);
+      if (msg.includes("file_too_large")) {
+        setImportHint(t(locale, "text.importTooLarge"));
+      } else if (msg.includes("unsupported_type")) {
+        setImportHint(t(locale, "text.importUnsupported"));
+      } else {
+        setImportHint(t(locale, "text.importFailed"));
+      }
+    } finally {
+      setImporting(false);
+      if (importInputRef.current) {
+        importInputRef.current.value = "";
+      }
+    }
   };
 
   const save = () => {
@@ -79,6 +136,32 @@ export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProp
           <option value="right">{t(locale, "text.alignRight")}</option>
         </select>
       </label>
+
+      <div className="text-editor-import">
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".pdf,.xml,.txt,.md,.text,.markdown,application/pdf,text/plain,text/markdown,application/xml,text/xml"
+          className="sr-only"
+          onChange={(e) => void onImportFile(e.target.files?.[0])}
+        />
+        <button
+          type="button"
+          className="btn"
+          disabled={importing}
+          onClick={() => importInputRef.current?.click()}
+        >
+          {importing
+            ? t(locale, "text.importing")
+            : t(locale, "text.importFile")}
+        </button>
+        <p className="text-editor-import-hint">{t(locale, "text.importLimits")}</p>
+        {importHint ? (
+          <p className="text-editor-import-status" role="status">
+            {importHint}
+          </p>
+        ) : null}
+      </div>
 
       <div className="text-editor-slides">
         {slides.map((slide, index) => (

@@ -15,6 +15,8 @@ export type SavedPlaylistPanelProps = {
   wsTicket: string;
   disabled?: boolean;
   onHint?: (msg: string | null) => void;
+  /** Compact layout for playlist column (Guardar / Cargar). */
+  compact?: boolean;
 };
 
 export function SavedPlaylistPanel({
@@ -22,6 +24,7 @@ export function SavedPlaylistPanel({
   wsTicket,
   disabled,
   onHint,
+  compact,
 }: SavedPlaylistPanelProps) {
   const [name, setName] = useState("");
   const [list, setList] = useState<SavedPlaylistSummary[]>([]);
@@ -88,8 +91,16 @@ export function SavedPlaylistPanel({
   };
 
   return (
-    <div className="saved-playlist-panel">
-      <h3 className="theme-controls-title">{t(locale, "playlist.savedTitle")}</h3>
+    <div
+      className={
+        compact
+          ? "saved-playlist-panel saved-playlist-panel-compact"
+          : "saved-playlist-panel"
+      }
+    >
+      <h3 className="theme-controls-title">
+        {t(locale, compact ? "playlist.saveLoadTitle" : "playlist.savedTitle")}
+      </h3>
       <div className="saved-playlist-save">
         <input
           value={name}

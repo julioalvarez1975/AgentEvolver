@@ -14,10 +14,12 @@
     "@promedia/media": "workspace:*",
     "@promedia/shared": "workspace:*",
     "hono": "^4.7.5",
+    "pdf-parse": "^2.4.5",
     "ws": "^8.22.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
+    "@types/pdf-parse": "^1.1.5",
     "@types/ws": "^8.18.2",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2"
