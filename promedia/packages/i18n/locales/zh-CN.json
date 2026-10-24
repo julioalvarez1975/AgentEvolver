@@ -6,6 +6,8 @@
   "control.adSlotPlaceholder": "广告位 · Google Ad Manager",
   "control.adSlotHint": "设置 VITE_GAM_NETWORK_CODE 和 VITE_GAM_AD_UNIT 以显示真实广告。",
   "control.adSlotLoadError": "无法加载广告（GPT）。",
+  "control.statusTipWarn": "警告",
+  "control.statusTipInfo": "提示",
   "control.createSession": "创建会话",
   "control.joinSession": "加入",
   "control.code": "代码",

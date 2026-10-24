@@ -6,6 +6,8 @@
   "control.adSlotPlaceholder": "Advertising space · Google Ad Manager",
   "control.adSlotHint": "Set VITE_GAM_NETWORK_CODE and VITE_GAM_AD_UNIT for live ads.",
   "control.adSlotLoadError": "Could not load the ad (GPT).",
+  "control.statusTipWarn": "Warning",
+  "control.statusTipInfo": "Information",
   "control.createSession": "Create session",
   "control.joinSession": "Join",
   "control.code": "Code",

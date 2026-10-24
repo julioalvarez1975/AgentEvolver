@@ -22,6 +22,7 @@ import { ControlAdBanner } from "../components/ControlAdBanner";
 import { LinkAddDialog } from "../components/LinkAddDialog";
 import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { SchedulePanel } from "../components/SchedulePanel";
+import { StatusTip } from "../components/StatusTip";
 import { TextItemEditor } from "../components/TextItemEditor";
 import { ThemePanel } from "../components/ThemePanel";
 import { IconNext, IconPrev } from "../components/UiIcons";
@@ -884,38 +885,55 @@ export function ControlPage() {
               {t(locale, "control.openOutput")}
             </button>
           )}
+          {(projectionNote || uploadHint) && (
+            <span className="control-session-tips" role="status">
+              {projectionNote ? (
+                <StatusTip
+                  tone="info"
+                  label={t(locale, "control.statusTipInfo")}
+                  message={projectionNote}
+                />
+              ) : null}
+              {uploadHint ? (
+                <StatusTip
+                  tone="warn"
+                  label={t(locale, "control.statusTipWarn")}
+                  message={uploadHint}
+                />
+              ) : null}
+            </span>
+          )}
         </div>
       </div>
 
-      {projectionNote ? (
-        <div className="control-banner" role="status">
-          {projectionNote}
-        </div>
-      ) : null}
-
       {popupBlockedUrl ? (
-        <div className="control-banner" role="status">
-          <p>{t(locale, "control.popupBlocked")}</p>
-          <a href={popupBlockedUrl} target="_blank" rel="noopener">
-            {popupBlockedUrl}
+        <div className="control-banner control-banner-compact" role="status">
+          <StatusTip
+            tone="warn"
+            label={t(locale, "control.statusTipWarn")}
+            message={t(locale, "control.popupBlocked")}
+          />
+          <a
+            className="control-banner-link"
+            href={popupBlockedUrl}
+            target="_blank"
+            rel="noopener"
+          >
+            {t(locale, "control.openOutput")}
           </a>
-        </div>
-      ) : null}
-
-      {uploadHint ? (
-        <div className="control-banner" role="status">
-          {uploadHint}
         </div>
       ) : null}
 
       {session.hubUnreachable ? (
         <div
-          className="control-banner control-banner-hub-down"
+          className="control-banner control-banner-hub-down control-banner-compact"
           role="alert"
         >
-          <p className="control-banner-hub-title">
-            {t(locale, "control.hubUnreachable")}
-          </p>
+          <StatusTip
+            tone="error"
+            label={t(locale, "control.statusTipWarn")}
+            message={t(locale, "control.hubUnreachable")}
+          />
           <p className="control-banner-hub-cmd">
             <code>pnpm dev</code>
           </p>
@@ -941,18 +959,32 @@ export function ControlPage() {
       {session.error &&
       !session.hubUnreachable &&
       !session.error.startsWith("HUB_UNREACHABLE") ? (
-        <div className="control-banner control-banner-error" role="alert">
-          {session.error}
+        <div
+          className="control-banner control-banner-error control-banner-compact"
+          role="alert"
+        >
+          <StatusTip
+            tone="error"
+            label={t(locale, "control.statusTipWarn")}
+            message={session.error}
+          />
         </div>
       ) : null}
 
       {sessionReady && !wsReady && !session.hubUnreachable ? (
-        <div className="control-banner control-banner-error" role="status">
-          <p>
-            {session.wsStatus === "connecting"
-              ? t(locale, "control.wsConnectingHint")
-              : t(locale, "control.wsDisconnectedHint")}
-          </p>
+        <div
+          className="control-banner control-banner-error control-banner-compact"
+          role="status"
+        >
+          <StatusTip
+            tone="error"
+            label={t(locale, "control.statusTipWarn")}
+            message={
+              session.wsStatus === "connecting"
+                ? t(locale, "control.wsConnectingHint")
+                : t(locale, "control.wsDisconnectedHint")
+            }
+          />
           <button
             type="button"
             className="btn btn-primary"
@@ -1273,7 +1305,13 @@ export function ControlPage() {
                 onChange={(patch) => session.setTheme(patch)}
               />
             </div>
-            <p className="shortcuts-hint">{t(locale, "shortcuts.hint")}</p>
+            <div className="shortcuts-hint-row">
+              <StatusTip
+                tone="info"
+                label={t(locale, "control.statusTipInfo")}
+                message={t(locale, "shortcuts.hint")}
+              />
+            </div>
           </div>
         </div>
       </div>
