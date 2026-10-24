@@ -3,7 +3,6 @@ import {
   createEmptyTextPayload,
   cryptoRandomId,
   getItemType,
-  listItemTypes,
   parseYouTubeUrl,
 } from "@promedia/item-types";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
@@ -16,8 +15,9 @@ import type {
   ThemeId,
   VideoPayload,
 } from "@promedia/shared";
-import { DEFAULT_THEME_ID, itemLabel } from "@promedia/shared";
+import { DEFAULT_THEME_ID } from "@promedia/shared";
 import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
+import { SchedulePanel } from "../components/SchedulePanel";
 import { TextItemEditor } from "../components/TextItemEditor";
 import { ThemePanel } from "../components/ThemePanel";
 import { useControlShortcuts } from "../hooks/useControlShortcuts";
@@ -593,6 +593,9 @@ export function ControlPage() {
   };
 
   const moveItem = (id: string, dir: -1 | 1) => {
+    if (!ensureWsOrHint()) {
+      return;
+    }
     const sorted = [...items].sort((a, b) => a.order - b.order);
     const idx = sorted.findIndex((i) => i.id === id);
     const swap = idx + dir;
@@ -604,6 +607,25 @@ export function ControlPage() {
     next[idx] = next[swap]!;
     next[swap] = tmp;
     session.reorder(next.map((i) => i.id));
+  };
+
+  const reorderItems = (orderedIds: string[]) => {
+    if (!ensureWsOrHint()) {
+      return;
+    }
+    session.reorder(orderedIds);
+  };
+
+  const goLiveItem = (id: string) => {
+    if (!ensureWsOrHint()) {
+      return;
+    }
+    setSelectedItemId(id);
+    setPreviewSlideIndex(0);
+    setCreating(false);
+    setEditingId(null);
+    setYoutubeDialogOpen(false);
+    session.goLive(id);
   };
 
   const removeOne = (id: string) => {
@@ -900,215 +922,100 @@ export function ControlPage() {
       ) : null}
 
       <div className="control-zones">
-        <section
-          className="zone zone-playlist"
-          aria-label={t(locale, "control.playlist")}
-        >
-          <h2>{t(locale, "control.playlist")}</h2>
-          <div className="playlist-toolbar">
-            {listItemTypes().map((mod) => (
-              <button
-                key={mod.type}
-                type="button"
-                className="btn btn-primary"
-                disabled={!sessionReady || uploading}
-                title={
-                  !sessionReady
-                    ? t(locale, "control.createSession")
-                    : !wsReady
-                      ? t(locale, "control.wsDisconnectedHint")
-                      : mod.type === "text"
-                        ? t(locale, "text.importFile")
-                        : mod.type === "video"
-                          ? t(locale, "video.fromFile")
-                          : undefined
-                }
-                onClick={() => {
-                  if (!sessionReady) {
-                    return;
-                  }
-                  if (!wsReady) {
-                    session.reconnect();
-                    setUploadHint(t(locale, "control.wsDisconnectedHint"));
-                  }
-                  if (mod.type === "text") {
-                    onPickTextFile();
-                  } else if (mod.type === "image") {
-                    if (!wsReady) {
-                      return;
-                    }
-                    onPickImage();
-                  } else if (mod.type === "video") {
-                    if (!wsReady) {
-                      return;
-                    }
-                    onPickVideoFile();
-                  }
-                }}
-              >
-                + {t(locale, mod.labelKey)}
-              </button>
-            ))}
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={!sessionReady || uploading}
-              title={
-                !sessionReady
-                  ? t(locale, "control.createSession")
-                  : !wsReady
-                    ? t(locale, "control.wsDisconnectedHint")
-                    : t(locale, "video.fromYoutube")
-              }
-              onClick={() => {
-                if (!sessionReady) {
-                  return;
-                }
-                if (!wsReady) {
-                  session.reconnect();
-                  setUploadHint(t(locale, "control.wsDisconnectedHint"));
-                }
-                openYoutubeDialog();
-              }}
-            >
-              + {t(locale, "itemTypes.youtube")}
-            </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={!sessionReady || uploading}
-              title={t(locale, "text.blankManual")}
-              onClick={() => {
-                if (!sessionReady) {
-                  return;
-                }
-                startCreateTextBlank();
-              }}
-            >
-              {t(locale, "text.blankManual")}
-            </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={!canMutate || checkedIds.size === 0}
-              onClick={removeChecked}
-            >
-              {t(locale, "playlist.removeSelected")}
-              {checkedIds.size > 0 ? ` (${checkedIds.size})` : ""}
-            </button>
-          </div>
-
-          {session.hasSession && session.sessionId && session.wsTicket ? (
-            <SavedPlaylistPanel
-              sessionId={session.sessionId}
-              wsTicket={session.wsTicket}
-              disabled={!canMutate}
-              onHint={setUploadHint}
-              compact
-            />
-          ) : null}
-
-          {creating ? (
-            <div className="zone-body playlist-editor">
+        <SchedulePanel
+          items={items}
+          selectedItemId={selectedItemId}
+          liveItemId={liveItemId}
+          checkedIds={checkedIds}
+          sessionReady={sessionReady}
+          canMutate={canMutate}
+          uploading={uploading}
+          onSelect={selectItem}
+          onToggleChecked={toggleChecked}
+          onMove={moveItem}
+          onReorder={reorderItems}
+          onRemove={removeOne}
+          onRemoveChecked={removeChecked}
+          onGoLive={goLiveItem}
+          onEditText={(id) => {
+            selectItem(id);
+            setEditingId(id);
+          }}
+          onAddTextFile={() => {
+            if (!sessionReady) {
+              return;
+            }
+            if (!wsReady) {
+              session.reconnect();
+              setUploadHint(t(locale, "control.wsDisconnectedHint"));
+            }
+            onPickTextFile();
+          }}
+          onAddTextBlank={() => {
+            if (!sessionReady) {
+              return;
+            }
+            startCreateTextBlank();
+          }}
+          onAddImage={() => {
+            if (!sessionReady) {
+              return;
+            }
+            if (!wsReady) {
+              session.reconnect();
+              setUploadHint(t(locale, "control.wsDisconnectedHint"));
+              return;
+            }
+            onPickImage();
+          }}
+          onAddVideo={() => {
+            if (!sessionReady) {
+              return;
+            }
+            if (!wsReady) {
+              session.reconnect();
+              setUploadHint(t(locale, "control.wsDisconnectedHint"));
+              return;
+            }
+            onPickVideoFile();
+          }}
+          onAddYoutube={() => {
+            if (!sessionReady) {
+              return;
+            }
+            if (!wsReady) {
+              session.reconnect();
+              setUploadHint(t(locale, "control.wsDisconnectedHint"));
+            }
+            openYoutubeDialog();
+          }}
+          saveLoad={
+            session.hasSession && session.sessionId && session.wsTicket ? (
+              <SavedPlaylistPanel
+                sessionId={session.sessionId}
+                wsTicket={session.wsTicket}
+                disabled={!canMutate}
+                onHint={setUploadHint}
+                compact
+              />
+            ) : null
+          }
+          editor={
+            creating ? (
               <TextItemEditor
                 initial={createEmptyTextPayload()}
                 onSave={saveNewText}
                 onCancel={() => setCreating(false)}
               />
-            </div>
-          ) : editingId && selectedItem?.type === "text" ? (
-            <div className="zone-body playlist-editor">
+            ) : editingId && selectedItem?.type === "text" ? (
               <TextItemEditor
                 initial={selectedItem.payload}
                 onSave={saveEditText}
                 onCancel={() => setEditingId(null)}
               />
-            </div>
-          ) : (
-            <div className="zone-body playlist-list">
-              {items.length === 0 ? (
-                <p className="zone-empty">{t(locale, "control.playlistEmpty")}</p>
-              ) : (
-                <ul>
-                  {items.map((item, index) => (
-                    <li key={item.id}>
-                      <div
-                        className={
-                          item.id === selectedItemId
-                            ? "playlist-row selected"
-                            : "playlist-row"
-                        }
-                      >
-                        <label className="playlist-check">
-                          <input
-                            type="checkbox"
-                            checked={checkedIds.has(item.id)}
-                            onChange={() => toggleChecked(item.id)}
-                            aria-label={t(locale, "playlist.selectItem")}
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          className="playlist-row-main"
-                          onClick={() => selectItem(item.id)}
-                        >
-                          <span className="playlist-row-label">
-                            {itemLabel(item)}
-                          </span>
-                          <span className="playlist-type-badge">
-                            {item.type}
-                          </span>
-                          {item.id === liveItemId ? (
-                            <span className="playlist-live-badge">LIVE</span>
-                          ) : null}
-                        </button>
-                      </div>
-                      <div className="playlist-row-actions">
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          disabled={index === 0}
-                          onClick={() => moveItem(item.id, -1)}
-                          title={t(locale, "playlist.moveUp")}
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          disabled={index === items.length - 1}
-                          onClick={() => moveItem(item.id, 1)}
-                          title={t(locale, "playlist.moveDown")}
-                        >
-                          ↓
-                        </button>
-                        {item.type === "text" ? (
-                          <button
-                            type="button"
-                            className="btn btn-ghost"
-                            onClick={() => {
-                              selectItem(item.id);
-                              setEditingId(item.id);
-                            }}
-                          >
-                            {t(locale, "playlist.edit")}
-                          </button>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => removeOne(item.id)}
-                        >
-                          {t(locale, "playlist.remove")}
-                        </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </section>
+            ) : null
+          }
+        />
 
         <section
           className="zone zone-preview"
