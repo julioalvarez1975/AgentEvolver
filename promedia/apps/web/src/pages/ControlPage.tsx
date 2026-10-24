@@ -38,6 +38,12 @@ import {
   openOutputWindow,
   startProjection,
 } from "../lib/openOutputWindow";
+import {
+  TEXT_IMPORT_MAX_BYTES,
+  TEXT_IMPORT_MAX_SLIDES,
+  importFileToTextSlides,
+  isSupportedTextImport,
+} from "../lib/textImport";
 import { themeSurfaceStyle } from "../lib/theme";
 
 const locale = DEFAULT_LOCALE;
@@ -74,12 +80,17 @@ export function ControlPage() {
   const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [videoMode, setVideoMode] = useState<"pick" | "youtube" | null>(null);
+  const [youtubeDialogOpen, setYoutubeDialogOpen] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [youtubeDialogError, setYoutubeDialogError] = useState<string | null>(
+    null,
+  );
   const [uploadHint, setUploadHint] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
+  const youtubeInputRef = useRef<HTMLInputElement>(null);
 
   const items = session.snapshot?.playlist.items ?? [];
   const selectedItem = useMemo(
@@ -294,7 +305,7 @@ export function ControlPage() {
     setPreviewSlideIndex(0);
     setCreating(false);
     setEditingId(null);
-    setVideoMode(null);
+    setYoutubeDialogOpen(false);
   };
 
   const toggleChecked = (id: string) => {
@@ -311,10 +322,93 @@ export function ControlPage() {
 
   const clearChecked = () => setCheckedIds(new Set());
 
-  const startCreateText = () => {
+  const startCreateTextBlank = () => {
     setCreating(true);
     setEditingId(null);
-    setVideoMode(null);
+    setYoutubeDialogOpen(false);
+  };
+
+  const onPickTextFile = () => {
+    setUploadHint(null);
+    setCreating(false);
+    setEditingId(null);
+    setYoutubeDialogOpen(false);
+    textInputRef.current?.click();
+  };
+
+  const onTextFile = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+    if (!ensureWsOrHint()) {
+      if (textInputRef.current) {
+        textInputRef.current.value = "";
+      }
+      return;
+    }
+    if (!isSupportedTextImport(file)) {
+      setUploadHint(t(locale, "text.importUnsupported"));
+      if (textInputRef.current) {
+        textInputRef.current.value = "";
+      }
+      return;
+    }
+    if (file.size > TEXT_IMPORT_MAX_BYTES) {
+      setUploadHint(t(locale, "text.importTooLarge"));
+      if (textInputRef.current) {
+        textInputRef.current.value = "";
+      }
+      return;
+    }
+    setUploading(true);
+    try {
+      const result = await importFileToTextSlides(file);
+      const payload: TextPayload = {
+        title: result.title || file.name.replace(/\.[^.]+$/, ""),
+        align: "center",
+        slides: result.slides,
+      };
+      const item: PlaylistItem = {
+        id: cryptoRandomId(),
+        type: "text",
+        order: items.length,
+        payload,
+      };
+      if (!session.addItem(item)) {
+        setUploadHint(t(locale, "control.wsDisconnectedHint"));
+        session.reconnect();
+        return;
+      }
+      setSelectedItemId(item.id);
+      setPreviewSlideIndex(0);
+      setCreating(false);
+      setEditingId(null);
+      setUploadHint(
+        result.truncated
+          ? t(locale, "text.importTruncated").replace(
+              "{n}",
+              String(TEXT_IMPORT_MAX_SLIDES),
+            )
+          : t(locale, "text.importAdded").replace(
+              "{n}",
+              String(result.slides.length),
+            ),
+      );
+    } catch (err) {
+      const msg = String(err);
+      if (msg.includes("file_too_large")) {
+        setUploadHint(t(locale, "text.importTooLarge"));
+      } else if (msg.includes("unsupported_type")) {
+        setUploadHint(t(locale, "text.importUnsupported"));
+      } else {
+        setUploadHint(t(locale, "text.importFailed"));
+      }
+    } finally {
+      setUploading(false);
+      if (textInputRef.current) {
+        textInputRef.current.value = "";
+      }
+    }
   };
 
   const ensureWsOrHint = (): boolean => {
@@ -364,7 +458,8 @@ export function ControlPage() {
 
   const onPickImage = () => {
     setUploadHint(null);
-    setVideoMode(null);
+    setYoutubeDialogOpen(false);
+    setCreating(false);
     imageInputRef.current?.click();
   };
 
@@ -409,16 +504,28 @@ export function ControlPage() {
     }
   };
 
-  const startAddVideo = () => {
+  const onPickVideoFile = () => {
     setUploadHint(null);
     setCreating(false);
     setEditingId(null);
-    setVideoMode("pick");
-    setYoutubeUrl("");
+    setYoutubeDialogOpen(false);
+    videoInputRef.current?.click();
   };
 
-  const onPickVideoFile = () => {
-    videoInputRef.current?.click();
+  const openYoutubeDialog = () => {
+    setUploadHint(null);
+    setCreating(false);
+    setEditingId(null);
+    setYoutubeUrl("");
+    setYoutubeDialogError(null);
+    setYoutubeDialogOpen(true);
+    window.setTimeout(() => youtubeInputRef.current?.focus(), 0);
+  };
+
+  const closeYoutubeDialog = () => {
+    setYoutubeDialogOpen(false);
+    setYoutubeUrl("");
+    setYoutubeDialogError(null);
   };
 
   const onVideoFile = async (file: File | undefined) => {
@@ -456,7 +563,6 @@ export function ControlPage() {
       };
       session.addItem(item);
       setSelectedItemId(item.id);
-      setVideoMode(null);
       setCreating(false);
       setEditingId(null);
     } catch (err) {
@@ -470,12 +576,14 @@ export function ControlPage() {
   };
 
   const addYoutubeVideo = () => {
-    const parsed = parseYouTubeUrl(youtubeUrl);
-    if (!parsed) {
-      setUploadHint(t(locale, "video.youtubeInvalid"));
+    if (!ensureWsOrHint()) {
       return;
     }
-    setUploadHint(t(locale, "video.youtubeCaveat"));
+    const parsed = parseYouTubeUrl(youtubeUrl);
+    if (!parsed) {
+      setYoutubeDialogError(t(locale, "video.youtubeInvalid"));
+      return;
+    }
     const payload: VideoPayload = {
       sourceKind: "youtube",
       videoId: parsed.videoId,
@@ -490,10 +598,14 @@ export function ControlPage() {
       order: items.length,
       payload,
     };
-    session.addItem(item);
+    if (!session.addItem(item)) {
+      setYoutubeDialogError(t(locale, "control.wsDisconnectedHint"));
+      session.reconnect();
+      return;
+    }
     setSelectedItemId(item.id);
-    setVideoMode(null);
-    setYoutubeUrl("");
+    closeYoutubeDialog();
+    setUploadHint(t(locale, "video.youtubeCaveat"));
   };
 
   const onFitChange = (fit: ImageFit) => {
@@ -752,6 +864,13 @@ export function ControlPage() {
       ) : null}
 
       <input
+        ref={textInputRef}
+        type="file"
+        accept=".pdf,.xml,.txt,.md,.text,.markdown,application/pdf,text/plain,text/markdown,application/xml,text/xml"
+        className="sr-only"
+        onChange={(e) => void onTextFile(e.target.files?.[0])}
+      />
+      <input
         ref={imageInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
@@ -765,6 +884,77 @@ export function ControlPage() {
         className="sr-only"
         onChange={(e) => void onVideoFile(e.target.files?.[0])}
       />
+
+      {youtubeDialogOpen ? (
+        <div
+          className="promedia-dialog-backdrop"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              closeYoutubeDialog();
+            }
+          }}
+        >
+          <div
+            className="promedia-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="youtube-dialog-title"
+          >
+            <h3 id="youtube-dialog-title" className="promedia-dialog-title">
+              {t(locale, "video.youtubeDialogTitle")}
+            </h3>
+            <label className="promedia-dialog-field">
+              {t(locale, "video.youtubeUrl")}
+              <input
+                ref={youtubeInputRef}
+                value={youtubeUrl}
+                onChange={(e) => {
+                  setYoutubeUrl(e.target.value);
+                  setYoutubeDialogError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && youtubeUrl.trim()) {
+                    e.preventDefault();
+                    addYoutubeVideo();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    closeYoutubeDialog();
+                  }
+                }}
+                placeholder="https://www.youtube.com/watch?v=…"
+                autoComplete="off"
+              />
+            </label>
+            {youtubeDialogError ? (
+              <p className="promedia-dialog-error" role="alert">
+                {youtubeDialogError}
+              </p>
+            ) : (
+              <p className="promedia-dialog-hint">
+                {t(locale, "video.youtubePasteHint")}
+              </p>
+            )}
+            <div className="promedia-dialog-actions">
+              <button
+                type="button"
+                className="btn"
+                onClick={closeYoutubeDialog}
+              >
+                {t(locale, "text.cancel")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!youtubeUrl.trim()}
+                onClick={addYoutubeVideo}
+              >
+                {t(locale, "video.addYoutube")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="control-zones">
         <section
@@ -784,7 +974,11 @@ export function ControlPage() {
                     ? t(locale, "control.createSession")
                     : !wsReady
                       ? t(locale, "control.wsDisconnectedHint")
-                      : undefined
+                      : mod.type === "text"
+                        ? t(locale, "text.importFile")
+                        : mod.type === "video"
+                          ? t(locale, "video.fromFile")
+                          : undefined
                 }
                 onClick={() => {
                   if (!sessionReady) {
@@ -795,20 +989,61 @@ export function ControlPage() {
                     setUploadHint(t(locale, "control.wsDisconnectedHint"));
                   }
                   if (mod.type === "text") {
-                    startCreateText();
+                    onPickTextFile();
                   } else if (mod.type === "image") {
                     if (!wsReady) {
                       return;
                     }
                     onPickImage();
                   } else if (mod.type === "video") {
-                    startAddVideo();
+                    if (!wsReady) {
+                      return;
+                    }
+                    onPickVideoFile();
                   }
                 }}
               >
                 + {t(locale, mod.labelKey)}
               </button>
             ))}
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={!sessionReady || uploading}
+              title={
+                !sessionReady
+                  ? t(locale, "control.createSession")
+                  : !wsReady
+                    ? t(locale, "control.wsDisconnectedHint")
+                    : t(locale, "video.fromYoutube")
+              }
+              onClick={() => {
+                if (!sessionReady) {
+                  return;
+                }
+                if (!wsReady) {
+                  session.reconnect();
+                  setUploadHint(t(locale, "control.wsDisconnectedHint"));
+                }
+                openYoutubeDialog();
+              }}
+            >
+              + {t(locale, "itemTypes.youtube")}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={!sessionReady || uploading}
+              title={t(locale, "text.blankManual")}
+              onClick={() => {
+                if (!sessionReady) {
+                  return;
+                }
+                startCreateTextBlank();
+              }}
+            >
+              {t(locale, "text.blankManual")}
+            </button>
             <button
               type="button"
               className="btn"
@@ -830,58 +1065,7 @@ export function ControlPage() {
             />
           ) : null}
 
-          {videoMode ? (
-            <div className="zone-body video-ingest">
-              <p className="video-ingest-title">{t(locale, "video.ingestTitle")}</p>
-              <div className="video-ingest-actions">
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={uploading}
-                  onClick={onPickVideoFile}
-                >
-                  {t(locale, "video.fromFile")}
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setVideoMode("youtube")}
-                >
-                  {t(locale, "video.fromYoutube")}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => setVideoMode(null)}
-                >
-                  {t(locale, "text.cancel")}
-                </button>
-              </div>
-              {videoMode === "youtube" ? (
-                <div className="video-yt-form">
-                  <label>
-                    {t(locale, "video.youtubeUrl")}
-                    <input
-                      value={youtubeUrl}
-                      onChange={(e) => setYoutubeUrl(e.target.value)}
-                      placeholder="https://www.youtube.com/watch?v=…"
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    disabled={!youtubeUrl.trim()}
-                    onClick={addYoutubeVideo}
-                  >
-                    {t(locale, "video.addYoutube")}
-                  </button>
-                  <p className="video-caveat">{t(locale, "video.youtubeCaveat")}</p>
-                </div>
-              ) : (
-                <p className="video-caveat">{t(locale, "video.fileCaveat")}</p>
-              )}
-            </div>
-          ) : creating ? (
+          {creating ? (
             <div className="zone-body playlist-editor">
               <TextItemEditor
                 initial={createEmptyTextPayload()}
