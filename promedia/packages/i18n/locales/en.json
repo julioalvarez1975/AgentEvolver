@@ -14,7 +14,7 @@
   "control.projectionOnSecondary": "Output opened on the other monitor (fullscreen requested if the browser allows).",
   "control.projectionOpened": "Output opened. If it is not on the 2nd monitor or fullscreen, drag it and press Fullscreen.",
   "control.dragHint": "Drag the output window to the 2nd monitor or projector and enter fullscreen.",
-  "control.playlistEmpty": "Add a text item to get started",
+  "control.playlistEmpty": "Add Text, Image, Video, or YouTube to start",
   "control.previewEmpty": "Nothing selected",
   "control.liveEmpty": "Nothing live",
   "control.popupBlocked": "Popup blocked. Allow popups or open this URL:",
@@ -114,5 +114,10 @@
   "control.hubDownFooter": "Hub down — not just WS",
   "control.retryHealth": "Retry connection",
   "control.hubChecking": "Checking hub…",
-  "control.reconnect": "Reconnect"
+  "control.reconnect": "Reconnect",
+  "itemTypes.youtube": "YouTube",
+  "text.blankManual": "Blank text",
+  "video.youtubeDialogTitle": "Paste YouTube link",
+  "video.youtubePasteHint": "Paste a public YouTube link and press Add.",
+  "text.importAdded": "Imported {n} slides into the playlist."
 }

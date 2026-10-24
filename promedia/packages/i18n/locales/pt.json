@@ -14,7 +14,7 @@
   "control.projectionOnSecondary": "Saída aberta no outro monitor (tela cheia pedida se o navegador permitir).",
   "control.projectionOpened": "Saída aberta. Se não estiver no 2.º monitor ou em tela cheia, arraste-a e use Tela cheia.",
   "control.dragHint": "Arraste a janela de saída para o 2.º monitor ou projetor e ative tela cheia.",
-  "control.playlistEmpty": "Adicione um item de texto para começar",
+  "control.playlistEmpty": "Adicione Texto, Imagem, Vídeo ou YouTube para começar",
   "control.previewEmpty": "Sem seleção",
   "control.liveEmpty": "Sem live",
   "control.popupBlocked": "Popup bloqueado. Permita pop-ups ou abra este URL:",
@@ -114,5 +114,10 @@
   "control.hubDownFooter": "Hub desligado — não só WS",
   "control.retryHealth": "Tentar de novo",
   "control.hubChecking": "A verificar o hub…",
-  "control.reconnect": "Reconectar"
+  "control.reconnect": "Reconectar",
+  "itemTypes.youtube": "YouTube",
+  "text.blankManual": "Texto em branco",
+  "video.youtubeDialogTitle": "Colar link do YouTube",
+  "video.youtubePasteHint": "Cole um link público do YouTube e pressione Adicionar.",
+  "text.importAdded": "Importados {n} slides para a playlist."
 }

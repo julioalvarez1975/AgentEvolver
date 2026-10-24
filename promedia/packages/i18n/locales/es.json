@@ -14,7 +14,7 @@
   "control.projectionOnSecondary": "Salida abierta en el otro monitor (pide pantalla completa si el navegador lo permite).",
   "control.projectionOpened": "Salida abierta. Si no está en el 2.º monitor o en pantalla completa, arrástrala y pulsa «Pantalla completa».",
   "control.dragHint": "Arrastra la ventana de salida al 2.º monitor o proyector y activa pantalla completa.",
-  "control.playlistEmpty": "Añade un ítem de texto para empezar",
+  "control.playlistEmpty": "Añade Texto, Imagen, Vídeo o YouTube para empezar",
   "control.previewEmpty": "Sin selección",
   "control.liveEmpty": "Sin live",
   "control.popupBlocked": "El navegador bloqueó la ventana. Permite emergentes o abre esta URL:",
@@ -114,5 +114,10 @@
   "control.hubDownFooter": "Hub apagado — no solo WS",
   "control.retryHealth": "Reintentar conexión",
   "control.hubChecking": "Comprobando hub…",
-  "control.reconnect": "Reconectar"
+  "control.reconnect": "Reconectar",
+  "itemTypes.youtube": "YouTube",
+  "text.blankManual": "Texto en blanco",
+  "video.youtubeDialogTitle": "Pegar enlace de YouTube",
+  "video.youtubePasteHint": "Pega un enlace público de YouTube y pulsa Añadir.",
+  "text.importAdded": "Importados {n} slides a la playlist."
 }
