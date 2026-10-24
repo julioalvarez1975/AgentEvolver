@@ -53,6 +53,27 @@ export type VideoYoutubePayload = {
 
 export type VideoPayload = VideoFilePayload | VideoYoutubePayload;
 
+/**
+ * Bible passage as slides (one verse per slide). Renders like text on Output.
+ * Version ids: rvr1909 | pdt | kjv | asv (see README licensing).
+ */
+export type BiblePayload = {
+  versionId: string;
+  versionLabel: string;
+  bookId: string;
+  bookName: string;
+  chapter: number;
+  verseStart: number;
+  verseEnd: number;
+  /** Display reference, e.g. "Juan 3:16-17". */
+  reference: string;
+  copyright?: string;
+  /** True when served from embedded offline subset. */
+  fromCache?: boolean;
+  slides: TextSlide[];
+  align?: TextAlign;
+};
+
 export type TextPlaylistItem = {
   id: string;
   type: "text";
@@ -74,12 +95,20 @@ export type VideoPlaylistItem = {
   payload: VideoPayload;
 };
 
-export type PlaylistItemType = "text" | "image" | "video";
+export type BiblePlaylistItem = {
+  id: string;
+  type: "bible";
+  order: number;
+  payload: BiblePayload;
+};
+
+export type PlaylistItemType = "text" | "image" | "video" | "bible";
 
 export type PlaylistItem =
   | TextPlaylistItem
   | ImagePlaylistItem
-  | VideoPlaylistItem;
+  | VideoPlaylistItem
+  | BiblePlaylistItem;
 
 export type SessionPlaylist = {
   items: PlaylistItem[];
@@ -368,6 +397,14 @@ export function itemLabel(item: PlaylistItem): string {
     const first = item.payload.slides[0]?.lines.find((l) => l.trim().length > 0);
     return first?.trim() || "Texto";
   }
+  if (item.type === "bible") {
+    const ref = item.payload.reference?.trim();
+    const ver = item.payload.versionLabel?.trim() || item.payload.versionId;
+    if (ref) {
+      return ver ? `${ref} · ${ver}` : ref;
+    }
+    return ver || "Biblia";
+  }
   if (item.type === "image") {
     return item.payload.title?.trim() || "Imagen";
   }
@@ -375,4 +412,9 @@ export function itemLabel(item: PlaylistItem): string {
     return item.payload.title?.trim() || `YouTube ${item.payload.videoId}`;
   }
   return item.payload.title?.trim() || "Vídeo";
+}
+
+/** Text and bible items share slide navigation on Output / Live. */
+export function itemHasSlides(item: PlaylistItem): boolean {
+  return item.type === "text" || item.type === "bible";
 }
