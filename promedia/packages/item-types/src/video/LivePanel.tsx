@@ -6,7 +6,7 @@ import type {
 } from "@promedia/shared";
 import { effectiveMediaClockPositionMs } from "@promedia/shared";
 import { FileVideo } from "./FileVideo.js";
-import { YouTubePlayer } from "./YouTubePlayer.js";
+import { YouTubeThumb } from "./YouTubeThumb.js";
 
 export type VideoLivePanelProps = {
   item: PlaylistItem;
@@ -59,11 +59,10 @@ export function VideoLivePanel({
             <p className="video-missing">…</p>
           )
         ) : (
-          <YouTubePlayer
+          <YouTubeThumb
             videoId={video.payload.videoId}
-            mediaClock={mediaClock}
-            muted={muted}
-            loop={loop}
+            title={video.payload.title}
+            caption="YouTube en Output — aquí solo miniatura + transporte (evita doble embed)."
           />
         )}
       </div>
@@ -104,11 +103,6 @@ export function VideoLivePanel({
           }}
         />
       </div>
-      {video.payload.sourceKind === "youtube" ? (
-        <p className="video-caveat">
-          YouTube: requiere red; algunos vídeos bloquean embed.
-        </p>
-      ) : null}
     </div>
   );
 }
