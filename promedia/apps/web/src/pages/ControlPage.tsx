@@ -32,12 +32,7 @@ import {
   loadPersistedControlSession,
   savePersistedControlSession,
 } from "../lib/controlSessionPersist";
-import {
-  codeOutputUrl,
-  opaqueOutputUrl,
-  openOutputWindow,
-  startProjection,
-} from "../lib/openOutputWindow";
+import { openOutputWindow, startProjection } from "../lib/openOutputWindow";
 import {
   TEXT_IMPORT_MAX_BYTES,
   TEXT_IMPORT_MAX_SLIDES,
@@ -73,7 +68,6 @@ export function ControlPage() {
   const [projectionBusy, setProjectionBusy] = useState(false);
   const [projectionNote, setProjectionNote] = useState<string | null>(null);
   const autoSessionStarted = useRef(false);
-  const [copied, setCopied] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   /** Multi-select for bulk remove (checkboxes); separate from preview selection. */
   const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set());
@@ -120,11 +114,6 @@ export function ControlPage() {
 
   const sceneBtnClass = (mode: SceneMode) =>
     sceneMode === mode ? "btn btn-scene active" : "btn btn-scene";
-
-  const outputByCode = session.code ? codeOutputUrl(session.code) : "";
-  const outputByToken = session.accessToken
-    ? opaqueOutputUrl(session.accessToken)
-    : "";
 
   const wsReady = session.wsStatus === "open";
   const sessionReady = session.hasSession;
@@ -191,20 +180,6 @@ export function ControlPage() {
     session.code,
     session.accessToken,
   ]);
-
-  const flashCopied = (label: string) => {
-    setCopied(label);
-    window.setTimeout(() => setCopied(null), 1500);
-  };
-
-  const copyText = async (value: string, label: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      flashCopied(label);
-    } catch {
-      flashCopied("?");
-    }
-  };
 
   /** Existing "Abrir salida" — open/focus Output for current session (no create). */
   const openOutput = () => {
@@ -746,41 +721,9 @@ export function ControlPage() {
               </button>
             </>
           ) : (
-            <>
-              <div className="session-chip">
-                <span className="session-chip-label">
-                  {t(locale, "control.code")}
-                </span>
-                <strong className="session-chip-value">{session.code}</strong>
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => void copyText(session.code, "code")}
-                >
-                  {t(locale, "control.copyCode")}
-                </button>
-              </div>
-              {outputByToken ? (
-                <div className="session-chip session-chip-link">
-                  <span className="session-chip-label">
-                    {t(locale, "control.link")}
-                  </span>
-                  <code className="session-chip-mono" title={outputByToken}>
-                    {outputByToken}
-                  </code>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    onClick={() => void copyText(outputByToken, "link")}
-                  >
-                    {t(locale, "control.copyLink")}
-                  </button>
-                </div>
-              ) : null}
-              <button type="button" className="btn" onClick={openOutput}>
-                {t(locale, "control.openOutput")}
-              </button>
-            </>
+            <button type="button" className="btn" onClick={openOutput}>
+              {t(locale, "control.openOutput")}
+            </button>
           )}
         </div>
       </header>
@@ -1311,18 +1254,6 @@ export function ControlPage() {
         </span>
         <span className="footer-sep">·</span>
         <span>seq {session.lastSeq >= 0 ? session.lastSeq : "—"}</span>
-        {outputByCode ? (
-          <>
-            <span className="footer-sep">·</span>
-            <span className="footer-muted">salida {session.code}</span>
-          </>
-        ) : null}
-        {copied ? (
-          <>
-            <span className="footer-sep">·</span>
-            <span className="footer-muted">copiado</span>
-          </>
-        ) : null}
         {uploading ? (
           <>
             <span className="footer-sep">·</span>

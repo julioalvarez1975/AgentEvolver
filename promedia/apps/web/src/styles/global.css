@@ -173,39 +173,6 @@ body {
   text-transform: uppercase;
 }
 
-.session-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.25rem 0.35rem 0.25rem 0.55rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
-  max-width: min(28rem, 100%);
-}
-
-.session-chip-label {
-  color: var(--muted);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.session-chip-value {
-  font-size: 1.05rem;
-  letter-spacing: 0.08em;
-}
-
-.session-chip-mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.72rem;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 14rem;
-}
-
 .control-drag-hint {
   margin: 0;
   padding: 0.55rem 1rem;
