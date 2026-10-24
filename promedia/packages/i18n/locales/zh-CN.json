@@ -94,6 +94,9 @@
   "control.wsDisconnectedHint": "WebSocket 已断开 — 播放列表无法同步。正在重连…或点击重连。",
   "control.wsConnecting": "WS 连接中…",
   "control.wsConnectingHint": "正在连接 hub… 若一直断开，请确认 `pnpm dev` 已在 :8787 启动 hub。",
-  "control.hubUnreachable": "Hub 在 :8787 无响应。在 promedia 目录运行 `pnpm dev`（启动 hub + web），然后点击重连。",
+  "control.hubUnreachable": "Hub 未运行。在 promedia 文件夹打开终端并执行：pnpm dev",
+  "control.hubDownFooter": "Hub 已关闭 — 不只是 WS",
+  "control.retryHealth": "重试连接",
+  "control.hubChecking": "正在检查 hub…",
   "control.reconnect": "重连"
 }

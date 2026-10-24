@@ -4,16 +4,32 @@ Proyección multimedia para **culto y evento**. Monorepo MVP en `promedia/` (la 
 
 ## Cómo arrancar (Julio — Control + Output)
 
+**Importante:** hay que estar **dentro de la carpeta `promedia`**, no en `~` ni en la raíz del repo sola.
+
+### Mac — doble clic (Finder)
+
+1. Abrí Finder → carpeta del repo → **`promedia`**
+2. Doble clic en **`start-mac.command`**
+3. Si macOS pregunta, clic derecho → **Abrir** la primera vez
+4. Dejá la ventana abierta; cuando diga que la web está lista, abrí http://localhost:5173/control
+
+### Terminal (cualquier SO)
+
 ```bash
-cd promedia
-pnpm install
-pnpm build
+cd /ruta/a/AgentEvolver/promedia
+pnpm install   # solo la primera vez (o si falta node_modules)
 pnpm dev
 ```
 
+Ejemplo si el repo está en el Escritorio del Mac:
+
+```bash
+cd ~/Desktop/AgentEvolver/promedia && pnpm dev
+```
+
 `pnpm dev` usa **concurrently** y etiqueta los logs `[hub]` / `[web]`. Espera a que
-`http://localhost:8787/health` responda; si el hub no arranca, **falla en voz alta**
-(no dejes solo la web con “WS desconectado”).
+`http://localhost:8787/health` responda; si el hub no arranca, **falla en voz alta**.
+En Control, si el hub está apagado verás un banner grande en español (no solo “WS desconectado”).
 
 | Servicio | URL | Puerto |
 |----------|-----|--------|
@@ -28,9 +44,11 @@ curl -s http://localhost:8787/health
 
 ### Fallback: dos terminales
 
-Si `pnpm dev` falla o prefieres procesos separados:
+Si `pnpm dev` falla o prefieres procesos separados (siempre desde `promedia/`):
 
 ```bash
+cd /ruta/a/AgentEvolver/promedia
+
 # Terminal A
 pnpm dev:hub
 
@@ -39,7 +57,7 @@ pnpm dev:web
 ```
 
 Luego `curl -s http://localhost:8787/health` debe devolver JSON `ok: true`.
-Sin hub, Control muestra “Hub no responde” y los botones de playlist no sincronizan.
+Sin hub, Control muestra: *“El hub no está corriendo…”* con botón para reintentar.
 
 ### Ver Control y Output
 

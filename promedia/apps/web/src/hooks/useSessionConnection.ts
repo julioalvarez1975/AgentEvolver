@@ -24,7 +24,7 @@ export type WsStatus = "idle" | "connecting" | "open" | "closed" | "error";
 
 const RECONNECT_MS = 800;
 const HUB_HINT =
-  "HUB_UNREACHABLE: hub no responde en :8787. Arranca `pnpm dev` (hub+web) o `pnpm dev:hub`.";
+  "HUB_UNREACHABLE: El hub no está corriendo. Abrí Terminal en la carpeta promedia y ejecutá: pnpm dev";
 
 function applyHubMessage(
   msg: HubMessage,
@@ -73,6 +73,7 @@ export function useSessionConnection(role: ClientRole) {
   const [wsStatus, setWsStatus] = useState<WsStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [hubUnreachable, setHubUnreachable] = useState(false);
+  const [hubChecking, setHubChecking] = useState(false);
   const socketRef = useRef<SessionSocket | null>(null);
   const generationRef = useRef(0);
   const reconnectTimerRef = useRef<number | null>(null);
@@ -93,6 +94,33 @@ export function useSessionConnection(role: ClientRole) {
   }, [clearReconnectTimer]);
 
   useEffect(() => () => detach(), [detach]);
+
+  /** Probe /health — used on mount and when Julio taps “Reintentar”. */
+  const checkHubHealth = useCallback(async (): Promise<boolean> => {
+    setHubChecking(true);
+    try {
+      const ok = await probeHubHealth();
+      setHubUnreachable(!ok);
+      if (ok) {
+        setError((prev) =>
+          prev && prev.startsWith("HUB_UNREACHABLE") ? null : prev,
+        );
+      } else {
+        setError(HUB_HINT);
+      }
+      return ok;
+    } finally {
+      setHubChecking(false);
+    }
+  }, []);
+
+  // Before any session: surface hub-down loudly (not only footer "WS desconectado").
+  useEffect(() => {
+    if (role !== "control") {
+      return;
+    }
+    void checkHubHealth();
+  }, [role, checkHubHealth]);
 
   const attachSocket = useCallback((url: string) => {
     clearReconnectTimer();
@@ -293,6 +321,8 @@ export function useSessionConnection(role: ClientRole) {
     wsStatus,
     error,
     hubUnreachable,
+    hubChecking,
+    checkHubHealth,
     create,
     join,
     reconnect,

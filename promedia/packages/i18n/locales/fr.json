@@ -94,6 +94,9 @@
   "control.wsDisconnectedHint": "WebSocket déconnecté — la playlist ne synchronise pas. Reconnexion… ou cliquez Reconnecter.",
   "control.wsConnecting": "WS connexion…",
   "control.wsConnectingHint": "Connexion au hub… Si ça reste fermé, vérifiez que `pnpm dev` lance le hub sur :8787.",
-  "control.hubUnreachable": "Le hub ne répond pas sur :8787. Dans le dossier promedia lancez `pnpm dev` (hub + web). Puis cliquez Reconnecter.",
+  "control.hubUnreachable": "Le hub n'est pas démarré. Ouvrez le Terminal dans le dossier promedia et lancez : pnpm dev",
+  "control.hubDownFooter": "Hub arrêté — pas seulement WS",
+  "control.retryHealth": "Réessayer la connexion",
+  "control.hubChecking": "Vérification du hub…",
   "control.reconnect": "Reconnecter"
 }
