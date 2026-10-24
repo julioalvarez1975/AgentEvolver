@@ -1,6 +1,11 @@
 {
   "app.name": "ProMedia",
   "scaffold.placeholder": "脚手架 — 尚无产品功能",
+  "control.headerTitle": "ProMedia | Control",
+  "control.adSlotLabel": "广告位",
+  "control.adSlotPlaceholder": "广告位 · Google Ad Manager",
+  "control.adSlotHint": "设置 VITE_GAM_NETWORK_CODE 和 VITE_GAM_AD_UNIT 以显示真实广告。",
+  "control.adSlotLoadError": "无法加载广告（GPT）。",
   "control.createSession": "创建会话",
   "control.joinSession": "加入",
   "control.code": "代码",

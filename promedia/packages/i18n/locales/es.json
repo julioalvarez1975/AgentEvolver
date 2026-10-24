@@ -1,6 +1,11 @@
 {
   "app.name": "ProMedia",
   "scaffold.placeholder": "Scaffold — sin funciones de producto aún",
+  "control.headerTitle": "ProMedia | Control",
+  "control.adSlotLabel": "Espacio publicitario",
+  "control.adSlotPlaceholder": "Espacio publicitario · Google Ad Manager",
+  "control.adSlotHint": "Configurá VITE_GAM_NETWORK_CODE y VITE_GAM_AD_UNIT para anuncios reales.",
+  "control.adSlotLoadError": "No se pudo cargar el anuncio (GPT).",
   "control.createSession": "Crear sesión",
   "control.joinSession": "Unir",
   "control.code": "Código",
