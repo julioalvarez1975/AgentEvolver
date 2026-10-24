@@ -534,7 +534,284 @@ body {
   cursor: default;
 }
 
-/* —— Playlist / text (subtarea 4) —— */
+/* —— Schedule / Guion (Quelea + EasyWorship patterns) —— */
+.zone-schedule {
+  background: #0e141c;
+}
+
+.schedule-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.schedule-header h2 {
+  border-bottom: 0;
+  flex: 1;
+}
+
+.schedule-count {
+  margin-right: 0.75rem;
+  min-width: 1.4rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: #0a1018;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.schedule-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.4rem 0.55rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: #121a24;
+}
+
+.schedule-add-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--accent-dim);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.schedule-add-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.schedule-add-btn:not(:disabled):hover {
+  border-color: var(--accent);
+}
+
+.schedule-add-btn-quiet {
+  background: transparent;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.schedule-add-btn-danger {
+  background: transparent;
+  border-color: #4a3038;
+  color: #e8a0a8;
+  margin-left: auto;
+}
+
+.schedule-add-btn-danger:not(:disabled):hover {
+  border-color: var(--danger);
+  color: #ffc0c6;
+}
+
+.schedule-list {
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0.25rem 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(60vh, 36rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.schedule-ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.schedule-item {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.1rem 0.15rem;
+  padding: 0.15rem 0.35rem 0.15rem 0.25rem;
+  border-bottom: 1px solid #1a2430;
+  background: transparent;
+  color: var(--fg);
+  min-height: 2rem;
+}
+
+.schedule-item.is-selected {
+  background: #1a2d45;
+}
+
+.schedule-item.is-live {
+  box-shadow: inset 3px 0 0 #3ecf8e;
+}
+
+.schedule-item.is-dragging {
+  opacity: 0.45;
+}
+
+.schedule-item.is-drop-target {
+  background: #152033;
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.schedule-check {
+  display: flex;
+  align-items: center;
+  padding: 0.15rem;
+  cursor: pointer;
+}
+
+.schedule-check input {
+  width: 0.85rem;
+  height: 0.85rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.schedule-drag-handle {
+  color: #5a6a7c;
+  font-size: 0.65rem;
+  letter-spacing: -0.12em;
+  cursor: grab;
+  user-select: none;
+  padding: 0.15rem 0.1rem;
+  line-height: 1;
+}
+
+.schedule-item:active .schedule-drag-handle {
+  cursor: grabbing;
+}
+
+.schedule-row-main {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0.2rem 0.25rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.schedule-type {
+  flex-shrink: 0;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: #0a1018;
+  color: #9eb0c4;
+}
+
+.schedule-type-text {
+  color: #9ec5ff;
+  border-color: #2a4a72;
+}
+
+.schedule-type-image {
+  color: #b8d49a;
+  border-color: #3a5530;
+}
+
+.schedule-type-video {
+  color: #e0c48a;
+  border-color: #5a4a28;
+}
+
+.schedule-type-youtube {
+  color: #f0a0a0;
+  border-color: #6a3038;
+}
+
+.schedule-type-icon {
+  display: block;
+}
+
+.schedule-row-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.schedule-live-badge {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #0c1a14;
+  background: #3ecf8e;
+  border-radius: 2px;
+  padding: 0.08rem 0.3rem;
+}
+
+.schedule-row-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0;
+  grid-column: 1 / -1;
+  padding: 0 0.15rem 0.1rem 1.6rem;
+}
+
+.schedule-row-actions .btn-ghost {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.28rem;
+  min-height: 0;
+}
+
+.schedule-go-btn {
+  color: #3ecf8e !important;
+  font-weight: 650;
+}
+
+.schedule-remove-btn {
+  color: #e35d6a !important;
+  font-size: 0.95rem !important;
+  line-height: 1;
+}
+
+@media (min-width: 1100px) {
+  .schedule-item {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+  }
+
+  .schedule-row-actions {
+    grid-column: auto;
+    padding: 0;
+  }
+}
+
+/* Legacy playlist helpers (saved list actions, editors) */
 .playlist-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -553,84 +830,6 @@ body {
   max-height: min(55vh, 32rem);
   overflow-x: hidden;
   overflow-y: auto;
-}
-
-.playlist-list ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.playlist-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
-}
-
-.playlist-row {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.35rem 0.25rem 0.45rem;
-  color: var(--fg);
-}
-
-.playlist-row.selected {
-  background: var(--accent-dim);
-}
-
-.playlist-check {
-  display: flex;
-  align-items: center;
-  padding: 0.3rem 0.2rem;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.playlist-check input {
-  width: 1rem;
-  height: 1rem;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
-.playlist-row-main {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  padding: 0.35rem 0.35rem;
-  cursor: pointer;
-  font: inherit;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.playlist-row-label {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.playlist-live-badge {
-  font-size: 0.7rem;
-  letter-spacing: 0.06em;
-  color: #3ecf8e;
-  border: 1px solid #3ecf8e;
-  border-radius: 3px;
-  padding: 0.1rem 0.35rem;
 }
 
 .playlist-row-actions {
