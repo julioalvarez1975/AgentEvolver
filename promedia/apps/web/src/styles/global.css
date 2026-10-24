@@ -131,23 +131,55 @@ body {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 0.75rem 1rem;
-  padding: 0.5rem 0.85rem;
+  gap: 0.55rem 0.75rem;
+  padding: 0.4rem 0.75rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev);
-  /* Keep banner below dialogs / menus; never cover Guion / Preview / Live. */
+  /* Keep banner below dialogs / menus; never cover Guion / Preview / Live.
+     Ad creatives are clipped inside .control-ad-slot, not the whole header
+     (so Tema tooltips can open). */
   position: relative;
   z-index: 2;
-  overflow: hidden;
-  min-height: 3.5rem;
+  overflow: visible;
+  min-height: 5.75rem;
+  flex-shrink: 0;
 }
 
 .control-brand {
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  gap: 0.65rem;
-  max-width: min(22rem, 42vw);
+  gap: 0.55rem;
+  max-width: min(14rem, 28vw);
+}
+
+.control-header-sep {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 1px;
+  margin: 0.35rem 0;
+  background: var(--border);
+}
+
+.control-header-theme {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.2rem;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(34rem, 42vw);
+  padding: 0.1rem 0.9rem 0.1rem 0;
+}
+
+.control-header-theme .theme-controls-title {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .control-brand-logo {
@@ -182,10 +214,10 @@ body {
   letter-spacing: 0.06em;
 }
 
-/* GPT / placeholder: takes remaining header width; contained for SafeFrame creatives. */
+/* GPT / placeholder: remaining header width after brand / actions / tema. */
 .control-ad-slot {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 1 1 12rem;
+  min-width: 8rem;
   max-width: 100%;
   height: 90px;
   max-height: 90px;
@@ -250,22 +282,13 @@ body {
   max-height: 90px !important;
 }
 
-.control-session-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.65rem 1rem;
-  padding: 0.55rem 1rem;
-  border-bottom: 1px solid var(--border);
-  background: #152033;
-}
-
 .control-session-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 0.65rem;
+  gap: 0.4rem 0.5rem;
   flex-shrink: 0;
+  max-width: min(22rem, 36vw);
 }
 
 .field-inline input {
@@ -279,14 +302,24 @@ body {
   text-transform: uppercase;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1100px) {
   .control-header {
     flex-wrap: wrap;
     min-height: 0;
+    align-items: flex-start;
   }
 
   .control-brand {
     max-width: 100%;
+  }
+
+  .control-session-actions,
+  .control-header-theme {
+    max-width: 100%;
+  }
+
+  .control-header-sep {
+    display: none;
   }
 
   .control-ad-slot {
@@ -533,34 +566,45 @@ body {
   overflow: auto;
 }
 
+/* Scenes-only chrome after Tema moved to header — keep thin. */
+.control-stages-chrome-scenes {
+  max-height: none;
+  overflow: visible;
+}
+
 .control-stages-chrome .live-controls {
   padding-top: 0.45rem;
   padding-bottom: 0.45rem;
 }
 
-.stage-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+.control-stages-chrome-scenes .live-controls {
+  padding: 0.35rem 0.65rem;
 }
 
-.stage-header h2 {
-  border-bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+.stage-overlay-label {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.5rem;
+  z-index: 3;
+  margin: 0;
+  padding: 0.12rem 0.35rem;
+  border-radius: 3px;
+  font-size: 0.62rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(232, 238, 244, 0.72);
+  background: rgba(8, 12, 18, 0.45);
+  pointer-events: none;
+  user-select: none;
 }
 
-.preview-nav-meta {
-  font-size: 0.75rem;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  min-width: 2.75rem;
-  text-align: center;
+.stage-overlay-badge {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.45rem;
+  z-index: 3;
+  margin: 0;
 }
 
 /* Dedicated preview toolbar (video transport or lite prev/next). */
@@ -729,7 +773,7 @@ body {
   background: var(--bg-zone);
   display: flex;
   flex-direction: column;
-  min-height: 16rem;
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
 }
@@ -765,12 +809,23 @@ body {
 }
 
 .zone-stage {
+  position: relative;
   background:
     linear-gradient(180deg, #121a24 0%, #0d131a 100%);
-  margin: 0.65rem;
+  margin: 0.45rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   min-height: 10rem;
+}
+
+.zone-live {
+  display: flex;
+  flex-direction: column;
+}
+
+.zone-live .zone-stage {
+  flex: 1;
+  min-height: 0;
 }
 
 .live-controls {
@@ -1693,10 +1748,23 @@ body {
   gap: 0.55rem;
 }
 
+.theme-panel-compact {
+  gap: 0.28rem;
+}
+
 .theme-presets {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+.theme-panel-compact .theme-presets {
+  gap: 0.28rem;
+}
+
+.theme-panel-compact .theme-presets .btn-scene {
+  padding: 0.22rem 0.5rem;
+  font-size: 0.75rem;
 }
 
 .theme-editor {
@@ -1707,10 +1775,20 @@ body {
   color: var(--muted);
 }
 
+.theme-panel-compact .theme-editor {
+  gap: 0.28rem 0.55rem;
+  font-size: 0.68rem;
+  align-items: flex-end;
+}
+
 .theme-editor label {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+}
+
+.theme-panel-compact .theme-editor label {
+  gap: 0.1rem;
 }
 
 .theme-editor input[type="color"] {
@@ -1723,6 +1801,11 @@ body {
   cursor: pointer;
 }
 
+.theme-panel-compact .theme-editor input[type="color"] {
+  width: 1.85rem;
+  height: 1.25rem;
+}
+
 .theme-editor select {
   padding: 0.25rem 0.35rem;
   border-radius: var(--radius);
@@ -1730,6 +1813,12 @@ body {
   background: var(--bg);
   color: var(--fg);
   font: inherit;
+}
+
+.theme-panel-compact .theme-editor select {
+  padding: 0.12rem 0.25rem;
+  font-size: 0.72rem;
+  max-width: 5.5rem;
 }
 
 .theme-hint {
@@ -1740,6 +1829,31 @@ body {
 
 .theme-panel .theme-hint-row {
   padding: 0;
+}
+
+.control-header-theme .theme-compact-hint {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+/* Header tip opens downward so it stays on-screen. */
+.control-header-theme .theme-compact-hint .status-tip-bubble {
+  left: auto;
+  right: 0;
+  bottom: auto;
+  top: calc(100% + 0.35rem);
+  transform: none;
+}
+
+.control-header-theme .theme-compact-hint .status-tip-bubble::after {
+  top: auto;
+  bottom: 100%;
+  left: auto;
+  right: 0.45rem;
+  margin-left: 0;
+  border-top-color: transparent;
+  border-bottom-color: #0f1724;
 }
 
 .saved-playlist-panel {

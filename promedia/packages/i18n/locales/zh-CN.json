@@ -181,5 +181,6 @@
   "link.added": "链接已添加到日程。",
   "preview.nav": "预览导航",
   "preview.prev": "上一项（幻灯片或条目）",
-  "preview.next": "下一项（幻灯片或条目）"
+  "preview.next": "下一项（幻灯片或条目）",
+  "control.headerSeparator": "分隔线"
 }

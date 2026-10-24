@@ -824,10 +824,7 @@ export function ControlPage() {
             {t(locale, "control.headerTitle")}
           </h1>
         </div>
-        <ControlAdBanner />
-      </header>
 
-      <div className="control-session-bar">
         <div className="control-session-actions">
           <button
             type="button"
@@ -912,7 +909,34 @@ export function ControlPage() {
             </span>
           )}
         </div>
-      </div>
+
+        <div
+          className="control-header-sep"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t(locale, "control.headerSeparator")}
+        />
+
+        <div className="control-header-theme">
+          <h2 className="theme-controls-title">{t(locale, "theme.title")}</h2>
+          <ThemePanel
+            compact
+            themeId={themeId}
+            themeOverrides={themeOverrides}
+            disabled={!canMutate}
+            onChange={(patch) => session.setTheme(patch)}
+          />
+        </div>
+
+        <div
+          className="control-header-sep"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={t(locale, "control.headerSeparator")}
+        />
+
+        <ControlAdBanner />
+      </header>
 
       {popupBlockedUrl ? (
         <div className="control-banner control-banner-compact" role="status">
@@ -1145,13 +1169,10 @@ export function ControlPage() {
               className="zone zone-preview"
               aria-label={t(locale, "control.preview")}
             >
-              <header className="stage-header">
-                <h2>{t(locale, "control.preview")}</h2>
-              </header>
               {/*
                 Always-visible Preview toolbar: prev/next, send-to-live, and
-                shortcuts tip. Video/YouTube also render play/scrub/mute under
-                the media inside Preview.
+                shortcuts tip. No floating 1/N pager — count removed per Julio.
+                Video/YouTube also render play/scrub/mute under the media.
               */}
               <div
                 className="preview-toolbar preview-toolbar-lite preview-toolbar-persistent"
@@ -1168,15 +1189,6 @@ export function ControlPage() {
                 >
                   <IconPrev />
                 </button>
-                <span className="preview-nav-meta">
-                  {selectedItem &&
-                  itemHasSlides(selectedItem) &&
-                  slideCount > 1
-                    ? `${previewSlideIndex + 1}/${slideCount}`
-                    : selectedItem && selectedIndex >= 0
-                      ? `${selectedIndex + 1}/${items.length}`
-                      : "—"}
-                </span>
                 <button
                   type="button"
                   className="btn preview-tb-btn"
@@ -1214,6 +1226,9 @@ export function ControlPage() {
                 />
               </div>
               <div className="zone-body zone-stage pm-theme" style={themeStyle}>
+                <span className="stage-overlay-label" aria-hidden="true">
+                  {t(locale, "control.preview")}
+                </span>
                 {selectedItem && Preview ? (
                   <Preview
                     item={selectedItem}
@@ -1238,17 +1253,18 @@ export function ControlPage() {
               className="zone zone-live"
               aria-label={t(locale, "control.live")}
             >
-              <header className="stage-header">
-                <h2>
-                  {t(locale, "control.live")}
-                  {sceneMode !== "normal" ? (
-                    <span className="scene-mode-badge" data-mode={sceneMode}>
-                      {t(locale, `scene.${sceneMode}`)}
-                    </span>
-                  ) : null}
-                </h2>
-              </header>
               <div className="zone-body zone-stage pm-theme" style={themeStyle}>
+                <span className="stage-overlay-label" aria-hidden="true">
+                  {t(locale, "control.live")}
+                </span>
+                {sceneMode !== "normal" ? (
+                  <span
+                    className="scene-mode-badge stage-overlay-badge"
+                    data-mode={sceneMode}
+                  >
+                    {t(locale, `scene.${sceneMode}`)}
+                  </span>
+                ) : null}
                 {liveItem && LivePanel ? (
                   <LivePanel
                     item={liveItem}
@@ -1278,7 +1294,7 @@ export function ControlPage() {
             </section>
           </div>
 
-          <div className="control-stages-chrome">
+          <div className="control-stages-chrome control-stages-chrome-scenes">
             <div className="live-controls">
               <button
                 type="button"
@@ -1324,15 +1340,6 @@ export function ControlPage() {
               >
                 {t(locale, "control.sceneClear")}
               </button>
-            </div>
-            <div className="theme-controls">
-              <h3 className="theme-controls-title">{t(locale, "theme.title")}</h3>
-              <ThemePanel
-                themeId={themeId}
-                themeOverrides={themeOverrides}
-                disabled={!canMutate}
-                onChange={(patch) => session.setTheme(patch)}
-              />
             </div>
           </div>
         </div>

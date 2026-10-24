@@ -181,5 +181,6 @@
   "link.added": "Link added to the schedule.",
   "preview.nav": "Preview navigation",
   "preview.prev": "Previous (slide or item)",
-  "preview.next": "Next (slide or item)"
+  "preview.next": "Next (slide or item)",
+  "control.headerSeparator": "Separator"
 }

@@ -16,6 +16,8 @@ export type ThemePanelProps = {
   themeId: ThemeId;
   themeOverrides: ThemeOverrides | null;
   disabled?: boolean;
+  /** Compact header strip (presets + editor in one dense block). */
+  compact?: boolean;
   onChange: (patch: {
     themeId?: ThemeId;
     themeOverrides?: ThemeOverrides | null;
@@ -44,6 +46,7 @@ export function ThemePanel({
   themeId,
   themeOverrides,
   disabled,
+  compact,
   onChange,
 }: ThemePanelProps) {
   const values = merged(themeId || DEFAULT_THEME_ID, themeOverrides);
@@ -55,8 +58,12 @@ export function ThemePanel({
   };
 
   return (
-    <div className="theme-panel">
-      <div className="theme-presets" role="group" aria-label={t(locale, "theme.title")}>
+    <div className={compact ? "theme-panel theme-panel-compact" : "theme-panel"}>
+      <div
+        className="theme-presets"
+        role="group"
+        aria-label={t(locale, "theme.title")}
+      >
         {THEME_PRESETS.map((preset) => {
           const shortcutKey =
             preset.id === "oscuro"
@@ -161,13 +168,22 @@ export function ThemePanel({
           </select>
         </label>
       </div>
-      <div className="theme-hint-row">
+      {!compact ? (
+        <div className="theme-hint-row">
+          <StatusTip
+            tone="info"
+            label={t(locale, "control.statusTipInfo")}
+            message={t(locale, "theme.hint")}
+          />
+        </div>
+      ) : (
         <StatusTip
           tone="info"
+          className="theme-compact-hint"
           label={t(locale, "control.statusTipInfo")}
           message={t(locale, "theme.hint")}
         />
-      </div>
+      )}
     </div>
   );
 }
