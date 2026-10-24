@@ -14,6 +14,21 @@ Proyección multimedia para **culto y evento**. Monorepo MVP en `promedia/` (la 
 4. Dejá la ventana Terminal abierta; al estar listos hub+web, el script **abre Control** en el navegador (detecta el puerto real de Vite, p. ej. 5173/5174)
 5. Enlaces fijos (si el navegador no se abrió solo): **`ProMedia-Control.url`** o **`open-control.html`** → `http://localhost:5173/control` (editá la URL si Vite usó otro puerto o en producción/hosteado)
 
+### Windows — doble clic (Explorador)
+
+1. Abrí el Explorador → carpeta del repo → **`promedia`**
+2. Doble clic en **`start-windows.bat`** o **`Abrir-ProMedia.bat`** (mismo arranque; el `.bat` llama a **`start-windows.ps1`**)
+3. Dejá la ventana abierta; al estar listos hub+web, se **abre Control** (puerto real 5173–5178)
+4. Requisitos: Node.js 20+ y `npm install -g pnpm` (una vez). Si falta `node_modules`, el script corre `pnpm install`
+5. Enlaces fijos: **`ProMedia-Control.url`** o **`open-control.html`** (mismo que en Mac)
+
+### Linux — doble clic / terminal
+
+1. En la carpeta **`promedia`**, la primera vez: `chmod +x start-linux.sh Abrir-ProMedia.sh`
+2. Doble clic en **`start-linux.sh`** / **`Abrir-ProMedia.sh`**, o en terminal: `./start-linux.sh`
+3. Atajo de escritorio: **`ProMedia.desktop`** (doble clic desde `promedia/`, o copialo al Escritorio y editá `Exec`/`Path` con la ruta absoluta). En GNOME: “Permitir iniciar” / Mark as Trusted la primera vez
+4. Misma lógica: libera 8787/5173 si son ProMedia, `pnpm install` si hace falta, `pnpm dev`, abre Control
+
 ### Terminal (cualquier SO)
 
 ```bash
@@ -34,17 +49,26 @@ está ocupado por una instancia vieja, **falla en voz alta** (no declara “read
 hub fantasma). Imprime la URL **real** de Vite (`Local: http://localhost:PUERTO`);
 si 5173 está ocupado, puede ser **5174/5175** — abrí esa, no asumas 5173.
 
-**Una sola instancia.** No abras dos `pnpm dev` / dos `start-mac.command` a la vez.
+**Una sola instancia.** No abras dos `pnpm dev` / dos launchers a la vez.
 Si ves `EADDRINUSE` o “puerto ya está en uso”, cerrá la ventana anterior o:
 
 ```bash
+# Mac / Linux
 lsof -nP -iTCP:8787 -sTCP:LISTEN
 lsof -nP -iTCP:5173 -sTCP:LISTEN
 kill <PID>
 ```
 
-En Mac, `start-mac.command` intenta cerrar listeners node/promedia en **8787** y **5173**
-antes de arrancar (“Cerrando instancia anterior en puerto X…”).
+```bat
+REM Windows (cmd)
+netstat -ano -p tcp | findstr :8787
+netstat -ano -p tcp | findstr :5173
+taskkill /PID <PID> /F
+```
+
+Los launchers (`start-mac.command`, `start-windows.ps1` / `.bat`, `start-linux.sh`) intentan
+cerrar listeners node/promedia en **8787** y **5173** antes de arrancar
+(“Cerrando instancia anterior en puerto X…”).
 
 | Servicio | URL | Puerto |
 |----------|-----|--------|
