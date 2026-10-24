@@ -188,6 +188,11 @@ export function ControlPage() {
     if (session.wsStatus === "open" && session.isWsOpen()) {
       return true;
     }
+    if (session.hubUnreachable) {
+      setUploadHint(t(locale, "control.hubUnreachable"));
+      void session.checkHubHealth();
+      return false;
+    }
     session.reconnect();
     setUploadHint(t(locale, "control.wsDisconnectedHint"));
     return false;
@@ -503,23 +508,50 @@ export function ControlPage() {
         </div>
       ) : null}
 
-      {session.error ? (
-        <div className="control-banner control-banner-error" role="alert">
-          {session.hubUnreachable ||
-          session.error.startsWith("HUB_UNREACHABLE")
-            ? t(locale, "control.hubUnreachable")
-            : session.error}
+      {session.hubUnreachable ? (
+        <div
+          className="control-banner control-banner-hub-down"
+          role="alert"
+        >
+          <p className="control-banner-hub-title">
+            {t(locale, "control.hubUnreachable")}
+          </p>
+          <p className="control-banner-hub-cmd">
+            <code>pnpm dev</code>
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={session.hubChecking}
+            onClick={() => {
+              void session.checkHubHealth().then((ok) => {
+                if (ok && session.hasSession) {
+                  session.reconnect();
+                }
+              });
+            }}
+          >
+            {session.hubChecking
+              ? t(locale, "control.hubChecking")
+              : t(locale, "control.retryHealth")}
+          </button>
         </div>
       ) : null}
 
-      {sessionReady && !wsReady ? (
+      {session.error &&
+      !session.hubUnreachable &&
+      !session.error.startsWith("HUB_UNREACHABLE") ? (
+        <div className="control-banner control-banner-error" role="alert">
+          {session.error}
+        </div>
+      ) : null}
+
+      {sessionReady && !wsReady && !session.hubUnreachable ? (
         <div className="control-banner control-banner-error" role="status">
           <p>
-            {session.hubUnreachable
-              ? t(locale, "control.hubUnreachable")
-              : session.wsStatus === "connecting"
-                ? t(locale, "control.wsConnectingHint")
-                : t(locale, "control.wsDisconnectedHint")}
+            {session.wsStatus === "connecting"
+              ? t(locale, "control.wsConnectingHint")
+              : t(locale, "control.wsDisconnectedHint")}
           </p>
           <button
             type="button"
@@ -862,15 +894,19 @@ export function ControlPage() {
       <footer className="control-footer">
         <span
           className={
-            session.wsStatus === "open" ? "status-dot on" : "status-dot"
+            session.wsStatus === "open" && !session.hubUnreachable
+              ? "status-dot on"
+              : "status-dot"
           }
         />
         <span>
-          {session.wsStatus === "open"
-            ? t(locale, "control.wsConnected")
-            : session.wsStatus === "connecting"
-              ? t(locale, "control.wsConnecting")
-              : t(locale, "control.wsDisconnected")}
+          {session.hubUnreachable
+            ? t(locale, "control.hubDownFooter")
+            : session.wsStatus === "open"
+              ? t(locale, "control.wsConnected")
+              : session.wsStatus === "connecting"
+                ? t(locale, "control.wsConnecting")
+                : t(locale, "control.wsDisconnected")}
         </span>
         <span className="footer-sep">·</span>
         <span>seq {session.lastSeq >= 0 ? session.lastSeq : "—"}</span>

@@ -109,7 +109,10 @@ const catalogs: Record<Locale, Messages> = {
     "control.wsDisconnectedHint": "WebSocket desconectado — la playlist no puede sincronizar. Reconectando… o pulsa Reconectar.",
     "control.wsConnecting": "WS conectando…",
     "control.wsConnectingHint": "Conectando al hub… Si no abre, comprueba que `pnpm dev` tenga el hub en :8787.",
-    "control.hubUnreachable": "Hub no responde en :8787. En la carpeta promedia ejecuta `pnpm dev` (levanta hub + web). Luego pulsa Reconectar.",
+    "control.hubUnreachable": "El hub no está corriendo. Abrí Terminal en la carpeta promedia y ejecutá: pnpm dev",
+    "control.hubDownFooter": "Hub apagado — no solo WS",
+    "control.retryHealth": "Reintentar conexión",
+    "control.hubChecking": "Comprobando hub…",
     "control.reconnect": "Reconectar"
   },
   en: {
@@ -208,7 +211,10 @@ const catalogs: Record<Locale, Messages> = {
     "control.wsDisconnectedHint": "WebSocket disconnected — playlist cannot sync. Reconnecting… or click Reconnect.",
     "control.wsConnecting": "WS connecting…",
     "control.wsConnectingHint": "Connecting to hub… If it stays closed, ensure `pnpm dev` has the hub on :8787.",
-    "control.hubUnreachable": "Hub not responding on :8787. In the promedia folder run `pnpm dev` (starts hub + web). Then click Reconnect.",
+    "control.hubUnreachable": "The hub is not running. Open Terminal in the promedia folder and run: pnpm dev",
+    "control.hubDownFooter": "Hub down — not just WS",
+    "control.retryHealth": "Retry connection",
+    "control.hubChecking": "Checking hub…",
     "control.reconnect": "Reconnect"
   },
   pt: {
@@ -307,7 +313,10 @@ const catalogs: Record<Locale, Messages> = {
     "control.wsDisconnectedHint": "WebSocket desconectado — a playlist não sincroniza. Reconectando… ou clique em Reconectar.",
     "control.wsConnecting": "WS conectando…",
     "control.wsConnectingHint": "Conectando ao hub… Se não abrir, confira se `pnpm dev` tem o hub em :8787.",
-    "control.hubUnreachable": "Hub não responde em :8787. Na pasta promedia execute `pnpm dev` (sobe hub + web). Depois clique em Reconectar.",
+    "control.hubUnreachable": "O hub não está a correr. Abra o Terminal na pasta promedia e execute: pnpm dev",
+    "control.hubDownFooter": "Hub desligado — não só WS",
+    "control.retryHealth": "Tentar de novo",
+    "control.hubChecking": "A verificar o hub…",
     "control.reconnect": "Reconectar"
   },
   fr: {
@@ -406,7 +415,10 @@ const catalogs: Record<Locale, Messages> = {
     "control.wsDisconnectedHint": "WebSocket déconnecté — la playlist ne synchronise pas. Reconnexion… ou cliquez Reconnecter.",
     "control.wsConnecting": "WS connexion…",
     "control.wsConnectingHint": "Connexion au hub… Si ça reste fermé, vérifiez que `pnpm dev` lance le hub sur :8787.",
-    "control.hubUnreachable": "Le hub ne répond pas sur :8787. Dans le dossier promedia lancez `pnpm dev` (hub + web). Puis cliquez Reconnecter.",
+    "control.hubUnreachable": "Le hub n'est pas démarré. Ouvrez le Terminal dans le dossier promedia et lancez : pnpm dev",
+    "control.hubDownFooter": "Hub arrêté — pas seulement WS",
+    "control.retryHealth": "Réessayer la connexion",
+    "control.hubChecking": "Vérification du hub…",
     "control.reconnect": "Reconnecter"
   },
   "zh-CN": {
@@ -505,7 +517,10 @@ const catalogs: Record<Locale, Messages> = {
     "control.wsDisconnectedHint": "WebSocket 已断开 — 播放列表无法同步。正在重连…或点击重连。",
     "control.wsConnecting": "WS 连接中…",
     "control.wsConnectingHint": "正在连接 hub… 若一直断开，请确认 `pnpm dev` 已在 :8787 启动 hub。",
-    "control.hubUnreachable": "Hub 在 :8787 无响应。在 promedia 目录运行 `pnpm dev`（启动 hub + web），然后点击重连。",
+    "control.hubUnreachable": "Hub 未运行。在 promedia 文件夹打开终端并执行：pnpm dev",
+    "control.hubDownFooter": "Hub 已关闭 — 不只是 WS",
+    "control.retryHealth": "重试连接",
+    "control.hubChecking": "正在检查 hub…",
     "control.reconnect": "重连"
   }
 };
