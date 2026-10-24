@@ -167,10 +167,10 @@ body {
   flex-direction: column;
   justify-content: center;
   gap: 0.2rem;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: min(34rem, 42vw);
-  padding: 0.1rem 0.9rem 0.1rem 0;
+  max-width: min(34rem, 48vw);
+  padding: 0.1rem 0.35rem 0.1rem 0;
 }
 
 .control-header-theme .theme-controls-title {
@@ -214,11 +214,11 @@ body {
   letter-spacing: 0.06em;
 }
 
-/* GPT / placeholder: remaining header width after brand / actions / tema. */
+/* GPT / placeholder: compact so Tema stays readable at far right. */
 .control-ad-slot {
-  flex: 1 1 12rem;
-  min-width: 8rem;
-  max-width: 100%;
+  flex: 0 1 10rem;
+  min-width: 5.5rem;
+  max-width: 12rem;
   height: 90px;
   max-height: 90px;
   display: flex;
@@ -282,13 +282,50 @@ body {
   max-height: 90px !important;
 }
 
+/* Brand-adjacent cluster: projection actions + scene modes. */
+.control-header-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.65rem;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(42rem, 52vw);
+}
+
 .control-session-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem 0.5rem;
   flex-shrink: 0;
-  max-width: min(22rem, 36vw);
+  max-width: none;
+}
+
+.live-controls-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.live-controls-header .btn-scene {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.78rem;
+}
+
+/* Tema + optional GAM pushed to the far right of the header. */
+.control-header-end {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+  margin-left: auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: min(48rem, 55vw);
 }
 
 .field-inline input {
@@ -313,9 +350,17 @@ body {
     max-width: 100%;
   }
 
+  .control-header-cluster,
+  .control-header-end,
   .control-session-actions,
   .control-header-theme {
     max-width: 100%;
+  }
+
+  .control-header-end {
+    margin-left: 0;
+    flex-wrap: wrap;
+    width: 100%;
   }
 
   .control-header-sep {
@@ -323,7 +368,8 @@ body {
   }
 
   .control-ad-slot {
-    flex-basis: 100%;
+    flex: 1 1 100%;
+    max-width: 100%;
     height: 50px;
     max-height: 50px;
   }
@@ -525,9 +571,32 @@ body {
   max-height: none;
 }
 
-/* Guion left + Preview/Live stacked column stretching to the right edge */
+/* Guion+En vivo left | maximized Vista previa right */
 .control-zones-stacked {
   grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+}
+
+/* Left: Guion list above, compact En vivo below. */
+.control-guion-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+  background: var(--border);
+  gap: 1px;
+}
+
+.control-guion-column > .zone-schedule {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.control-guion-column > .zone-live-sidebar {
+  flex: 0 0 auto;
+  height: clamp(9.5rem, 28vh, 15rem);
+  min-height: 9.5rem;
+  max-height: 40%;
 }
 
 .control-stages {
@@ -539,7 +608,23 @@ body {
   background: var(--bg-zone);
 }
 
-/* Preview + En vivo share remaining height roughly equally */
+/* Preview fills the entire right column after En vivo moved under Guion. */
+.control-stages-preview-only {
+  min-height: 0;
+}
+
+.control-stages-preview-only > .zone-preview {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.control-stages-preview-only .zone-stage {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Legacy equal stack (kept for any residual references). */
 .control-stages-equal {
   flex: 1 1 0;
   display: grid;
@@ -566,7 +651,6 @@ body {
   overflow: auto;
 }
 
-/* Scenes-only chrome after Tema moved to header — keep thin. */
 .control-stages-chrome-scenes {
   max-height: none;
   overflow: visible;
@@ -759,6 +843,19 @@ body {
     flex: 1 1 auto;
   }
 
+  .control-guion-column {
+    min-height: 28rem;
+  }
+
+  .control-guion-column > .zone-live-sidebar {
+    height: 12rem;
+    max-height: none;
+  }
+
+  .control-stages-preview-only {
+    min-height: 18rem;
+  }
+
   .control-stages-equal {
     grid-template-rows: minmax(14rem, 1fr) minmax(14rem, 1fr);
     min-height: 32rem;
@@ -825,6 +922,15 @@ body {
 
 .zone-live .zone-stage {
   flex: 1;
+  min-height: 0;
+}
+
+.zone-live-sidebar {
+  background: #0e141c;
+}
+
+.zone-live-sidebar .zone-stage {
+  margin: 0.35rem;
   min-height: 0;
 }
 

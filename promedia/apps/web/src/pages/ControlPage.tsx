@@ -825,117 +825,172 @@ export function ControlPage() {
           </h1>
         </div>
 
-        <div className="control-session-actions">
-          <button
-            type="button"
-            className="btn btn-primary btn-start-projection"
-            disabled={projectionBusy || session.hubUnreachable}
-            title={t(locale, "shortcuts.startProjection")}
-            aria-label={t(locale, "shortcuts.startProjection")}
-            onClick={onStartProjection}
-          >
-            {projectionBusy
-              ? t(locale, "control.startProjectionBusy")
-              : t(locale, "control.startProjection")}
-          </button>
-          {!session.hasSession ? (
-            <>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => {
-                  void session
-                    .create()
-                    .then((res) => {
-                      persistSession(res.code, res.accessToken);
-                    })
-                    .catch(() => undefined);
-                }}
-              >
-                {t(locale, "control.createSession")}
-              </button>
-              <label className="field-inline">
-                <span className="sr-only">{t(locale, "control.code")}</span>
-                <input
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  placeholder={t(locale, "control.joinPlaceholder")}
-                  maxLength={8}
-                />
-              </label>
-              <button
-                type="button"
-                className="btn"
-                disabled={!joinCode.trim()}
-                onClick={() => {
-                  void session
-                    .join({ code: joinCode.trim() })
-                    .then((res) => {
-                      persistSession(res.code);
-                    })
-                    .catch(() => undefined);
-                }}
-              >
-                {t(locale, "control.joinSession")}
-              </button>
-            </>
-          ) : (
+        <div className="control-header-cluster">
+          <div className="control-session-actions">
             <button
               type="button"
-              className="btn"
-              title={t(locale, "shortcuts.openOutput")}
-              aria-label={t(locale, "shortcuts.openOutput")}
-              onClick={openOutput}
+              className="btn btn-primary btn-start-projection"
+              disabled={projectionBusy || session.hubUnreachable}
+              title={t(locale, "shortcuts.startProjection")}
+              aria-label={t(locale, "shortcuts.startProjection")}
+              onClick={onStartProjection}
             >
-              {t(locale, "control.openOutput")}
+              {projectionBusy
+                ? t(locale, "control.startProjectionBusy")
+                : t(locale, "control.startProjection")}
             </button>
-          )}
-          {(projectionNote || uploadHint) && (
-            <span className="control-session-tips" role="status">
-              {projectionNote ? (
-                <StatusTip
-                  tone="info"
-                  label={t(locale, "control.statusTipInfo")}
-                  message={projectionNote}
-                />
-              ) : null}
-              {uploadHint ? (
-                <StatusTip
-                  tone="warn"
-                  label={t(locale, "control.statusTipWarn")}
-                  message={uploadHint}
-                />
-              ) : null}
-            </span>
-          )}
+            {!session.hasSession ? (
+              <>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    void session
+                      .create()
+                      .then((res) => {
+                        persistSession(res.code, res.accessToken);
+                      })
+                      .catch(() => undefined);
+                  }}
+                >
+                  {t(locale, "control.createSession")}
+                </button>
+                <label className="field-inline">
+                  <span className="sr-only">{t(locale, "control.code")}</span>
+                  <input
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    placeholder={t(locale, "control.joinPlaceholder")}
+                    maxLength={8}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={!joinCode.trim()}
+                  onClick={() => {
+                    void session
+                      .join({ code: joinCode.trim() })
+                      .then((res) => {
+                        persistSession(res.code);
+                      })
+                      .catch(() => undefined);
+                  }}
+                >
+                  {t(locale, "control.joinSession")}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="btn"
+                title={t(locale, "shortcuts.openOutput")}
+                aria-label={t(locale, "shortcuts.openOutput")}
+                onClick={openOutput}
+              >
+                {t(locale, "control.openOutput")}
+              </button>
+            )}
+            {(projectionNote || uploadHint) && (
+              <span className="control-session-tips" role="status">
+                {projectionNote ? (
+                  <StatusTip
+                    tone="info"
+                    label={t(locale, "control.statusTipInfo")}
+                    message={projectionNote}
+                  />
+                ) : null}
+                {uploadHint ? (
+                  <StatusTip
+                    tone="warn"
+                    label={t(locale, "control.statusTipWarn")}
+                    message={uploadHint}
+                  />
+                ) : null}
+              </span>
+            )}
+          </div>
+
+          <div
+            className="live-controls live-controls-header"
+            role="group"
+            aria-label={t(locale, "control.live")}
+          >
+            <button
+              type="button"
+              className={sceneBtnClass("normal")}
+              disabled={!canMutate}
+              aria-pressed={sceneMode === "normal"}
+              title={t(locale, "shortcuts.sceneNormal")}
+              aria-label={t(locale, "shortcuts.sceneNormal")}
+              onClick={() => session.setSceneMode("normal")}
+            >
+              {t(locale, "control.sceneNormal")}
+            </button>
+            <button
+              type="button"
+              className={sceneBtnClass("logo")}
+              disabled={!canMutate}
+              aria-pressed={sceneMode === "logo"}
+              title={t(locale, "shortcuts.sceneLogo")}
+              aria-label={t(locale, "shortcuts.sceneLogo")}
+              onClick={() => toggleSceneMode("logo")}
+            >
+              {t(locale, "control.sceneLogo")}
+            </button>
+            <button
+              type="button"
+              className={sceneBtnClass("black")}
+              disabled={!canMutate}
+              aria-pressed={sceneMode === "black"}
+              title={t(locale, "shortcuts.sceneBlack")}
+              aria-label={t(locale, "shortcuts.sceneBlack")}
+              onClick={() => toggleSceneMode("black")}
+            >
+              {t(locale, "control.sceneBlack")}
+            </button>
+            <button
+              type="button"
+              className={sceneBtnClass("clear")}
+              disabled={!canMutate}
+              aria-pressed={sceneMode === "clear"}
+              title={t(locale, "shortcuts.sceneClear")}
+              aria-label={t(locale, "shortcuts.sceneClear")}
+              onClick={() => toggleSceneMode("clear")}
+            >
+              {t(locale, "control.sceneClear")}
+            </button>
+          </div>
         </div>
 
-        <div
-          className="control-header-sep"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label={t(locale, "control.headerSeparator")}
-        />
-
-        <div className="control-header-theme">
-          <h2 className="theme-controls-title">{t(locale, "theme.title")}</h2>
-          <ThemePanel
-            compact
-            themeId={themeId}
-            themeOverrides={themeOverrides}
-            disabled={!canMutate}
-            onChange={(patch) => session.setTheme(patch)}
+        <div className="control-header-end">
+          <div
+            className="control-header-sep"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t(locale, "control.headerSeparator")}
           />
+
+          <div className="control-header-theme">
+            <h2 className="theme-controls-title">{t(locale, "theme.title")}</h2>
+            <ThemePanel
+              compact
+              themeId={themeId}
+              themeOverrides={themeOverrides}
+              disabled={!canMutate}
+              onChange={(patch) => session.setTheme(patch)}
+            />
+          </div>
+
+          <div
+            className="control-header-sep"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t(locale, "control.headerSeparator")}
+          />
+
+          <ControlAdBanner />
         </div>
-
-        <div
-          className="control-header-sep"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label={t(locale, "control.headerSeparator")}
-        />
-
-        <ControlAdBanner />
       </header>
 
       {popupBlockedUrl ? (
@@ -1053,295 +1108,251 @@ export function ControlPage() {
       />
 
       <div className="control-zones control-zones-stacked">
-        <SchedulePanel
-          items={items}
-          selectedItemId={selectedItemId}
-          liveItemId={liveItemId}
-          checkedIds={checkedIds}
-          sessionReady={sessionReady}
-          canMutate={canMutate}
-          uploading={uploading}
-          onSelect={selectItem}
-          onToggleChecked={toggleChecked}
-          onMove={moveItem}
-          onReorder={reorderItems}
-          onRemove={removeOne}
-          onRemoveChecked={removeChecked}
-          onGoLive={goLiveItem}
-          onEditText={(id) => {
-            selectItem(id);
-            setEditingId(id);
-          }}
-          onAddFiles={() => {
-            if (!sessionReady) {
-              return;
-            }
-            if (!wsReady) {
-              session.reconnect();
-              setUploadHint(t(locale, "control.wsDisconnectedHint"));
-            }
-            onPickUnifiedFiles();
-          }}
-          onAddLink={() => {
-            if (!sessionReady) {
-              return;
-            }
-            if (!wsReady) {
-              session.reconnect();
-              setUploadHint(t(locale, "control.wsDisconnectedHint"));
-            }
-            openLinkDialog();
-          }}
-          onAddBible={() => {
-            if (!sessionReady) {
-              return;
-            }
-            if (!wsReady) {
-              session.reconnect();
-              setUploadHint(t(locale, "control.wsDisconnectedHint"));
-            }
-            openBibleDialog();
-          }}
-          onAddTextBlank={() => {
-            if (!sessionReady) {
-              return;
-            }
-            startCreateTextBlank();
-          }}
-          onOpenLoad={() => {
-            if (!session.hasSession) {
-              return;
-            }
-            setLoadDialogOpen(true);
-          }}
-          onOpenSave={() => {
-            if (!canMutate) {
-              return;
-            }
-            setSaveDialogOpen(true);
-          }}
-          onFilesDropped={(files) => {
-            if (!sessionReady) {
-              return;
-            }
-            if (!wsReady) {
-              session.reconnect();
-              setUploadHint(t(locale, "control.wsDisconnectedHint"));
-              return;
-            }
-            void ingestFiles(files);
-          }}
-          saveLoadDialogs={
-            session.hasSession && session.sessionId && session.wsTicket ? (
-              <SavedPlaylistPanel
-                sessionId={session.sessionId}
-                wsTicket={session.wsTicket}
-                disabled={!canMutate}
-                onHint={setUploadHint}
-                dialogMode
-                saveOpen={saveDialogOpen}
-                loadOpen={loadDialogOpen}
-                onSaveOpenChange={setSaveDialogOpen}
-                onLoadOpenChange={setLoadDialogOpen}
-              />
-            ) : null
-          }
-          editor={
-            creating ? (
-              <TextItemEditor
-                initial={createEmptyTextPayload()}
-                onSave={saveNewText}
-                onCancel={() => setCreating(false)}
-              />
-            ) : editingId && selectedItem?.type === "text" ? (
-              <TextItemEditor
-                initial={selectedItem.payload}
-                onSave={saveEditText}
-                onCancel={() => setEditingId(null)}
-              />
-            ) : null
-          }
-        />
-
-        <div className="control-stages">
-          <div className="control-stages-equal">
-            <section
-              className="zone zone-preview"
-              aria-label={t(locale, "control.preview")}
-            >
-              {/*
-                Always-visible Preview toolbar: prev/next, send-to-live, and
-                shortcuts tip. No floating 1/N pager — count removed per Julio.
-                Video/YouTube also render play/scrub/mute under the media.
-              */}
-              <div
-                className="preview-toolbar preview-toolbar-lite preview-toolbar-persistent"
-                role="toolbar"
-                aria-label={t(locale, "preview.nav")}
-              >
-                <button
-                  type="button"
-                  className="btn preview-tb-btn"
-                  disabled={!selectedItem || !canPreviewPrev}
-                  title={t(locale, "shortcuts.prev")}
-                  aria-label={t(locale, "shortcuts.prev")}
-                  onClick={previewGoPrev}
-                >
-                  <IconPrev />
-                </button>
-                <button
-                  type="button"
-                  className="btn preview-tb-btn"
-                  disabled={!selectedItem || !canPreviewNext}
-                  title={t(locale, "shortcuts.next")}
-                  aria-label={t(locale, "shortcuts.next")}
-                  onClick={previewGoNext}
-                >
-                  <IconNext />
-                </button>
-                <span className="preview-tb-sep" aria-hidden="true" />
-                <button
-                  type="button"
-                  className="btn btn-primary preview-tb-golive"
-                  disabled={!canGoLive}
-                  title={t(locale, "shortcuts.goLive")}
-                  aria-label={t(locale, "shortcuts.goLive")}
-                  onClick={() => {
-                    if (selectedItemId) {
-                      session.goLive(selectedItemId);
-                    }
-                  }}
-                >
-                  <IconGoLive />
-                  <span className="preview-tb-golive-label">
-                    {t(locale, "playlist.goLiveShort")}
-                  </span>
-                </button>
-                <span className="preview-tb-spacer" />
-                <StatusTip
-                  tone="info"
-                  className="preview-tb-shortcuts"
-                  label={t(locale, "shortcuts.help")}
-                  message={t(locale, "shortcuts.hint")}
+        {/*
+          Left column: Guion list on top + compact En vivo monitor below
+          (Julio red layout — live stage relocates under Guion).
+        */}
+        <div className="control-guion-column">
+          <SchedulePanel
+            items={items}
+            selectedItemId={selectedItemId}
+            liveItemId={liveItemId}
+            checkedIds={checkedIds}
+            sessionReady={sessionReady}
+            canMutate={canMutate}
+            uploading={uploading}
+            onSelect={selectItem}
+            onToggleChecked={toggleChecked}
+            onMove={moveItem}
+            onReorder={reorderItems}
+            onRemove={removeOne}
+            onRemoveChecked={removeChecked}
+            onGoLive={goLiveItem}
+            onEditText={(id) => {
+              selectItem(id);
+              setEditingId(id);
+            }}
+            onAddFiles={() => {
+              if (!sessionReady) {
+                return;
+              }
+              if (!wsReady) {
+                session.reconnect();
+                setUploadHint(t(locale, "control.wsDisconnectedHint"));
+              }
+              onPickUnifiedFiles();
+            }}
+            onAddLink={() => {
+              if (!sessionReady) {
+                return;
+              }
+              if (!wsReady) {
+                session.reconnect();
+                setUploadHint(t(locale, "control.wsDisconnectedHint"));
+              }
+              openLinkDialog();
+            }}
+            onAddBible={() => {
+              if (!sessionReady) {
+                return;
+              }
+              if (!wsReady) {
+                session.reconnect();
+                setUploadHint(t(locale, "control.wsDisconnectedHint"));
+              }
+              openBibleDialog();
+            }}
+            onAddTextBlank={() => {
+              if (!sessionReady) {
+                return;
+              }
+              startCreateTextBlank();
+            }}
+            onOpenLoad={() => {
+              if (!session.hasSession) {
+                return;
+              }
+              setLoadDialogOpen(true);
+            }}
+            onOpenSave={() => {
+              if (!canMutate) {
+                return;
+              }
+              setSaveDialogOpen(true);
+            }}
+            onFilesDropped={(files) => {
+              if (!sessionReady) {
+                return;
+              }
+              if (!wsReady) {
+                session.reconnect();
+                setUploadHint(t(locale, "control.wsDisconnectedHint"));
+                return;
+              }
+              void ingestFiles(files);
+            }}
+            saveLoadDialogs={
+              session.hasSession && session.sessionId && session.wsTicket ? (
+                <SavedPlaylistPanel
+                  sessionId={session.sessionId}
+                  wsTicket={session.wsTicket}
+                  disabled={!canMutate}
+                  onHint={setUploadHint}
+                  dialogMode
+                  saveOpen={saveDialogOpen}
+                  loadOpen={loadDialogOpen}
+                  onSaveOpenChange={setSaveDialogOpen}
+                  onLoadOpenChange={setLoadDialogOpen}
                 />
-              </div>
-              <div className="zone-body zone-stage pm-theme" style={themeStyle}>
-                <span className="stage-overlay-label" aria-hidden="true">
-                  {t(locale, "control.preview")}
-                </span>
-                {selectedItem && Preview ? (
-                  <Preview
-                    item={selectedItem}
-                    slideIndex={previewSlideIndex}
-                    onSlideIndexChange={setPreviewSlideIndex}
-                    assetSrc={previewSrc}
-                    onFitChange={
-                      selectedItem.type === "image" ? onFitChange : undefined
-                    }
-                    projecting={
-                      selectedItem.type === "video" &&
-                      selectedItem.id === liveItemId
-                    }
-                  />
-                ) : (
-                  <p>{t(locale, "control.previewEmpty")}</p>
-                )}
-              </div>
-            </section>
+              ) : null
+            }
+            editor={
+              creating ? (
+                <TextItemEditor
+                  initial={createEmptyTextPayload()}
+                  onSave={saveNewText}
+                  onCancel={() => setCreating(false)}
+                />
+              ) : editingId && selectedItem?.type === "text" ? (
+                <TextItemEditor
+                  initial={selectedItem.payload}
+                  onSave={saveEditText}
+                  onCancel={() => setEditingId(null)}
+                />
+              ) : null
+            }
+          />
 
-            <section
-              className="zone zone-live"
-              aria-label={t(locale, "control.live")}
-            >
-              <div className="zone-body zone-stage pm-theme" style={themeStyle}>
-                <span className="stage-overlay-label" aria-hidden="true">
-                  {t(locale, "control.live")}
+          <section
+            className="zone zone-live zone-live-sidebar"
+            aria-label={t(locale, "control.live")}
+          >
+            <div className="zone-body zone-stage pm-theme" style={themeStyle}>
+              <span className="stage-overlay-label" aria-hidden="true">
+                {t(locale, "control.live")}
+              </span>
+              {sceneMode !== "normal" ? (
+                <span
+                  className="scene-mode-badge stage-overlay-badge"
+                  data-mode={sceneMode}
+                >
+                  {t(locale, `scene.${sceneMode}`)}
                 </span>
-                {sceneMode !== "normal" ? (
-                  <span
-                    className="scene-mode-badge stage-overlay-badge"
-                    data-mode={sceneMode}
-                  >
-                    {t(locale, `scene.${sceneMode}`)}
-                  </span>
-                ) : null}
-                {liveItem && LivePanel ? (
-                  <LivePanel
-                    item={liveItem}
-                    slideIndex={liveSlideIndex}
-                    assetSrc={liveSrc}
-                    mediaClock={mediaClock}
-                    onMediaClockSet={
-                      liveItem.type === "video"
-                        ? (patch) => session.setMediaClock(patch)
-                        : undefined
-                    }
-                    onPrev={
-                      itemHasSlides(liveItem)
-                        ? () => session.setSlide(liveSlideIndex - 1)
-                        : undefined
-                    }
-                    onNext={
-                      itemHasSlides(liveItem)
-                        ? () => session.setSlide(liveSlideIndex + 1)
-                        : undefined
-                    }
-                  />
-                ) : (
-                  <p>{t(locale, "control.liveEmpty")}</p>
-                )}
-              </div>
-            </section>
-          </div>
-
-          <div className="control-stages-chrome control-stages-chrome-scenes">
-            <div className="live-controls">
-              <button
-                type="button"
-                className={sceneBtnClass("normal")}
-                disabled={!canMutate}
-                aria-pressed={sceneMode === "normal"}
-                title={t(locale, "shortcuts.sceneNormal")}
-                aria-label={t(locale, "shortcuts.sceneNormal")}
-                onClick={() => session.setSceneMode("normal")}
-              >
-                {t(locale, "control.sceneNormal")}
-              </button>
-              <button
-                type="button"
-                className={sceneBtnClass("logo")}
-                disabled={!canMutate}
-                aria-pressed={sceneMode === "logo"}
-                title={t(locale, "shortcuts.sceneLogo")}
-                aria-label={t(locale, "shortcuts.sceneLogo")}
-                onClick={() => toggleSceneMode("logo")}
-              >
-                {t(locale, "control.sceneLogo")}
-              </button>
-              <button
-                type="button"
-                className={sceneBtnClass("black")}
-                disabled={!canMutate}
-                aria-pressed={sceneMode === "black"}
-                title={t(locale, "shortcuts.sceneBlack")}
-                aria-label={t(locale, "shortcuts.sceneBlack")}
-                onClick={() => toggleSceneMode("black")}
-              >
-                {t(locale, "control.sceneBlack")}
-              </button>
-              <button
-                type="button"
-                className={sceneBtnClass("clear")}
-                disabled={!canMutate}
-                aria-pressed={sceneMode === "clear"}
-                title={t(locale, "shortcuts.sceneClear")}
-                aria-label={t(locale, "shortcuts.sceneClear")}
-                onClick={() => toggleSceneMode("clear")}
-              >
-                {t(locale, "control.sceneClear")}
-              </button>
+              ) : null}
+              {liveItem && LivePanel ? (
+                <LivePanel
+                  item={liveItem}
+                  slideIndex={liveSlideIndex}
+                  assetSrc={liveSrc}
+                  mediaClock={mediaClock}
+                  onMediaClockSet={
+                    liveItem.type === "video"
+                      ? (patch) => session.setMediaClock(patch)
+                      : undefined
+                  }
+                  onPrev={
+                    itemHasSlides(liveItem)
+                      ? () => session.setSlide(liveSlideIndex - 1)
+                      : undefined
+                  }
+                  onNext={
+                    itemHasSlides(liveItem)
+                      ? () => session.setSlide(liveSlideIndex + 1)
+                      : undefined
+                  }
+                />
+              ) : (
+                <p>{t(locale, "control.liveEmpty")}</p>
+              )}
             </div>
-          </div>
+          </section>
+        </div>
+
+        {/* Right column: maximized Vista previa (En vivo / scene strip removed). */}
+        <div className="control-stages control-stages-preview-only">
+          <section
+            className="zone zone-preview"
+            aria-label={t(locale, "control.preview")}
+          >
+            {/*
+              Always-visible Preview toolbar: prev/next, send-to-live, and
+              shortcuts tip. No floating 1/N pager — count removed per Julio.
+              Video/YouTube also render play/scrub/mute under the media.
+            */}
+            <div
+              className="preview-toolbar preview-toolbar-lite preview-toolbar-persistent"
+              role="toolbar"
+              aria-label={t(locale, "preview.nav")}
+            >
+              <button
+                type="button"
+                className="btn preview-tb-btn"
+                disabled={!selectedItem || !canPreviewPrev}
+                title={t(locale, "shortcuts.prev")}
+                aria-label={t(locale, "shortcuts.prev")}
+                onClick={previewGoPrev}
+              >
+                <IconPrev />
+              </button>
+              <button
+                type="button"
+                className="btn preview-tb-btn"
+                disabled={!selectedItem || !canPreviewNext}
+                title={t(locale, "shortcuts.next")}
+                aria-label={t(locale, "shortcuts.next")}
+                onClick={previewGoNext}
+              >
+                <IconNext />
+              </button>
+              <span className="preview-tb-sep" aria-hidden="true" />
+              <button
+                type="button"
+                className="btn btn-primary preview-tb-golive"
+                disabled={!canGoLive}
+                title={t(locale, "shortcuts.goLive")}
+                aria-label={t(locale, "shortcuts.goLive")}
+                onClick={() => {
+                  if (selectedItemId) {
+                    session.goLive(selectedItemId);
+                  }
+                }}
+              >
+                <IconGoLive />
+                <span className="preview-tb-golive-label">
+                  {t(locale, "playlist.goLiveShort")}
+                </span>
+              </button>
+              <span className="preview-tb-spacer" />
+              <StatusTip
+                tone="info"
+                className="preview-tb-shortcuts"
+                label={t(locale, "shortcuts.help")}
+                message={t(locale, "shortcuts.hint")}
+              />
+            </div>
+            <div className="zone-body zone-stage pm-theme" style={themeStyle}>
+              <span className="stage-overlay-label" aria-hidden="true">
+                {t(locale, "control.preview")}
+              </span>
+              {selectedItem && Preview ? (
+                <Preview
+                  item={selectedItem}
+                  slideIndex={previewSlideIndex}
+                  onSlideIndexChange={setPreviewSlideIndex}
+                  assetSrc={previewSrc}
+                  onFitChange={
+                    selectedItem.type === "image" ? onFitChange : undefined
+                  }
+                  projecting={
+                    selectedItem.type === "video" &&
+                    selectedItem.id === liveItemId
+                  }
+                />
+              ) : (
+                <p>{t(locale, "control.previewEmpty")}</p>
+              )}
+            </div>
+          </section>
         </div>
       </div>
 
