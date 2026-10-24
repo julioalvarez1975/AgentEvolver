@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>ProMedia — abrir Control</title>
+    <!--
+      Enlace permanente a Control (local).
+      Por defecto: http://localhost:5173/control
+      Si Vite usó otro puerto, editá CONTROL_URL abajo o usá la URL
+      que imprime [dev] ready. En producción/hosteado, cambiá a tu dominio.
+    -->
+    <meta http-equiv="refresh" content="0;url=http://localhost:5173/control" />
+    <script>
+      // Editá esta URL si el puerto o el host cambian (producción, otro puerto Vite, etc.).
+      var CONTROL_URL = "http://localhost:5173/control";
+      location.replace(CONTROL_URL);
+    </script>
+  </head>
+  <body>
+    <p>
+      Abriendo
+      <a id="link" href="http://localhost:5173/control">ProMedia Control</a>…
+    </p>
+    <p style="color: #555; font-size: 0.9rem">
+      Si no redirige, hacé clic en el enlace. Para un servidor hosteado, editá
+      <code>CONTROL_URL</code> en este archivo o la URL en
+      <code>ProMedia-Control.url</code>.
+    </p>
+    <script>
+      document.getElementById("link").href = CONTROL_URL;
+      document.getElementById("link").textContent = CONTROL_URL;
+    </script>
+  </body>
+</html>

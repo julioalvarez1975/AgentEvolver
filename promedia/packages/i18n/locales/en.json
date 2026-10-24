@@ -15,7 +15,6 @@
   "control.openOutput": "Open output",
   "control.startProjection": "Start projection",
   "control.startProjectionBusy": "Starting…",
-  "control.startProjectionTip": "Click «Start projection»: creates/resumes the session, opens Output, and requests fullscreen on the 2nd display when Chrome allows it (Window Management API). Browsers cannot always force the other monitor without permission, or fullscreen without a gesture; if it fails, drag the window and use Fullscreen / F11. «Open output» still works.",
   "control.projectionOnSecondary": "Output opened on the other monitor (fullscreen requested if the browser allows).",
   "control.projectionOpened": "Output opened. If it is not on the 2nd monitor or fullscreen, drag it and press Fullscreen.",
   "control.dragHint": "Drag the output window to the 2nd monitor or projector and enter fullscreen.",

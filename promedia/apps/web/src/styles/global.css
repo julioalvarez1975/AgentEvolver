@@ -277,18 +277,6 @@ body {
   text-transform: uppercase;
 }
 
-.control-drag-hint {
-  margin: 0;
-  padding: 0;
-  background: transparent;
-  color: #b8c9dc;
-  font-size: 0.8rem;
-  line-height: 1.4;
-  flex: 1 1 16rem;
-  min-width: 0;
-  border: none;
-}
-
 @media (max-width: 720px) {
   .control-header {
     flex-wrap: wrap;

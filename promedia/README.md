@@ -9,9 +9,10 @@ Proyección multimedia para **culto y evento**. Monorepo MVP en `promedia/` (la 
 ### Mac — doble clic (Finder)
 
 1. Abrí Finder → carpeta del repo → **`promedia`**
-2. Doble clic en **`start-mac.command`**
+2. Doble clic en **`start-mac.command`** o **`Abrir-ProMedia.command`** (mismo arranque; el segundo es un atajo con nombre claro para el Escritorio)
 3. Si macOS pregunta, clic derecho → **Abrir** la primera vez
-4. Dejá la ventana abierta; cuando veas `[dev] ready — Control http://…`, abrí **esa** URL (no otra pestaña vieja)
+4. Dejá la ventana Terminal abierta; al estar listos hub+web, el script **abre Control** en el navegador (detecta el puerto real de Vite, p. ej. 5173/5174)
+5. Enlaces fijos (si el navegador no se abrió solo): **`ProMedia-Control.url`** o **`open-control.html`** → `http://localhost:5173/control` (editá la URL si Vite usó otro puerto o en producción/hosteado)
 
 ### Terminal (cualquier SO)
 
@@ -78,7 +79,7 @@ Sin hub, Control muestra: *“El hub no está corriendo…”* con botón para r
 1. Abre **http://localhost:5173/control** (o la URL real que imprima Vite)
 2. Al cargar (hub sano), Control **crea o reanuda** la sesión sola — el pie debe decir **WS conectado**
 3. Pulsa **Iniciar proyección** (CTA principal, un clic): abre/enfoca **Salida**, intenta colocarla en el **2.º monitor** (Chrome: Window Management / `getScreenDetails` si hay permiso) y pide **pantalla completa**
-4. Si el navegador no puede forzar el otro monitor o el fullscreen sin gesto, arrastra la ventana al proyector y pulsa **Pantalla completa** / F11 en Salida (el tip en Control lo explica)
+4. Si el navegador no puede forzar el otro monitor o el fullscreen sin gesto, arrastra la ventana al proyector y pulsa **Pantalla completa** / F11 en Salida
 5. **Abrir salida** sigue disponible (abre/enfoca sin re-crear sesión)
 6. Añade texto / imagen / vídeo / YouTube → **Go Live**
 

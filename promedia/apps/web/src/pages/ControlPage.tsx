@@ -884,7 +884,6 @@ export function ControlPage() {
             </button>
           )}
         </div>
-        <p className="control-drag-hint">{t(locale, "control.startProjectionTip")}</p>
       </div>
 
       {projectionNote ? (
