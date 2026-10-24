@@ -18,6 +18,7 @@ import type {
 } from "@promedia/shared";
 import { DEFAULT_THEME_ID, itemHasSlides } from "@promedia/shared";
 import { BibleDialog } from "../components/BibleDialog";
+import { LinkAddDialog } from "../components/LinkAddDialog";
 import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { SchedulePanel } from "../components/SchedulePanel";
 import { TextItemEditor } from "../components/TextItemEditor";
@@ -31,6 +32,10 @@ import {
   uploadSessionAsset,
 } from "../lib/assets";
 import {
+  UNIFIED_MEDIA_ACCEPT,
+  classifyMediaFile,
+} from "../lib/classifyMediaFile";
+import {
   loadPersistedControlSession,
   savePersistedControlSession,
 } from "../lib/controlSessionPersist";
@@ -39,7 +44,6 @@ import {
   TEXT_IMPORT_MAX_BYTES,
   TEXT_IMPORT_MAX_SLIDES,
   importFileToTextSlides,
-  isSupportedTextImport,
 } from "../lib/textImport";
 import { themeSurfaceStyle } from "../lib/theme";
 
@@ -76,22 +80,24 @@ export function ControlPage() {
   const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [youtubeDialogOpen, setYoutubeDialogOpen] = useState(false);
-  const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [youtubeDialogError, setYoutubeDialogError] = useState<string | null>(
-    null,
-  );
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [bibleDialogOpen, setBibleDialogOpen] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   const [uploadHint, setUploadHint] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const imageInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
-  const textInputRef = useRef<HTMLInputElement>(null);
-  const youtubeInputRef = useRef<HTMLInputElement>(null);
+  const unifiedInputRef = useRef<HTMLInputElement>(null);
+  /** Track item count for sequential multi-file order without stale closure. */
+  const itemsLenRef = useRef(0);
 
   const items = session.snapshot?.playlist.items ?? [];
+  itemsLenRef.current = items.length;
   const selectedItem = useMemo(
     () => items.find((i) => i.id === selectedItemId) ?? null,
+    [items, selectedItemId],
+  );
+  const selectedIndex = useMemo(
+    () => items.findIndex((i) => i.id === selectedItemId),
     [items, selectedItemId],
   );
   const liveItemId = session.snapshot?.live.currentItemId ?? null;
@@ -284,7 +290,7 @@ export function ControlPage() {
     setPreviewSlideIndex(0);
     setCreating(false);
     setEditingId(null);
-    setYoutubeDialogOpen(false);
+    setLinkDialogOpen(false);
     setBibleDialogOpen(false);
   };
 
@@ -305,90 +311,8 @@ export function ControlPage() {
   const startCreateTextBlank = () => {
     setCreating(true);
     setEditingId(null);
-    setYoutubeDialogOpen(false);
-  };
-
-  const onPickTextFile = () => {
-    setUploadHint(null);
-    setCreating(false);
-    setEditingId(null);
-    setYoutubeDialogOpen(false);
-    textInputRef.current?.click();
-  };
-
-  const onTextFile = async (file: File | undefined) => {
-    if (!file) {
-      return;
-    }
-    if (!ensureWsOrHint()) {
-      if (textInputRef.current) {
-        textInputRef.current.value = "";
-      }
-      return;
-    }
-    if (!isSupportedTextImport(file)) {
-      setUploadHint(t(locale, "text.importUnsupported"));
-      if (textInputRef.current) {
-        textInputRef.current.value = "";
-      }
-      return;
-    }
-    if (file.size > TEXT_IMPORT_MAX_BYTES) {
-      setUploadHint(t(locale, "text.importTooLarge"));
-      if (textInputRef.current) {
-        textInputRef.current.value = "";
-      }
-      return;
-    }
-    setUploading(true);
-    try {
-      const result = await importFileToTextSlides(file);
-      const payload: TextPayload = {
-        title: result.title || file.name.replace(/\.[^.]+$/, ""),
-        align: "center",
-        slides: result.slides,
-      };
-      const item: PlaylistItem = {
-        id: cryptoRandomId(),
-        type: "text",
-        order: items.length,
-        payload,
-      };
-      if (!session.addItem(item)) {
-        setUploadHint(t(locale, "control.wsDisconnectedHint"));
-        session.reconnect();
-        return;
-      }
-      setSelectedItemId(item.id);
-      setPreviewSlideIndex(0);
-      setCreating(false);
-      setEditingId(null);
-      setUploadHint(
-        result.truncated
-          ? t(locale, "text.importTruncated").replace(
-              "{n}",
-              String(TEXT_IMPORT_MAX_SLIDES),
-            )
-          : t(locale, "text.importAdded").replace(
-              "{n}",
-              String(result.slides.length),
-            ),
-      );
-    } catch (err) {
-      const msg = String(err);
-      if (msg.includes("file_too_large")) {
-        setUploadHint(t(locale, "text.importTooLarge"));
-      } else if (msg.includes("unsupported_type")) {
-        setUploadHint(t(locale, "text.importUnsupported"));
-      } else {
-        setUploadHint(t(locale, "text.importFailed"));
-      }
-    } finally {
-      setUploading(false);
-      if (textInputRef.current) {
-        textInputRef.current.value = "";
-      }
-    }
+    setLinkDialogOpen(false);
+    setBibleDialogOpen(false);
   };
 
   const ensureWsOrHint = (): boolean => {
@@ -436,90 +360,25 @@ export function ControlPage() {
     setEditingId(null);
   };
 
-  const onPickImage = () => {
-    setUploadHint(null);
-    setYoutubeDialogOpen(false);
-    setCreating(false);
-    imageInputRef.current?.click();
-  };
-
-  const onImageFile = async (file: File | undefined) => {
-    if (!file || !session.sessionId || !session.wsTicket) {
-      return;
-    }
-    if (file.size > LARGE_IMAGE_WARN_BYTES) {
-      setUploadHint(t(locale, "image.largeWarning"));
-    } else {
-      setUploadHint(null);
-    }
-    setUploading(true);
-    try {
-      const asset = await uploadSessionAsset(
-        session.sessionId,
-        session.wsTicket,
-        file,
-      );
-      const payload: ImagePayload = {
-        assetId: asset.id,
-        fit: "contain",
-        title: asset.originalName || file.name,
-      };
-      const item: PlaylistItem = {
-        id: cryptoRandomId(),
-        type: "image",
-        order: items.length,
-        payload,
-      };
-      session.addItem(item);
-      setSelectedItemId(item.id);
-      setCreating(false);
-      setEditingId(null);
-    } catch (err) {
-      setUploadHint(String(err));
-    } finally {
-      setUploading(false);
-      if (imageInputRef.current) {
-        imageInputRef.current.value = "";
-      }
-    }
-  };
-
-  const onPickVideoFile = () => {
-    setUploadHint(null);
-    setCreating(false);
-    setEditingId(null);
-    setYoutubeDialogOpen(false);
-    videoInputRef.current?.click();
-  };
-
-  const openYoutubeDialog = () => {
+  const openLinkDialog = () => {
     setUploadHint(null);
     setCreating(false);
     setEditingId(null);
     setBibleDialogOpen(false);
-    setYoutubeUrl("");
-    setYoutubeDialogError(null);
-    setYoutubeDialogOpen(true);
-    window.setTimeout(() => youtubeInputRef.current?.focus(), 0);
+    setLinkDialogOpen(true);
   };
 
-  const closeYoutubeDialog = () => {
-    setYoutubeDialogOpen(false);
-    setYoutubeUrl("");
-    setYoutubeDialogError(null);
-  };
+  const closeLinkDialog = () => setLinkDialogOpen(false);
 
   const openBibleDialog = () => {
     setUploadHint(null);
     setCreating(false);
     setEditingId(null);
-    setYoutubeDialogOpen(false);
+    setLinkDialogOpen(false);
     setBibleDialogOpen(true);
   };
 
-  const closeBibleDialog = () => {
-    setBibleDialogOpen(false);
-  };
+  const closeBibleDialog = () => setBibleDialogOpen(false);
 
   const addBiblePassage = (payload: BiblePayload) => {
     if (!ensureWsOrHint()) {
@@ -528,7 +387,7 @@ export function ControlPage() {
     const item: PlaylistItem = {
       id: cryptoRandomId(),
       type: "bible",
-      order: items.length,
+      order: itemsLenRef.current,
       payload,
     };
     if (!session.addItem(item)) {
@@ -546,60 +405,13 @@ export function ControlPage() {
     }
   };
 
-  const onVideoFile = async (file: File | undefined) => {
-    if (!file || !session.sessionId || !session.wsTicket) {
-      return;
-    }
-    const hints: string[] = [];
-    if (file.type === "video/quicktime") {
-      hints.push(t(locale, "video.quicktimeWarning"));
-    }
-    if (file.size > LARGE_VIDEO_WARN_BYTES) {
-      hints.push(t(locale, "video.largeWarning"));
-    }
-    setUploadHint(hints.length ? hints.join(" ") : null);
-    setUploading(true);
-    try {
-      const asset = await uploadSessionAsset(
-        session.sessionId,
-        session.wsTicket,
-        file,
-      );
-      const payload: VideoPayload = {
-        sourceKind: "file",
-        assetId: asset.id,
-        title: asset.originalName || file.name,
-        autoplay: true,
-        muted: false,
-        fit: "contain",
-      };
-      const item: PlaylistItem = {
-        id: cryptoRandomId(),
-        type: "video",
-        order: items.length,
-        payload,
-      };
-      session.addItem(item);
-      setSelectedItemId(item.id);
-      setCreating(false);
-      setEditingId(null);
-    } catch (err) {
-      setUploadHint(String(err));
-    } finally {
-      setUploading(false);
-      if (videoInputRef.current) {
-        videoInputRef.current.value = "";
-      }
-    }
-  };
-
-  const addYoutubeVideo = () => {
+  const addYoutubeFromUrl = (url: string) => {
     if (!ensureWsOrHint()) {
       return;
     }
-    const parsed = parseYouTubeUrl(youtubeUrl);
+    const parsed = parseYouTubeUrl(url);
     if (!parsed) {
-      setYoutubeDialogError(t(locale, "video.youtubeInvalid"));
+      setUploadHint(t(locale, "video.youtubeInvalid"));
       return;
     }
     const payload: VideoPayload = {
@@ -613,17 +425,234 @@ export function ControlPage() {
     const item: PlaylistItem = {
       id: cryptoRandomId(),
       type: "video",
-      order: items.length,
+      order: itemsLenRef.current,
       payload,
     };
     if (!session.addItem(item)) {
-      setYoutubeDialogError(t(locale, "control.wsDisconnectedHint"));
+      setUploadHint(t(locale, "control.wsDisconnectedHint"));
       session.reconnect();
       return;
     }
     setSelectedItemId(item.id);
-    closeYoutubeDialog();
+    closeLinkDialog();
     setUploadHint(t(locale, "video.youtubeCaveat"));
+  };
+
+  const addGenericLink = (url: string) => {
+    if (!ensureWsOrHint()) {
+      return;
+    }
+    let host = url;
+    try {
+      host = new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      // keep raw
+    }
+    const payload: TextPayload = {
+      title: host || t(locale, "link.itemTitle"),
+      align: "center",
+      slides: [
+        {
+          id: cryptoRandomId(),
+          lines: [url],
+        },
+      ],
+    };
+    const item: PlaylistItem = {
+      id: cryptoRandomId(),
+      type: "text",
+      order: itemsLenRef.current,
+      payload,
+    };
+    if (!session.addItem(item)) {
+      setUploadHint(t(locale, "control.wsDisconnectedHint"));
+      session.reconnect();
+      return;
+    }
+    setSelectedItemId(item.id);
+    setPreviewSlideIndex(0);
+    closeLinkDialog();
+    setUploadHint(t(locale, "link.added"));
+  };
+
+  const ingestOneFile = async (
+    file: File,
+    order: number,
+  ): Promise<{ ok: boolean; itemId?: string; hint?: string }> => {
+    const kind = classifyMediaFile(file);
+    if (kind === "unsupported") {
+      return { ok: false, hint: t(locale, "text.importUnsupported") };
+    }
+    if (kind === "text") {
+      if (file.size > TEXT_IMPORT_MAX_BYTES) {
+        return { ok: false, hint: t(locale, "text.importTooLarge") };
+      }
+      try {
+        const result = await importFileToTextSlides(file);
+        const payload: TextPayload = {
+          title: result.title || file.name.replace(/\.[^.]+$/, ""),
+          align: "center",
+          slides: result.slides,
+        };
+        const item: PlaylistItem = {
+          id: cryptoRandomId(),
+          type: "text",
+          order,
+          payload,
+        };
+        if (!session.addItem(item)) {
+          return { ok: false, hint: t(locale, "control.wsDisconnectedHint") };
+        }
+        return {
+          ok: true,
+          itemId: item.id,
+          hint: result.truncated
+            ? t(locale, "text.importTruncated").replace(
+                "{n}",
+                String(TEXT_IMPORT_MAX_SLIDES),
+              )
+            : t(locale, "text.importAdded").replace(
+                "{n}",
+                String(result.slides.length),
+              ),
+        };
+      } catch (err) {
+        const msg = String(err);
+        if (msg.includes("file_too_large")) {
+          return { ok: false, hint: t(locale, "text.importTooLarge") };
+        }
+        if (msg.includes("unsupported_type")) {
+          return { ok: false, hint: t(locale, "text.importUnsupported") };
+        }
+        return { ok: false, hint: t(locale, "text.importFailed") };
+      }
+    }
+
+    if (!session.sessionId || !session.wsTicket) {
+      return { ok: false, hint: t(locale, "control.wsDisconnectedHint") };
+    }
+
+    const hints: string[] = [];
+    if (kind === "image" && file.size > LARGE_IMAGE_WARN_BYTES) {
+      hints.push(t(locale, "image.largeWarning"));
+    }
+    if (kind === "video") {
+      if (file.type === "video/quicktime") {
+        hints.push(t(locale, "video.quicktimeWarning"));
+      }
+      if (file.size > LARGE_VIDEO_WARN_BYTES) {
+        hints.push(t(locale, "video.largeWarning"));
+      }
+    }
+
+    try {
+      const asset = await uploadSessionAsset(
+        session.sessionId,
+        session.wsTicket,
+        file,
+      );
+      if (kind === "image") {
+        const payload: ImagePayload = {
+          assetId: asset.id,
+          fit: "contain",
+          title: asset.originalName || file.name,
+        };
+        const item: PlaylistItem = {
+          id: cryptoRandomId(),
+          type: "image",
+          order,
+          payload,
+        };
+        session.addItem(item);
+        return {
+          ok: true,
+          itemId: item.id,
+          hint: hints.length ? hints.join(" ") : undefined,
+        };
+      }
+      const payload: VideoPayload = {
+        sourceKind: "file",
+        assetId: asset.id,
+        title: asset.originalName || file.name,
+        autoplay: true,
+        muted: false,
+        fit: "contain",
+      };
+      const item: PlaylistItem = {
+        id: cryptoRandomId(),
+        type: "video",
+        order,
+        payload,
+      };
+      session.addItem(item);
+      return {
+        ok: true,
+        itemId: item.id,
+        hint: hints.length ? hints.join(" ") : undefined,
+      };
+    } catch (err) {
+      return { ok: false, hint: String(err) };
+    }
+  };
+
+  const ingestFiles = async (fileList: File[]) => {
+    if (!fileList.length) {
+      return;
+    }
+    if (!ensureWsOrHint()) {
+      return;
+    }
+    setCreating(false);
+    setEditingId(null);
+    setLinkDialogOpen(false);
+    setBibleDialogOpen(false);
+    setUploading(true);
+    setUploadHint(null);
+    let order = itemsLenRef.current;
+    let lastId: string | null = null;
+    const hints: string[] = [];
+    let added = 0;
+    try {
+      for (const file of fileList) {
+        const result = await ingestOneFile(file, order);
+        if (result.ok) {
+          added += 1;
+          order += 1;
+          itemsLenRef.current = order;
+          if (result.itemId) {
+            lastId = result.itemId;
+          }
+        }
+        if (result.hint) {
+          hints.push(result.hint);
+        }
+      }
+      if (lastId) {
+        setSelectedItemId(lastId);
+        setPreviewSlideIndex(0);
+      }
+      if (hints.length) {
+        setUploadHint(hints.slice(-3).join(" · "));
+      } else if (added > 1) {
+        setUploadHint(
+          t(locale, "playlist.filesAdded").replace("{n}", String(added)),
+        );
+      }
+    } finally {
+      setUploading(false);
+      if (unifiedInputRef.current) {
+        unifiedInputRef.current.value = "";
+      }
+    }
+  };
+
+  const onPickUnifiedFiles = () => {
+    setUploadHint(null);
+    setCreating(false);
+    setEditingId(null);
+    setLinkDialogOpen(false);
+    setBibleDialogOpen(false);
+    unifiedInputRef.current?.click();
   };
 
   const onFitChange = (fit: ImageFit) => {
@@ -667,10 +696,60 @@ export function ControlPage() {
     setPreviewSlideIndex(0);
     setCreating(false);
     setEditingId(null);
-    setYoutubeDialogOpen(false);
+    setLinkDialogOpen(false);
     setBibleDialogOpen(false);
     session.goLive(id);
   };
+
+  const slideCount =
+    selectedItem && itemHasSlides(selectedItem)
+      ? (selectedItem.type === "text" || selectedItem.type === "bible"
+          ? selectedItem.payload.slides.length
+          : 0)
+      : 0;
+
+  const previewGoPrev = () => {
+    if (
+      selectedItem &&
+      itemHasSlides(selectedItem) &&
+      previewSlideIndex > 0
+    ) {
+      setPreviewSlideIndex(previewSlideIndex - 1);
+      return;
+    }
+    if (selectedIndex > 0) {
+      const prev = items[selectedIndex - 1];
+      if (prev) {
+        selectItem(prev.id);
+      }
+    }
+  };
+
+  const previewGoNext = () => {
+    if (
+      selectedItem &&
+      itemHasSlides(selectedItem) &&
+      previewSlideIndex < slideCount - 1
+    ) {
+      setPreviewSlideIndex(previewSlideIndex + 1);
+      return;
+    }
+    if (selectedIndex >= 0 && selectedIndex < items.length - 1) {
+      const next = items[selectedIndex + 1];
+      if (next) {
+        selectItem(next.id);
+      }
+    }
+  };
+
+  const canPreviewPrev =
+    Boolean(selectedItem) &&
+    (previewSlideIndex > 0 || selectedIndex > 0);
+  const canPreviewNext =
+    Boolean(selectedItem) &&
+    ((itemHasSlides(selectedItem!) &&
+      previewSlideIndex < slideCount - 1) ||
+      (selectedIndex >= 0 && selectedIndex < items.length - 1));
 
   const removeOne = (id: string) => {
     if (!ensureWsOrHint()) {
@@ -873,97 +952,23 @@ export function ControlPage() {
       ) : null}
 
       <input
-        ref={textInputRef}
+        ref={unifiedInputRef}
         type="file"
-        accept=".pdf,.xml,.txt,.md,.text,.markdown,application/pdf,text/plain,text/markdown,application/xml,text/xml"
+        multiple
+        accept={UNIFIED_MEDIA_ACCEPT}
         className="sr-only"
-        onChange={(e) => void onTextFile(e.target.files?.[0])}
-      />
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
-        className="sr-only"
-        onChange={(e) => void onImageFile(e.target.files?.[0])}
-      />
-      <input
-        ref={videoInputRef}
-        type="file"
-        accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
-        className="sr-only"
-        onChange={(e) => void onVideoFile(e.target.files?.[0])}
+        onChange={(e) => {
+          const list = e.target.files ? Array.from(e.target.files) : [];
+          void ingestFiles(list);
+        }}
       />
 
-      {youtubeDialogOpen ? (
-        <div
-          className="promedia-dialog-backdrop"
-          role="presentation"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              closeYoutubeDialog();
-            }
-          }}
-        >
-          <div
-            className="promedia-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="youtube-dialog-title"
-          >
-            <h3 id="youtube-dialog-title" className="promedia-dialog-title">
-              {t(locale, "video.youtubeDialogTitle")}
-            </h3>
-            <label className="promedia-dialog-field">
-              {t(locale, "video.youtubeUrl")}
-              <input
-                ref={youtubeInputRef}
-                value={youtubeUrl}
-                onChange={(e) => {
-                  setYoutubeUrl(e.target.value);
-                  setYoutubeDialogError(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && youtubeUrl.trim()) {
-                    e.preventDefault();
-                    addYoutubeVideo();
-                  } else if (e.key === "Escape") {
-                    e.preventDefault();
-                    closeYoutubeDialog();
-                  }
-                }}
-                placeholder="https://www.youtube.com/watch?v=…"
-                autoComplete="off"
-              />
-            </label>
-            {youtubeDialogError ? (
-              <p className="promedia-dialog-error" role="alert">
-                {youtubeDialogError}
-              </p>
-            ) : (
-              <p className="promedia-dialog-hint">
-                {t(locale, "video.youtubePasteHint")}
-              </p>
-            )}
-            <div className="promedia-dialog-actions">
-              <button
-                type="button"
-                className="btn"
-                onClick={closeYoutubeDialog}
-              >
-                {t(locale, "text.cancel")}
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={!youtubeUrl.trim()}
-                onClick={addYoutubeVideo}
-              >
-                {t(locale, "video.addYoutube")}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <LinkAddDialog
+        open={linkDialogOpen}
+        onClose={closeLinkDialog}
+        onAddYoutube={addYoutubeFromUrl}
+        onAddGenericLink={addGenericLink}
+      />
 
       <BibleDialog
         open={bibleDialogOpen}
@@ -971,7 +976,7 @@ export function ControlPage() {
         onAdd={addBiblePassage}
       />
 
-      <div className="control-zones">
+      <div className="control-zones control-zones-stacked">
         <SchedulePanel
           items={items}
           selectedItemId={selectedItemId}
@@ -991,7 +996,7 @@ export function ControlPage() {
             selectItem(id);
             setEditingId(id);
           }}
-          onAddTextFile={() => {
+          onAddFiles={() => {
             if (!sessionReady) {
               return;
             }
@@ -999,37 +1004,9 @@ export function ControlPage() {
               session.reconnect();
               setUploadHint(t(locale, "control.wsDisconnectedHint"));
             }
-            onPickTextFile();
+            onPickUnifiedFiles();
           }}
-          onAddTextBlank={() => {
-            if (!sessionReady) {
-              return;
-            }
-            startCreateTextBlank();
-          }}
-          onAddImage={() => {
-            if (!sessionReady) {
-              return;
-            }
-            if (!wsReady) {
-              session.reconnect();
-              setUploadHint(t(locale, "control.wsDisconnectedHint"));
-              return;
-            }
-            onPickImage();
-          }}
-          onAddVideo={() => {
-            if (!sessionReady) {
-              return;
-            }
-            if (!wsReady) {
-              session.reconnect();
-              setUploadHint(t(locale, "control.wsDisconnectedHint"));
-              return;
-            }
-            onPickVideoFile();
-          }}
-          onAddYoutube={() => {
+          onAddLink={() => {
             if (!sessionReady) {
               return;
             }
@@ -1037,7 +1014,7 @@ export function ControlPage() {
               session.reconnect();
               setUploadHint(t(locale, "control.wsDisconnectedHint"));
             }
-            openYoutubeDialog();
+            openLinkDialog();
           }}
           onAddBible={() => {
             if (!sessionReady) {
@@ -1049,14 +1026,47 @@ export function ControlPage() {
             }
             openBibleDialog();
           }}
-          saveLoad={
+          onAddTextBlank={() => {
+            if (!sessionReady) {
+              return;
+            }
+            startCreateTextBlank();
+          }}
+          onOpenLoad={() => {
+            if (!session.hasSession) {
+              return;
+            }
+            setLoadDialogOpen(true);
+          }}
+          onOpenSave={() => {
+            if (!canMutate) {
+              return;
+            }
+            setSaveDialogOpen(true);
+          }}
+          onFilesDropped={(files) => {
+            if (!sessionReady) {
+              return;
+            }
+            if (!wsReady) {
+              session.reconnect();
+              setUploadHint(t(locale, "control.wsDisconnectedHint"));
+              return;
+            }
+            void ingestFiles(files);
+          }}
+          saveLoadDialogs={
             session.hasSession && session.sessionId && session.wsTicket ? (
               <SavedPlaylistPanel
                 sessionId={session.sessionId}
                 wsTicket={session.wsTicket}
                 disabled={!canMutate}
                 onHint={setUploadHint}
-                compact
+                dialogMode
+                saveOpen={saveDialogOpen}
+                loadOpen={loadDialogOpen}
+                onSaveOpenChange={setSaveDialogOpen}
+                onLoadOpenChange={setLoadDialogOpen}
               />
             ) : null
           }
@@ -1077,129 +1087,176 @@ export function ControlPage() {
           }
         />
 
-        <section
-          className="zone zone-preview"
-          aria-label={t(locale, "control.preview")}
-        >
-          <h2>{t(locale, "control.preview")}</h2>
-          <div className="zone-body zone-stage pm-theme" style={themeStyle}>
-            {selectedItem && Preview ? (
-              <Preview
-                item={selectedItem}
-                slideIndex={previewSlideIndex}
-                onSlideIndexChange={setPreviewSlideIndex}
-                assetSrc={previewSrc}
-                onFitChange={
-                  selectedItem.type === "image" ? onFitChange : undefined
-                }
-                projecting={
-                  selectedItem.type === "video" &&
-                  selectedItem.id === liveItemId
-                }
-              />
-            ) : (
-              <p>{t(locale, "control.previewEmpty")}</p>
-            )}
-          </div>
-        </section>
+        <div className="control-stages">
+          <div className="control-stages-equal">
+            <section
+              className="zone zone-preview"
+              aria-label={t(locale, "control.preview")}
+            >
+              <header className="stage-header">
+                <h2>{t(locale, "control.preview")}</h2>
+                <div
+                  className="preview-nav"
+                  role="group"
+                  aria-label={t(locale, "preview.nav")}
+                >
+                  <button
+                    type="button"
+                    className="btn btn-ghost preview-nav-btn"
+                    disabled={!canPreviewPrev}
+                    title={t(locale, "preview.prev")}
+                    onClick={previewGoPrev}
+                  >
+                    ←
+                  </button>
+                  <span className="preview-nav-meta">
+                    {selectedItem
+                      ? itemHasSlides(selectedItem) && slideCount > 1
+                        ? `${previewSlideIndex + 1}/${slideCount}`
+                        : selectedIndex >= 0
+                          ? `${selectedIndex + 1}/${items.length}`
+                          : "—"
+                      : "—"}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost preview-nav-btn"
+                    disabled={!canPreviewNext}
+                    title={t(locale, "preview.next")}
+                    onClick={previewGoNext}
+                  >
+                    →
+                  </button>
+                </div>
+              </header>
+              <div className="zone-body zone-stage pm-theme" style={themeStyle}>
+                {selectedItem && Preview ? (
+                  <Preview
+                    item={selectedItem}
+                    slideIndex={previewSlideIndex}
+                    onSlideIndexChange={setPreviewSlideIndex}
+                    assetSrc={previewSrc}
+                    onFitChange={
+                      selectedItem.type === "image" ? onFitChange : undefined
+                    }
+                    projecting={
+                      selectedItem.type === "video" &&
+                      selectedItem.id === liveItemId
+                    }
+                  />
+                ) : (
+                  <p>{t(locale, "control.previewEmpty")}</p>
+                )}
+              </div>
+            </section>
 
-        <section className="zone zone-live" aria-label={t(locale, "control.live")}>
-          <h2>
-            {t(locale, "control.live")}
-            {sceneMode !== "normal" ? (
-              <span className="scene-mode-badge" data-mode={sceneMode}>
-                {t(locale, `scene.${sceneMode}`)}
-              </span>
-            ) : null}
-          </h2>
-          <div className="zone-body zone-stage pm-theme" style={themeStyle}>
-            {liveItem && LivePanel ? (
-              <LivePanel
-                item={liveItem}
-                slideIndex={liveSlideIndex}
-                assetSrc={liveSrc}
-                mediaClock={mediaClock}
-                onMediaClockSet={
-                  liveItem.type === "video"
-                    ? (patch) => session.setMediaClock(patch)
-                    : undefined
-                }
-                onPrev={
-                  itemHasSlides(liveItem)
-                    ? () => session.setSlide(liveSlideIndex - 1)
-                    : undefined
-                }
-                onNext={
-                  itemHasSlides(liveItem)
-                    ? () => session.setSlide(liveSlideIndex + 1)
-                    : undefined
-                }
+            <section
+              className="zone zone-live"
+              aria-label={t(locale, "control.live")}
+            >
+              <header className="stage-header">
+                <h2>
+                  {t(locale, "control.live")}
+                  {sceneMode !== "normal" ? (
+                    <span className="scene-mode-badge" data-mode={sceneMode}>
+                      {t(locale, `scene.${sceneMode}`)}
+                    </span>
+                  ) : null}
+                </h2>
+              </header>
+              <div className="zone-body zone-stage pm-theme" style={themeStyle}>
+                {liveItem && LivePanel ? (
+                  <LivePanel
+                    item={liveItem}
+                    slideIndex={liveSlideIndex}
+                    assetSrc={liveSrc}
+                    mediaClock={mediaClock}
+                    onMediaClockSet={
+                      liveItem.type === "video"
+                        ? (patch) => session.setMediaClock(patch)
+                        : undefined
+                    }
+                    onPrev={
+                      itemHasSlides(liveItem)
+                        ? () => session.setSlide(liveSlideIndex - 1)
+                        : undefined
+                    }
+                    onNext={
+                      itemHasSlides(liveItem)
+                        ? () => session.setSlide(liveSlideIndex + 1)
+                        : undefined
+                    }
+                  />
+                ) : (
+                  <p>{t(locale, "control.liveEmpty")}</p>
+                )}
+              </div>
+            </section>
+          </div>
+
+          <div className="control-stages-chrome">
+            <div className="live-controls">
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!canGoLive}
+                onClick={() => {
+                  if (selectedItemId) {
+                    session.goLive(selectedItemId);
+                  }
+                }}
+              >
+                {t(locale, "control.goLive")}
+              </button>
+              <button
+                type="button"
+                className={sceneBtnClass("normal")}
+                disabled={!canMutate}
+                aria-pressed={sceneMode === "normal"}
+                onClick={() => session.setSceneMode("normal")}
+              >
+                {t(locale, "control.sceneNormal")}
+              </button>
+              <button
+                type="button"
+                className={sceneBtnClass("logo")}
+                disabled={!canMutate}
+                aria-pressed={sceneMode === "logo"}
+                onClick={() => toggleSceneMode("logo")}
+              >
+                {t(locale, "control.sceneLogo")}
+              </button>
+              <button
+                type="button"
+                className={sceneBtnClass("black")}
+                disabled={!canMutate}
+                aria-pressed={sceneMode === "black"}
+                onClick={() => toggleSceneMode("black")}
+              >
+                {t(locale, "control.sceneBlack")}
+              </button>
+              <button
+                type="button"
+                className={sceneBtnClass("clear")}
+                disabled={!canMutate}
+                aria-pressed={sceneMode === "clear"}
+                onClick={() => toggleSceneMode("clear")}
+              >
+                {t(locale, "control.sceneClear")}
+              </button>
+            </div>
+            <div className="theme-controls">
+              <h3 className="theme-controls-title">{t(locale, "theme.title")}</h3>
+              <ThemePanel
+                themeId={themeId}
+                themeOverrides={themeOverrides}
+                disabled={!canMutate}
+                onChange={(patch) => session.setTheme(patch)}
               />
-            ) : (
-              <p>{t(locale, "control.liveEmpty")}</p>
-            )}
+            </div>
+            <p className="shortcuts-hint">{t(locale, "shortcuts.hint")}</p>
           </div>
-          <div className="live-controls">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={!canGoLive}
-              onClick={() => {
-                if (selectedItemId) {
-                  session.goLive(selectedItemId);
-                }
-              }}
-            >
-              {t(locale, "control.goLive")}
-            </button>
-            <button
-              type="button"
-              className={sceneBtnClass("normal")}
-              disabled={!canMutate}
-              aria-pressed={sceneMode === "normal"}
-              onClick={() => session.setSceneMode("normal")}
-            >
-              {t(locale, "control.sceneNormal")}
-            </button>
-            <button
-              type="button"
-              className={sceneBtnClass("logo")}
-              disabled={!canMutate}
-              aria-pressed={sceneMode === "logo"}
-              onClick={() => toggleSceneMode("logo")}
-            >
-              {t(locale, "control.sceneLogo")}
-            </button>
-            <button
-              type="button"
-              className={sceneBtnClass("black")}
-              disabled={!canMutate}
-              aria-pressed={sceneMode === "black"}
-              onClick={() => toggleSceneMode("black")}
-            >
-              {t(locale, "control.sceneBlack")}
-            </button>
-            <button
-              type="button"
-              className={sceneBtnClass("clear")}
-              disabled={!canMutate}
-              aria-pressed={sceneMode === "clear"}
-              onClick={() => toggleSceneMode("clear")}
-            >
-              {t(locale, "control.sceneClear")}
-            </button>
-          </div>
-          <div className="theme-controls">
-            <h3 className="theme-controls-title">{t(locale, "theme.title")}</h3>
-            <ThemePanel
-              themeId={themeId}
-              themeOverrides={themeOverrides}
-              disabled={!canMutate}
-              onChange={(patch) => session.setTheme(patch)}
-            />
-          </div>
-          <p className="shortcuts-hint">{t(locale, "shortcuts.hint")}</p>
-        </section>
+        </div>
       </div>
 
       <footer className="control-footer">
