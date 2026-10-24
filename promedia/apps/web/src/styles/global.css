@@ -119,10 +119,12 @@ body {
 
 /* —— Control shell —— */
 .control-shell {
+  height: 100vh;
   min-height: 100vh;
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  display: flex;
+  flex-direction: column;
   gap: 0;
+  overflow: hidden;
 }
 
 .control-header {
@@ -484,9 +486,10 @@ body {
   gap: 1px;
   background: var(--border);
   min-height: 0;
-  /* Fill remaining shell row so playlist column can scroll internally */
-  height: 100%;
-  max-height: calc(100vh - 9rem);
+  /* Fill remaining shell space so Preview/Live can stretch */
+  flex: 1 1 0;
+  height: auto;
+  max-height: none;
 }
 
 /* Guion left + Preview/Live stacked column stretching to the right edge */
@@ -499,13 +502,15 @@ body {
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+  height: 100%;
   background: var(--bg-zone);
 }
 
+/* Preview + En vivo share remaining height roughly equally */
 .control-stages-equal {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   display: grid;
-  grid-template-rows: 1fr 1fr;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
   min-height: 0;
   background: var(--border);
   gap: 1px;
@@ -524,12 +529,13 @@ body {
   flex: 0 0 auto;
   border-top: 1px solid var(--border);
   background: var(--bg-zone);
-  max-height: 40%;
+  max-height: min(28vh, 11.5rem);
   overflow: auto;
 }
 
 .control-stages-chrome .live-controls {
-  padding-top: 0.65rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
 }
 
 .stage-header {
@@ -571,7 +577,67 @@ body {
 }
 
 .preview-toolbar-lite {
-  justify-content: center;
+  justify-content: flex-start;
+}
+
+/* Always visible under Vista previa title — not hover-only chrome. */
+.preview-toolbar-persistent {
+  border-top: 0;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 2;
+}
+
+.preview-tb-sep {
+  width: 1px;
+  height: 1.35rem;
+  margin: 0 0.2rem;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.preview-tb-spacer {
+  flex: 1 1 auto;
+  min-width: 0.35rem;
+}
+
+.preview-tb-golive {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2rem;
+  padding: 0 0.55rem;
+  flex-shrink: 0;
+}
+
+.preview-tb-golive-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.preview-tb-shortcuts {
+  flex-shrink: 0;
+}
+
+/* Full shortcut list opens below the help icon (toolbar sits at top). */
+.preview-tb-shortcuts .status-tip-bubble {
+  left: auto;
+  right: 0;
+  bottom: auto;
+  top: calc(100% + 0.4rem);
+  transform: none;
+  max-width: min(26rem, 85vw);
+}
+
+.preview-tb-shortcuts .status-tip-bubble::after {
+  top: auto;
+  bottom: 100%;
+  left: auto;
+  right: 0.55rem;
+  margin-left: 0;
+  border-top-color: transparent;
+  border-bottom-color: #0f1724;
 }
 
 .preview-toolbar-over-video {
@@ -626,17 +692,36 @@ body {
   flex-direction: column;
 }
 
+.control-zones-stacked .zone {
+  min-height: 0;
+}
+
+.control-zones-stacked .zone-stage {
+  min-height: 0;
+}
+
 @media (max-width: 900px) {
+  .control-shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
   .control-zones,
   .control-zones-stacked {
     grid-template-columns: 1fr;
     max-height: none;
     height: auto;
+    flex: 1 1 auto;
   }
 
   .control-stages-equal {
-    grid-template-rows: minmax(12rem, 1fr) minmax(12rem, 1fr);
-    min-height: 28rem;
+    grid-template-rows: minmax(14rem, 1fr) minmax(14rem, 1fr);
+    min-height: 32rem;
+  }
+
+  .control-stages-chrome {
+    max-height: none;
   }
 }
 
@@ -795,6 +880,7 @@ body {
   background: var(--bg-elev);
   font-size: 0.85rem;
   color: var(--muted);
+  flex-shrink: 0;
 }
 
 .status-dot {
@@ -1590,13 +1676,13 @@ body {
 }
 
 .theme-controls {
-  padding: 0 0.85rem 0.85rem;
+  padding: 0 0.85rem 0.55rem;
   border-top: 1px solid var(--border);
 }
 
 .theme-controls-title {
-  margin: 0.65rem 0 0.4rem;
-  font-size: 0.85rem;
+  margin: 0.4rem 0 0.3rem;
+  font-size: 0.8rem;
   font-weight: 600;
   color: var(--muted);
 }

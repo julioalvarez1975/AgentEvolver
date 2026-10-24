@@ -57,20 +57,33 @@ export function ThemePanel({
   return (
     <div className="theme-panel">
       <div className="theme-presets" role="group" aria-label={t(locale, "theme.title")}>
-        {THEME_PRESETS.map((preset) => (
-          <button
-            key={preset.id}
-            type="button"
-            className={
-              themeId === preset.id ? "btn btn-scene active" : "btn btn-scene"
-            }
-            disabled={disabled}
-            aria-pressed={themeId === preset.id}
-            onClick={() => onChange({ themeId: preset.id, themeOverrides: null })}
-          >
-            {t(locale, preset.labelKey)}
-          </button>
-        ))}
+        {THEME_PRESETS.map((preset) => {
+          const shortcutKey =
+            preset.id === "oscuro"
+              ? "shortcuts.themeOscuro"
+              : preset.id === "claro"
+                ? "shortcuts.themeClaro"
+                : "shortcuts.themeAcento";
+          const tip = t(locale, shortcutKey);
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              className={
+                themeId === preset.id ? "btn btn-scene active" : "btn btn-scene"
+              }
+              disabled={disabled}
+              aria-pressed={themeId === preset.id}
+              title={tip}
+              aria-label={tip}
+              onClick={() =>
+                onChange({ themeId: preset.id, themeOverrides: null })
+              }
+            >
+              {t(locale, preset.labelKey)}
+            </button>
+          );
+        })}
         {themeOverrides ? (
           <button
             type="button"
