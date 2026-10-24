@@ -8,6 +8,7 @@ import {
   type TextAlign,
 } from "@promedia/shared";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
+import { StatusTip } from "./StatusTip";
 
 const locale = DEFAULT_LOCALE;
 
@@ -147,7 +148,13 @@ export function ThemePanel({
           </select>
         </label>
       </div>
-      <p className="theme-hint">{t(locale, "theme.hint")}</p>
+      <div className="theme-hint-row">
+        <StatusTip
+          tone="info"
+          label={t(locale, "control.statusTipInfo")}
+          message={t(locale, "theme.hint")}
+        />
+      </div>
     </div>
   );
 }

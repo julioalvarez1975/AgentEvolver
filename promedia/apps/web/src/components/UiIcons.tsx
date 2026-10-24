@@ -172,3 +172,44 @@ export function IconNext(props: IconProps) {
     </svg>
   );
 }
+
+/** Soft tip / status — circle with “i”. */
+export function IconInfo(props: IconProps) {
+  return (
+    <svg {...svgProps({ ...props, size: props.size ?? 16 })}>
+      <circle
+        cx="12"
+        cy="12"
+        r="9"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M12 10.5V17M12 7.2h.01"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Warning tip — triangle with “!”. */
+export function IconWarn(props: IconProps) {
+  return (
+    <svg {...svgProps({ ...props, size: props.size ?? 16 })}>
+      <path
+        d="M12 3.5 21 19.5H3L12 3.5Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M12 9.5v5M12 16.8h.01"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}

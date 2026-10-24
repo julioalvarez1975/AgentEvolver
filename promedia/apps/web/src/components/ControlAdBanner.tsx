@@ -5,6 +5,7 @@ import {
   getGamConfig,
   type GamConfig,
 } from "../lib/gam";
+import { StatusTip } from "./StatusTip";
 
 const locale = DEFAULT_LOCALE;
 const GPT_SCRIPT_SRC = "https://securepubads.g.doubleclick.net/tag/js/gpt.js";
@@ -209,10 +210,13 @@ export function ControlAdBanner() {
         className="control-ad-slot control-ad-slot-placeholder"
         role="complementary"
         aria-label={t(locale, "control.adSlotLabel")}
-        title={t(locale, "control.adSlotHint")}
       >
-        <span className="control-ad-placeholder-text">
-          {t(locale, "control.adSlotPlaceholder")}
+        <span className="control-ad-placeholder-tip">
+          <StatusTip
+            tone="info"
+            label={t(locale, "control.adSlotLabel")}
+            message={`${t(locale, "control.adSlotPlaceholder")} — ${t(locale, "control.adSlotHint")}`}
+          />
         </span>
       </div>
     );
@@ -226,8 +230,12 @@ export function ControlAdBanner() {
     >
       {loadError ? (
         <div className="control-ad-slot-placeholder control-ad-slot-error">
-          <span className="control-ad-placeholder-text">
-            {t(locale, "control.adSlotLoadError")}
+          <span className="control-ad-placeholder-tip">
+            <StatusTip
+              tone="warn"
+              label={t(locale, "control.statusTipWarn")}
+              message={t(locale, "control.adSlotLoadError")}
+            />
           </span>
         </div>
       ) : null}
