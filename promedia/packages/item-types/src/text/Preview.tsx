@@ -7,7 +7,7 @@ export type TextPreviewProps = {
 };
 
 /** Preview uses the same theme CSS vars as Output (theme wins over item align). */
-export function TextPreview({ item, slideIndex, onSlideIndexChange }: TextPreviewProps) {
+export function TextPreview({ item, slideIndex }: TextPreviewProps) {
   const payload = item.payload as TextPayload;
   const slides = payload.slides;
   const index = Math.min(Math.max(slideIndex, 0), Math.max(slides.length - 1, 0));
@@ -22,29 +22,6 @@ export function TextPreview({ item, slideIndex, onSlideIndexChange }: TextPrevie
           </p>
         ))}
       </div>
-      {slides.length > 1 && onSlideIndexChange ? (
-        <div className="text-slide-nav">
-          <button
-            type="button"
-            className="btn"
-            disabled={index <= 0}
-            onClick={() => onSlideIndexChange(index - 1)}
-          >
-            ←
-          </button>
-          <span>
-            {index + 1} / {slides.length}
-          </span>
-          <button
-            type="button"
-            className="btn"
-            disabled={index >= slides.length - 1}
-            onClick={() => onSlideIndexChange(index + 1)}
-          >
-            →
-          </button>
-        </div>
-      ) : null}
     </div>
   );
 }

@@ -181,5 +181,6 @@
   "link.added": "Link adicionado ao roteiro.",
   "preview.nav": "Navegação da pré-visualização",
   "preview.prev": "Anterior (slide ou item)",
-  "preview.next": "Seguinte (slide ou item)"
+  "preview.next": "Seguinte (slide ou item)",
+  "control.headerSeparator": "Separador"
 }

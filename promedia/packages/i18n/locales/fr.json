@@ -181,5 +181,6 @@
   "link.added": "Lien ajouté au programme.",
   "preview.nav": "Navigation de l’aperçu",
   "preview.prev": "Précédent (slide ou élément)",
-  "preview.next": "Suivant (slide ou élément)"
+  "preview.next": "Suivant (slide ou élément)",
+  "control.headerSeparator": "Séparateur"
 }

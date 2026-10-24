@@ -181,5 +181,6 @@
   "link.added": "Enlace añadido al guion.",
   "preview.nav": "Navegación de vista previa",
   "preview.prev": "Anterior (slide o ítem)",
-  "preview.next": "Siguiente (slide o ítem)"
+  "preview.next": "Siguiente (slide o ítem)",
+  "control.headerSeparator": "Separador"
 }
