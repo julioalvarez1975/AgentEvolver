@@ -25,7 +25,7 @@ import { SchedulePanel } from "../components/SchedulePanel";
 import { StatusTip } from "../components/StatusTip";
 import { TextItemEditor } from "../components/TextItemEditor";
 import { ThemePanel } from "../components/ThemePanel";
-import { IconNext, IconPrev } from "../components/UiIcons";
+import { IconGoLive, IconNext, IconPrev } from "../components/UiIcons";
 import { useControlShortcuts } from "../hooks/useControlShortcuts";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import {
@@ -833,6 +833,8 @@ export function ControlPage() {
             type="button"
             className="btn btn-primary btn-start-projection"
             disabled={projectionBusy || session.hubUnreachable}
+            title={t(locale, "shortcuts.startProjection")}
+            aria-label={t(locale, "shortcuts.startProjection")}
             onClick={onStartProjection}
           >
             {projectionBusy
@@ -881,7 +883,13 @@ export function ControlPage() {
               </button>
             </>
           ) : (
-            <button type="button" className="btn" onClick={openOutput}>
+            <button
+              type="button"
+              className="btn"
+              title={t(locale, "shortcuts.openOutput")}
+              aria-label={t(locale, "shortcuts.openOutput")}
+              onClick={openOutput}
+            >
               {t(locale, "control.openOutput")}
             </button>
           )}
@@ -1141,45 +1149,70 @@ export function ControlPage() {
                 <h2>{t(locale, "control.preview")}</h2>
               </header>
               {/*
-                Lite item/slide nav when anything is selected (no empty bar).
-                Video/YouTube also render a dedicated play/scrub/mute bar
-                under the media inside Preview.
+                Always-visible Preview toolbar: prev/next, send-to-live, and
+                shortcuts tip. Video/YouTube also render play/scrub/mute under
+                the media inside Preview.
               */}
-              {selectedItem ? (
-                <div
-                  className="preview-toolbar preview-toolbar-lite"
-                  role="toolbar"
-                  aria-label={t(locale, "preview.nav")}
+              <div
+                className="preview-toolbar preview-toolbar-lite preview-toolbar-persistent"
+                role="toolbar"
+                aria-label={t(locale, "preview.nav")}
+              >
+                <button
+                  type="button"
+                  className="btn preview-tb-btn"
+                  disabled={!selectedItem || !canPreviewPrev}
+                  title={t(locale, "shortcuts.prev")}
+                  aria-label={t(locale, "shortcuts.prev")}
+                  onClick={previewGoPrev}
                 >
-                  <button
-                    type="button"
-                    className="btn preview-tb-btn"
-                    disabled={!canPreviewPrev}
-                    title={t(locale, "preview.prev")}
-                    aria-label={t(locale, "preview.prev")}
-                    onClick={previewGoPrev}
-                  >
-                    <IconPrev />
-                  </button>
-                  <span className="preview-nav-meta">
-                    {itemHasSlides(selectedItem) && slideCount > 1
-                      ? `${previewSlideIndex + 1}/${slideCount}`
-                      : selectedIndex >= 0
-                        ? `${selectedIndex + 1}/${items.length}`
-                        : "—"}
+                  <IconPrev />
+                </button>
+                <span className="preview-nav-meta">
+                  {selectedItem &&
+                  itemHasSlides(selectedItem) &&
+                  slideCount > 1
+                    ? `${previewSlideIndex + 1}/${slideCount}`
+                    : selectedItem && selectedIndex >= 0
+                      ? `${selectedIndex + 1}/${items.length}`
+                      : "—"}
+                </span>
+                <button
+                  type="button"
+                  className="btn preview-tb-btn"
+                  disabled={!selectedItem || !canPreviewNext}
+                  title={t(locale, "shortcuts.next")}
+                  aria-label={t(locale, "shortcuts.next")}
+                  onClick={previewGoNext}
+                >
+                  <IconNext />
+                </button>
+                <span className="preview-tb-sep" aria-hidden="true" />
+                <button
+                  type="button"
+                  className="btn btn-primary preview-tb-golive"
+                  disabled={!canGoLive}
+                  title={t(locale, "shortcuts.goLive")}
+                  aria-label={t(locale, "shortcuts.goLive")}
+                  onClick={() => {
+                    if (selectedItemId) {
+                      session.goLive(selectedItemId);
+                    }
+                  }}
+                >
+                  <IconGoLive />
+                  <span className="preview-tb-golive-label">
+                    {t(locale, "playlist.goLiveShort")}
                   </span>
-                  <button
-                    type="button"
-                    className="btn preview-tb-btn"
-                    disabled={!canPreviewNext}
-                    title={t(locale, "preview.next")}
-                    aria-label={t(locale, "preview.next")}
-                    onClick={previewGoNext}
-                  >
-                    <IconNext />
-                  </button>
-                </div>
-              ) : null}
+                </button>
+                <span className="preview-tb-spacer" />
+                <StatusTip
+                  tone="info"
+                  className="preview-tb-shortcuts"
+                  label={t(locale, "shortcuts.help")}
+                  message={t(locale, "shortcuts.hint")}
+                />
+              </div>
               <div className="zone-body zone-stage pm-theme" style={themeStyle}>
                 {selectedItem && Preview ? (
                   <Preview
@@ -1249,21 +1282,11 @@ export function ControlPage() {
             <div className="live-controls">
               <button
                 type="button"
-                className="btn btn-primary"
-                disabled={!canGoLive}
-                onClick={() => {
-                  if (selectedItemId) {
-                    session.goLive(selectedItemId);
-                  }
-                }}
-              >
-                {t(locale, "control.goLive")}
-              </button>
-              <button
-                type="button"
                 className={sceneBtnClass("normal")}
                 disabled={!canMutate}
                 aria-pressed={sceneMode === "normal"}
+                title={t(locale, "shortcuts.sceneNormal")}
+                aria-label={t(locale, "shortcuts.sceneNormal")}
                 onClick={() => session.setSceneMode("normal")}
               >
                 {t(locale, "control.sceneNormal")}
@@ -1273,6 +1296,8 @@ export function ControlPage() {
                 className={sceneBtnClass("logo")}
                 disabled={!canMutate}
                 aria-pressed={sceneMode === "logo"}
+                title={t(locale, "shortcuts.sceneLogo")}
+                aria-label={t(locale, "shortcuts.sceneLogo")}
                 onClick={() => toggleSceneMode("logo")}
               >
                 {t(locale, "control.sceneLogo")}
@@ -1282,6 +1307,8 @@ export function ControlPage() {
                 className={sceneBtnClass("black")}
                 disabled={!canMutate}
                 aria-pressed={sceneMode === "black"}
+                title={t(locale, "shortcuts.sceneBlack")}
+                aria-label={t(locale, "shortcuts.sceneBlack")}
                 onClick={() => toggleSceneMode("black")}
               >
                 {t(locale, "control.sceneBlack")}
@@ -1291,6 +1318,8 @@ export function ControlPage() {
                 className={sceneBtnClass("clear")}
                 disabled={!canMutate}
                 aria-pressed={sceneMode === "clear"}
+                title={t(locale, "shortcuts.sceneClear")}
+                aria-label={t(locale, "shortcuts.sceneClear")}
                 onClick={() => toggleSceneMode("clear")}
               >
                 {t(locale, "control.sceneClear")}
@@ -1303,13 +1332,6 @@ export function ControlPage() {
                 themeOverrides={themeOverrides}
                 disabled={!canMutate}
                 onChange={(patch) => session.setTheme(patch)}
-              />
-            </div>
-            <div className="shortcuts-hint-row">
-              <StatusTip
-                tone="info"
-                label={t(locale, "control.statusTipInfo")}
-                message={t(locale, "shortcuts.hint")}
               />
             </div>
           </div>

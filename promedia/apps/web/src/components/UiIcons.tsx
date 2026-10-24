@@ -173,6 +173,21 @@ export function IconNext(props: IconProps) {
   );
 }
 
+/** Send selected item live (Go Live). */
+export function IconGoLive(props: IconProps) {
+  return (
+    <svg {...svgProps({ ...props, size: props.size ?? 16 })}>
+      <circle cx="12" cy="12" r="3.2" fill="currentColor" />
+      <path
+        d="M7.2 7.2a6.8 6.8 0 0 1 9.6 0M5 5a9.5 9.5 0 0 1 14 0"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 /** Soft tip / status — circle with “i”. */
 export function IconInfo(props: IconProps) {
   return (
