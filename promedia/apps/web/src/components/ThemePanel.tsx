@@ -7,10 +7,9 @@ import {
   type ThemeOverrides,
   type TextAlign,
 } from "@promedia/shared";
-import { DEFAULT_LOCALE, t } from "@promedia/i18n";
+import { useLocale } from "../locale/LocaleContext";
 import { StatusTip } from "./StatusTip";
-
-const locale = DEFAULT_LOCALE;
+import { IconTheme } from "./UiIcons";
 
 export type ThemePanelProps = {
   themeId: ThemeId;
@@ -18,6 +17,8 @@ export type ThemePanelProps = {
   disabled?: boolean;
   /** Compact header strip (presets + editor in one dense block). */
   compact?: boolean;
+  /** Single toolbar row: presets as icon+label + essential picks. */
+  toolbar?: boolean;
   onChange: (patch: {
     themeId?: ThemeId;
     themeOverrides?: ThemeOverrides | null;
@@ -47,8 +48,10 @@ export function ThemePanel({
   themeOverrides,
   disabled,
   compact,
+  toolbar,
   onChange,
 }: ThemePanelProps) {
+  const { t } = useLocale();
   const values = merged(themeId || DEFAULT_THEME_ID, themeOverrides);
 
   const patchOverride = (partial: ThemeOverrides) => {
@@ -57,28 +60,26 @@ export function ThemePanel({
     });
   };
 
-  return (
-    <div className={compact ? "theme-panel theme-panel-compact" : "theme-panel"}>
-      <div
-        className="theme-presets"
-        role="group"
-        aria-label={t(locale, "theme.title")}
-      >
-        {THEME_PRESETS.map((preset) => {
-          const shortcutKey =
-            preset.id === "oscuro"
-              ? "shortcuts.themeOscuro"
-              : preset.id === "claro"
-                ? "shortcuts.themeClaro"
-                : "shortcuts.themeAcento";
-          const tip = t(locale, shortcutKey);
+  const presets = (
+    <div
+      className="theme-presets"
+      role="group"
+      aria-label={t("theme.title")}
+    >
+      {THEME_PRESETS.map((preset) => {
+        const shortcutKey =
+          preset.id === "oscuro"
+            ? "shortcuts.themeOscuro"
+            : preset.id === "claro"
+              ? "shortcuts.themeClaro"
+              : "shortcuts.themeAcento";
+        const tip = t(shortcutKey);
+        if (toolbar) {
           return (
             <button
               key={preset.id}
               type="button"
-              className={
-                themeId === preset.id ? "btn btn-scene active" : "btn btn-scene"
-              }
+              className={`btn toolbar-icon-btn${themeId === preset.id ? " active" : ""}`}
               disabled={disabled}
               aria-pressed={themeId === preset.id}
               title={tip}
@@ -87,76 +88,124 @@ export function ThemePanel({
                 onChange({ themeId: preset.id, themeOverrides: null })
               }
             >
-              {t(locale, preset.labelKey)}
+              <span className="toolbar-icon-btn-glyph" aria-hidden>
+                <IconTheme />
+              </span>
+              <span className="toolbar-icon-btn-label">
+                {t(preset.labelKey)}
+              </span>
             </button>
           );
-        })}
-        {themeOverrides ? (
+        }
+        return (
           <button
+            key={preset.id}
             type="button"
-            className="btn btn-ghost"
+            className={
+              themeId === preset.id ? "btn btn-scene active" : "btn btn-scene"
+            }
             disabled={disabled}
-            onClick={() => onChange({ themeOverrides: null })}
-            title={t(locale, "theme.resetOverrides")}
+            aria-pressed={themeId === preset.id}
+            title={tip}
+            aria-label={tip}
+            onClick={() =>
+              onChange({ themeId: preset.id, themeOverrides: null })
+            }
           >
-            {t(locale, "theme.resetOverrides")}
+            {t(preset.labelKey)}
           </button>
-        ) : null}
-      </div>
+        );
+      })}
+      {themeOverrides && !toolbar ? (
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={disabled}
+          onClick={() => onChange({ themeOverrides: null })}
+          title={t("theme.resetOverrides")}
+        >
+          {t("theme.resetOverrides")}
+        </button>
+      ) : null}
+    </div>
+  );
 
-      <div className="theme-editor">
-        <label>
-          {t(locale, "theme.bg")}
-          <input
-            type="color"
-            value={/^#[0-9a-fA-F]{6}$/.test(values.bg) ? values.bg : "#0a0e14"}
-            disabled={disabled}
-            onChange={(e) => patchOverride({ bg: e.target.value })}
-          />
-        </label>
-        <label>
-          {t(locale, "theme.fg")}
-          <input
-            type="color"
-            value={/^#[0-9a-fA-F]{6}$/.test(values.fg) ? values.fg : "#f2f5f8"}
-            disabled={disabled}
-            onChange={(e) => patchOverride({ fg: e.target.value })}
-          />
-        </label>
-        <label>
-          {t(locale, "theme.align")}
-          <select
-            value={values.align}
-            disabled={disabled}
-            onChange={(e) =>
-              patchOverride({ align: e.target.value as TextAlign })
-            }
-          >
-            <option value="left">{t(locale, "text.alignLeft")}</option>
-            <option value="center">{t(locale, "text.alignCenter")}</option>
-            <option value="right">{t(locale, "text.alignRight")}</option>
-          </select>
-        </label>
-        <label>
-          {t(locale, "theme.fontFamily")}
-          <select
-            value={values.fontFamily}
-            disabled={disabled}
-            onChange={(e) =>
-              patchOverride({
-                fontFamily: e.target.value as ThemeFontFamily,
-              })
-            }
-          >
-            <option value="sans">{t(locale, "theme.fontSans")}</option>
-            <option value="serif">{t(locale, "theme.fontSerif")}</option>
-          </select>
-        </label>
-        <label>
-          {t(locale, "theme.fontSize")}
+  const editor = (
+    <div className={toolbar ? "theme-editor theme-editor-toolbar" : "theme-editor"}>
+      <label title={t("theme.bg")}>
+        {!toolbar ? t("theme.bg") : null}
+        <input
+          type="color"
+          value={/^#[0-9a-fA-F]{6}$/.test(values.bg) ? values.bg : "#0a0e14"}
+          disabled={disabled}
+          aria-label={t("theme.bg")}
+          onChange={(e) => patchOverride({ bg: e.target.value })}
+        />
+      </label>
+      <label title={t("theme.fg")}>
+        {!toolbar ? t("theme.fg") : null}
+        <input
+          type="color"
+          value={/^#[0-9a-fA-F]{6}$/.test(values.fg) ? values.fg : "#f2f5f8"}
+          disabled={disabled}
+          aria-label={t("theme.fg")}
+          onChange={(e) => patchOverride({ fg: e.target.value })}
+        />
+      </label>
+      <label title={t("theme.align")}>
+        {!toolbar ? t("theme.align") : null}
+        <select
+          value={values.align}
+          disabled={disabled}
+          aria-label={t("theme.align")}
+          onChange={(e) =>
+            patchOverride({ align: e.target.value as TextAlign })
+          }
+        >
+          <option value="left">{t("text.alignLeft")}</option>
+          <option value="center">{t("text.alignCenter")}</option>
+          <option value="right">{t("text.alignRight")}</option>
+        </select>
+      </label>
+      {!toolbar ? (
+        <>
+          <label>
+            {t("theme.fontFamily")}
+            <select
+              value={values.fontFamily}
+              disabled={disabled}
+              onChange={(e) =>
+                patchOverride({
+                  fontFamily: e.target.value as ThemeFontFamily,
+                })
+              }
+            >
+              <option value="sans">{t("theme.fontSans")}</option>
+              <option value="serif">{t("theme.fontSerif")}</option>
+            </select>
+          </label>
+          <label>
+            {t("theme.fontSize")}
+            <select
+              value={values.fontSize}
+              disabled={disabled}
+              onChange={(e) =>
+                patchOverride({ fontSize: e.target.value as ThemeFontSize })
+              }
+            >
+              <option value="sm">SM</option>
+              <option value="md">MD</option>
+              <option value="lg">LG</option>
+              <option value="xl">XL</option>
+            </select>
+          </label>
+        </>
+      ) : (
+        <label title={t("theme.fontSize")}>
           <select
             value={values.fontSize}
             disabled={disabled}
+            aria-label={t("theme.fontSize")}
             onChange={(e) =>
               patchOverride({ fontSize: e.target.value as ThemeFontSize })
             }
@@ -167,21 +216,51 @@ export function ThemePanel({
             <option value="xl">XL</option>
           </select>
         </label>
+      )}
+      {toolbar && themeOverrides ? (
+        <button
+          type="button"
+          className="btn btn-ghost theme-toolbar-reset"
+          disabled={disabled}
+          onClick={() => onChange({ themeOverrides: null })}
+          title={t("theme.resetOverrides")}
+        >
+          ↺
+        </button>
+      ) : null}
+    </div>
+  );
+
+  if (toolbar) {
+    return (
+      <div className="theme-panel theme-panel-toolbar">
+        <span className="toolbar-theme-title" aria-hidden>
+          {t("theme.title")}
+        </span>
+        {presets}
+        {editor}
       </div>
+    );
+  }
+
+  return (
+    <div className={compact ? "theme-panel theme-panel-compact" : "theme-panel"}>
+      {presets}
+      {editor}
       {!compact ? (
         <div className="theme-hint-row">
           <StatusTip
             tone="info"
-            label={t(locale, "control.statusTipInfo")}
-            message={t(locale, "theme.hint")}
+            label={t("control.statusTipInfo")}
+            message={t("theme.hint")}
           />
         </div>
       ) : (
         <StatusTip
           tone="info"
           className="theme-compact-hint"
-          label={t(locale, "control.statusTipInfo")}
-          message={t(locale, "theme.hint")}
+          label={t("control.statusTipInfo")}
+          message={t("theme.hint")}
         />
       )}
     </div>

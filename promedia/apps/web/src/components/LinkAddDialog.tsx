@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { useLocale } from "../locale/LocaleContext";
 import { parseYouTubeUrl } from "@promedia/item-types";
-import { DEFAULT_LOCALE, t } from "@promedia/i18n";
 import { DialogBrand } from "./DialogBrand";
-
-const locale = DEFAULT_LOCALE;
 
 export type LinkAddDialogProps = {
   open: boolean;
@@ -22,6 +20,8 @@ export function LinkAddDialog({
   onAddYoutube,
   onAddGenericLink,
 }: LinkAddDialogProps) {
+  const { t } = useLocale();
+
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -53,11 +53,11 @@ export function LinkAddDialog({
     try {
       parsed = new URL(raw);
     } catch {
-      setError(t(locale, "link.invalid"));
+      setError(t("link.invalid"));
       return;
     }
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      setError(t(locale, "link.invalid"));
+      setError(t("link.invalid"));
       return;
     }
     onAddGenericLink(parsed.toString());
@@ -80,10 +80,10 @@ export function LinkAddDialog({
         aria-labelledby="link-dialog-title"
       >
         <DialogBrand id="link-dialog-title">
-          {t(locale, "link.dialogTitle")}
+          {t("link.dialogTitle")}
         </DialogBrand>
         <label className="promedia-dialog-field">
-          {t(locale, "link.urlLabel")}
+          {t("link.urlLabel")}
           <input
             ref={inputRef}
             value={url}
@@ -109,11 +109,11 @@ export function LinkAddDialog({
             {error}
           </p>
         ) : (
-          <p className="promedia-dialog-hint">{t(locale, "link.hint")}</p>
+          <p className="promedia-dialog-hint">{t("link.hint")}</p>
         )}
         <div className="promedia-dialog-actions">
           <button type="button" className="btn" onClick={onClose}>
-            {t(locale, "text.cancel")}
+            {t("text.cancel")}
           </button>
           <button
             type="button"
@@ -121,7 +121,7 @@ export function LinkAddDialog({
             disabled={!url.trim()}
             onClick={submit}
           >
-            {t(locale, "link.add")}
+            {t("link.add")}
           </button>
         </div>
       </div>

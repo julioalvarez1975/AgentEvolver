@@ -1,8 +1,6 @@
 import { useState } from "react";
+import { useLocale } from "../locale/LocaleContext";
 import type { SceneMode } from "@promedia/shared";
-import { DEFAULT_LOCALE, t } from "@promedia/i18n";
-
-const locale = DEFAULT_LOCALE;
 
 const DEFAULT_LOGO_SRC = "/logo-default.svg";
 
@@ -15,6 +13,8 @@ export type SceneOverlayProps = {
  * Item renderer stays mounted underneath so mediaClock (and audio) continue (Q1).
  */
 export function SceneOverlay({ mode }: SceneOverlayProps) {
+  const { t } = useLocale();
+
   const [logoFailed, setLogoFailed] = useState(false);
 
   if (mode === "normal") {
@@ -25,7 +25,7 @@ export function SceneOverlay({ mode }: SceneOverlayProps) {
     return (
       <div
         className="scene-overlay scene-overlay-black"
-        aria-label={t(locale, "scene.black")}
+        aria-label={t("scene.black")}
       />
     );
   }
@@ -34,9 +34,9 @@ export function SceneOverlay({ mode }: SceneOverlayProps) {
     return (
       <div
         className="scene-overlay scene-overlay-clear"
-        aria-label={t(locale, "scene.clear")}
+        aria-label={t("scene.clear")}
       >
-        <p className="scene-clear-label">{t(locale, "output.waiting")}</p>
+        <p className="scene-clear-label">{t("output.waiting")}</p>
       </div>
     );
   }
@@ -44,10 +44,10 @@ export function SceneOverlay({ mode }: SceneOverlayProps) {
   return (
     <div
       className="scene-overlay scene-overlay-logo"
-      aria-label={t(locale, "scene.logo")}
+      aria-label={t("scene.logo")}
     >
       {logoFailed ? (
-        <p className="scene-logo-fallback">{t(locale, "scene.logoFallback")}</p>
+        <p className="scene-logo-fallback">{t("scene.logoFallback")}</p>
       ) : (
         <img
           className="scene-logo-img"

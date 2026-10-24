@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { DEFAULT_LOCALE, t } from "@promedia/i18n";
+import { useLocale } from "../locale/LocaleContext";
 import {
   deleteSavedPlaylist,
   listSavedPlaylists,
@@ -8,8 +8,6 @@ import {
   type SavedPlaylistSummary,
 } from "../lib/playlists";
 import { DialogBrand } from "./DialogBrand";
-
-const locale = DEFAULT_LOCALE;
 
 export type SavedPlaylistPanelProps = {
   sessionId: string;
@@ -38,6 +36,8 @@ export function SavedPlaylistPanel({
   onSaveOpenChange,
   onLoadOpenChange,
 }: SavedPlaylistPanelProps) {
+  const { t } = useLocale();
+
   const [name, setName] = useState("");
   const [list, setList] = useState<SavedPlaylistSummary[]>([]);
   const [busy, setBusy] = useState(false);
@@ -68,7 +68,7 @@ export function SavedPlaylistPanel({
     try {
       await saveSessionPlaylist(sessionId, wsTicket, name.trim());
       setName("");
-      onHint?.(t(locale, "playlist.savedOk"));
+      onHint?.(t("playlist.savedOk"));
       await refresh();
       onSaveOpenChange?.(false);
     } catch (err) {
@@ -84,11 +84,11 @@ export function SavedPlaylistPanel({
       const { skipped } = await loadSavedPlaylist(sessionId, wsTicket, id);
       onHint?.(
         skipped > 0
-          ? t(locale, "playlist.loadedSkipped").replace(
+          ? t("playlist.loadedSkipped").replace(
               "{n}",
               String(skipped),
             )
-          : t(locale, "playlist.loadedOk"),
+          : t("playlist.loadedOk"),
       );
       onLoadOpenChange?.(false);
     } catch (err) {
@@ -130,15 +130,15 @@ export function SavedPlaylistPanel({
               aria-labelledby="playlist-save-title"
             >
               <DialogBrand id="playlist-save-title">
-                {t(locale, "playlist.save")}
+                {t("playlist.save")}
               </DialogBrand>
               <label className="promedia-dialog-field">
-                {t(locale, "playlist.saveName")}
+                {t("playlist.saveName")}
                 <input
                   value={name}
                   disabled={disabled || busy}
                   autoFocus
-                  placeholder={t(locale, "playlist.saveName")}
+                  placeholder={t("playlist.saveName")}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
@@ -155,7 +155,7 @@ export function SavedPlaylistPanel({
                   className="btn"
                   onClick={() => onSaveOpenChange?.(false)}
                 >
-                  {t(locale, "text.cancel")}
+                  {t("text.cancel")}
                 </button>
                 <button
                   type="button"
@@ -163,7 +163,7 @@ export function SavedPlaylistPanel({
                   disabled={disabled || busy || !name.trim()}
                   onClick={() => void onSave()}
                 >
-                  {t(locale, "playlist.save")}
+                  {t("playlist.save")}
                 </button>
               </div>
             </div>
@@ -187,11 +187,11 @@ export function SavedPlaylistPanel({
               aria-labelledby="playlist-load-title"
             >
               <DialogBrand id="playlist-load-title">
-                {t(locale, "playlist.load")}
+                {t("playlist.load")}
               </DialogBrand>
               {list.length === 0 ? (
                 <p className="promedia-dialog-hint">
-                  {t(locale, "playlist.savedEmpty")}
+                  {t("playlist.savedEmpty")}
                 </p>
               ) : (
                 <ul className="saved-playlist-list saved-playlist-list-dialog">
@@ -208,7 +208,7 @@ export function SavedPlaylistPanel({
                           disabled={disabled || busy}
                           onClick={() => void onLoad(p.id)}
                         >
-                          {t(locale, "playlist.load")}
+                          {t("playlist.load")}
                         </button>
                         <button
                           type="button"
@@ -216,7 +216,7 @@ export function SavedPlaylistPanel({
                           disabled={busy}
                           onClick={() => void onDelete(p.id)}
                         >
-                          {t(locale, "playlist.remove")}
+                          {t("playlist.remove")}
                         </button>
                       </div>
                     </li>
@@ -229,7 +229,7 @@ export function SavedPlaylistPanel({
                   className="btn"
                   onClick={() => onLoadOpenChange?.(false)}
                 >
-                  {t(locale, "text.cancel")}
+                  {t("text.cancel")}
                 </button>
               </div>
             </div>
@@ -248,13 +248,13 @@ export function SavedPlaylistPanel({
       }
     >
       <h3 className="theme-controls-title">
-        {t(locale, compact ? "playlist.saveLoadTitle" : "playlist.savedTitle")}
+        {t(compact ? "playlist.saveLoadTitle" : "playlist.savedTitle")}
       </h3>
       <div className="saved-playlist-save">
         <input
           value={name}
           disabled={disabled || busy}
-          placeholder={t(locale, "playlist.saveName")}
+          placeholder={t("playlist.saveName")}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -268,11 +268,11 @@ export function SavedPlaylistPanel({
           disabled={disabled || busy || !name.trim()}
           onClick={() => void onSave()}
         >
-          {t(locale, "playlist.save")}
+          {t("playlist.save")}
         </button>
       </div>
       {list.length === 0 ? (
-        <p className="zone-empty">{t(locale, "playlist.savedEmpty")}</p>
+        <p className="zone-empty">{t("playlist.savedEmpty")}</p>
       ) : (
         <ul className="saved-playlist-list">
           {list.map((p) => (
@@ -288,7 +288,7 @@ export function SavedPlaylistPanel({
                   disabled={disabled || busy}
                   onClick={() => void onLoad(p.id)}
                 >
-                  {t(locale, "playlist.load")}
+                  {t("playlist.load")}
                 </button>
                 <button
                   type="button"
@@ -296,7 +296,7 @@ export function SavedPlaylistPanel({
                   disabled={busy}
                   onClick={() => void onDelete(p.id)}
                 >
-                  {t(locale, "playlist.remove")}
+                  {t("playlist.remove")}
                 </button>
               </div>
             </li>
