@@ -11,7 +11,7 @@ Proyección multimedia para **culto y evento**. Monorepo MVP en `promedia/` (la 
 1. Abrí Finder → carpeta del repo → **`promedia`**
 2. Doble clic en **`start-mac.command`**
 3. Si macOS pregunta, clic derecho → **Abrir** la primera vez
-4. Dejá la ventana abierta; cuando diga que la web está lista, abrí http://localhost:5173/control
+4. Dejá la ventana abierta; cuando veas `[dev] ready — Control http://…`, abrí **esa** URL (no otra pestaña vieja)
 
 ### Terminal (cualquier SO)
 
@@ -28,12 +28,26 @@ cd ~/Desktop/AgentEvolver/promedia && pnpm dev
 ```
 
 `pnpm dev` usa **concurrently** y etiqueta los logs `[hub]` / `[web]`. Espera a que
-`http://localhost:8787/health` responda; si el hub no arranca, **falla en voz alta**.
-En Control, si el hub está apagado verás un banner grande en español (no solo “WS desconectado”).
+**este** hub loguee `listening` y `/health` responda; si el hub no arranca o el puerto
+está ocupado por una instancia vieja, **falla en voz alta** (no declara “ready” con un
+hub fantasma). Imprime la URL **real** de Vite (`Local: http://localhost:PUERTO`);
+si 5173 está ocupado, puede ser **5174/5175** — abrí esa, no asumas 5173.
+
+**Una sola instancia.** No abras dos `pnpm dev` / dos `start-mac.command` a la vez.
+Si ves `EADDRINUSE` o “puerto ya está en uso”, cerrá la ventana anterior o:
+
+```bash
+lsof -nP -iTCP:8787 -sTCP:LISTEN
+lsof -nP -iTCP:5173 -sTCP:LISTEN
+kill <PID>
+```
+
+En Mac, `start-mac.command` intenta cerrar listeners node/promedia en **8787** y **5173**
+antes de arrancar (“Cerrando instancia anterior en puerto X…”).
 
 | Servicio | URL | Puerto |
 |----------|-----|--------|
-| **Web (Control / Output)** | http://localhost:5173 | **5173** |
+| **Web (Control / Output)** | http://localhost:5173 (u otro si Vite lo cambia) | **5173+** |
 | **Hub (API + WS)** | http://localhost:8787 | **8787** |
 
 Comprueba el hub:

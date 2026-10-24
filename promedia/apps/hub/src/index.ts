@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import type { Server } from "node:http";
 import { SHARED_PACKAGE_VERSION } from "@promedia/shared";
 import { setSessionBroadcaster } from "./broadcast.js";
 import { createApiRoutes } from "./routes.js";
@@ -41,15 +42,43 @@ app.get("/", (c) =>
 
 app.route("/api/v1", createApiRoutes());
 
-console.log(
-  `ProMedia hub listening on http://localhost:${port} (mode=${deployMode})`,
+function exitPortInUse(): never {
+  console.error(
+    `[hub] ERROR: el puerto ${port} ya está en uso (EADDRINUSE).`,
+  );
+  console.error(
+    `[hub] Hay otra instancia de ProMedia (o un hub viejo) escuchando en :${port}.`,
+  );
+  console.error(
+    `[hub] Cerrá esa ventana / proceso, o liberá el puerto:\n` +
+      `  lsof -nP -iTCP:${port} -sTCP:LISTEN\n` +
+      `  kill <PID>\n` +
+      `En Mac, start-mac.command intenta cerrar procesos node/promedia en 8787 y 5173.`,
+  );
+  process.exit(1);
+}
+
+const server = serve(
+  {
+    fetch: app.fetch,
+    port,
+  },
+  (info) => {
+    // Only log after a successful bind — never before serve() listens.
+    console.log(
+      `ProMedia hub listening on http://localhost:${info.port} (mode=${deployMode})`,
+    );
+  },
 );
 
-const server = serve({
-  fetch: app.fetch,
-  port,
+server.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code === "EADDRINUSE") {
+    exitPortInUse();
+  }
+  console.error("[hub] ERROR al escuchar:", err.message || err);
+  process.exit(1);
 });
 
 // Attach WS upgrade handler (ticket auth on /api/v1/ws)
-const hub = new WsHub(server as import("node:http").Server);
+const hub = new WsHub(server as Server);
 setSessionBroadcaster((sessionId, message) => hub.broadcast(sessionId, message));
