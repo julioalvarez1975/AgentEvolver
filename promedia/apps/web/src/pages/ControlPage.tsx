@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createEmptyTextPayload,
   cryptoRandomId,
@@ -28,17 +28,19 @@ import {
   buildAssetUrl,
   uploadSessionAsset,
 } from "../lib/assets";
+import {
+  loadPersistedControlSession,
+  savePersistedControlSession,
+} from "../lib/controlSessionPersist";
+import {
+  codeOutputUrl,
+  opaqueOutputUrl,
+  openOutputWindow,
+  startProjection,
+} from "../lib/openOutputWindow";
 import { themeSurfaceStyle } from "../lib/theme";
 
 const locale = DEFAULT_LOCALE;
-
-function opaqueOutputUrl(accessToken: string): string {
-  return `${window.location.origin}/output?token=${encodeURIComponent(accessToken)}`;
-}
-
-function codeOutputUrl(code: string): string {
-  return `${window.location.origin}/output?code=${encodeURIComponent(code)}`;
-}
 
 function assetSrcFor(
   sessionId: string,
@@ -62,6 +64,9 @@ export function ControlPage() {
   const session = useSessionConnection("control");
   const [joinCode, setJoinCode] = useState("");
   const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null);
+  const [projectionBusy, setProjectionBusy] = useState(false);
+  const [projectionNote, setProjectionNote] = useState<string | null>(null);
+  const autoSessionStarted = useRef(false);
   const [copied, setCopied] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   /** Multi-select for bulk remove (checkboxes); separate from preview selection. */
@@ -123,6 +128,59 @@ export function ControlPage() {
       canMutate,
   );
 
+  const persistSession = (code: string, accessToken?: string) => {
+    savePersistedControlSession({ code, accessToken });
+  };
+
+  const createRef = useRef(session.create);
+  const joinRef = useRef(session.join);
+  createRef.current = session.create;
+  joinRef.current = session.join;
+
+  // After hub is healthy: create or resume session so Control WS is ready.
+  // Opening Output still needs a click ("Iniciar proyección") — browsers block popups.
+  useEffect(() => {
+    if (autoSessionStarted.current) {
+      return;
+    }
+    if (session.hubChecking || session.hubUnreachable) {
+      return;
+    }
+    if (session.hasSession) {
+      autoSessionStarted.current = true;
+      if (session.code) {
+        persistSession(session.code, session.accessToken || undefined);
+      }
+      return;
+    }
+    autoSessionStarted.current = true;
+    void (async () => {
+      try {
+        const saved = loadPersistedControlSession();
+        if (saved?.code) {
+          try {
+            const res = await joinRef.current({ code: saved.code });
+            persistSession(res.code, saved.accessToken);
+            return;
+          } catch {
+            // Stale code after hub restart — create a fresh session.
+          }
+        }
+        const res = await createRef.current();
+        persistSession(res.code, res.accessToken);
+      } catch {
+        // Allow manual CTA / retry after failure (hub flap).
+        autoSessionStarted.current = false;
+      }
+    })();
+  }, [
+    session.hubChecking,
+    session.hubUnreachable,
+    session.hasSession,
+    session.code,
+    session.accessToken,
+  ]);
+
   const flashCopied = (label: string) => {
     setCopied(label);
     window.setTimeout(() => setCopied(null), 1500);
@@ -137,18 +195,76 @@ export function ControlPage() {
     }
   };
 
+  /** Existing "Abrir salida" — open/focus Output for current session (no create). */
   const openOutput = () => {
     if (!session.code) {
       return;
     }
-    const url = codeOutputUrl(session.code);
-    // Keep referrer/origin for YouTube embeds in the popup (noreferrer breaks them).
-    const win = window.open(url, "promedia-output", "noopener");
-    if (!win) {
-      setPopupBlockedUrl(url);
+    void (async () => {
+      const result = await openOutputWindow(session.code, {
+        autofullscreen: false,
+        preferSecondary: true,
+      });
+      if (result.popupBlocked) {
+        setPopupBlockedUrl(result.url);
+        return;
+      }
+      setPopupBlockedUrl(null);
+    })();
+  };
+
+  /**
+   * Primary CTA: create/resume session → open Output (secondary screen when
+   * Window Management API allows) → request fullscreen (gesture / Chrome).
+   */
+  const onStartProjection = () => {
+    if (session.hubUnreachable) {
+      setProjectionNote(t(locale, "control.hubUnreachable"));
+      void session.checkHubHealth();
       return;
     }
-    setPopupBlockedUrl(null);
+    setProjectionBusy(true);
+    setProjectionNote(null);
+    void (async () => {
+      try {
+        const result = await startProjection({
+          existingCode: session.code || null,
+          ensureSession: async () => {
+            if (session.code) {
+              return session.code;
+            }
+            const saved = loadPersistedControlSession();
+            if (saved?.code) {
+              try {
+                const joined = await session.join({ code: saved.code });
+                persistSession(joined.code, saved.accessToken);
+                return joined.code;
+              } catch {
+                // stale — create fresh
+              }
+            }
+            const created = await session.create();
+            persistSession(created.code, created.accessToken);
+            return created.code;
+          },
+        });
+        if (result.popupBlocked) {
+          setPopupBlockedUrl(result.url);
+          setProjectionNote(t(locale, "control.popupBlocked"));
+          return;
+        }
+        setPopupBlockedUrl(null);
+        if (result.placement?.onSecondary) {
+          setProjectionNote(t(locale, "control.projectionOnSecondary"));
+        } else {
+          setProjectionNote(t(locale, "control.projectionOpened"));
+        }
+      } catch (err) {
+        setProjectionNote(String(err));
+      } finally {
+        setProjectionBusy(false);
+      }
+    })();
   };
 
   useControlShortcuts({
@@ -466,12 +582,29 @@ export function ControlPage() {
         </div>
 
         <div className="control-session-actions">
+          <button
+            type="button"
+            className="btn btn-primary btn-start-projection"
+            disabled={projectionBusy || session.hubUnreachable}
+            onClick={onStartProjection}
+          >
+            {projectionBusy
+              ? t(locale, "control.startProjectionBusy")
+              : t(locale, "control.startProjection")}
+          </button>
           {!session.hasSession ? (
             <>
               <button
                 type="button"
-                className="btn btn-primary"
-                onClick={() => void session.create()}
+                className="btn"
+                onClick={() => {
+                  void session
+                    .create()
+                    .then((res) => {
+                      persistSession(res.code, res.accessToken);
+                    })
+                    .catch(() => undefined);
+                }}
               >
                 {t(locale, "control.createSession")}
               </button>
@@ -488,7 +621,14 @@ export function ControlPage() {
                 type="button"
                 className="btn"
                 disabled={!joinCode.trim()}
-                onClick={() => void session.join({ code: joinCode.trim() })}
+                onClick={() => {
+                  void session
+                    .join({ code: joinCode.trim() })
+                    .then((res) => {
+                      persistSession(res.code);
+                    })
+                    .catch(() => undefined);
+                }}
               >
                 {t(locale, "control.joinSession")}
               </button>
@@ -525,11 +665,7 @@ export function ControlPage() {
                   </button>
                 </div>
               ) : null}
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={openOutput}
-              >
+              <button type="button" className="btn" onClick={openOutput}>
                 {t(locale, "control.openOutput")}
               </button>
             </>
@@ -537,8 +673,12 @@ export function ControlPage() {
         </div>
       </header>
 
-      {session.hasSession ? (
-        <p className="control-drag-hint">{t(locale, "control.dragHint")}</p>
+      <p className="control-drag-hint">{t(locale, "control.startProjectionTip")}</p>
+
+      {projectionNote ? (
+        <div className="control-banner" role="status">
+          {projectionNote}
+        </div>
       ) : null}
 
       {popupBlockedUrl ? (
