@@ -127,32 +127,36 @@ body {
   overflow: hidden;
 }
 
-.control-header {
+/* Title row + tools strip — tools never share the brand bar. */
+.control-chrome {
   display: flex;
-  flex-wrap: nowrap;
-  align-items: stretch;
-  /* Clear horizontal gap so brand title never sits against the toolbar. */
-  gap: 0.5rem 1rem;
-  padding: 0.35rem 0.75rem;
-  border-bottom: 1px solid var(--border);
+  flex-direction: column;
+  flex-shrink: 0;
   background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
   /* Keep banner below dialogs / menus; never cover Guion / Preview / Live.
-     Ad creatives are clipped inside .control-ad-slot, not the whole header. */
+     Ad creatives are clipped inside .control-ad-slot, not the chrome. */
   position: relative;
   z-index: 2;
   overflow: visible;
-  min-height: 4.75rem;
+}
+
+.control-header {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem 0.3rem;
+  min-height: 0;
   flex-shrink: 0;
 }
 
 .control-brand {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   align-items: center;
   gap: 0.45rem;
-  /* Sized to logo + title; never crush under the toolbar cluster. */
-  max-width: none;
-  margin-inline-end: 0.15rem;
+  max-width: 100%;
   min-width: 0;
 }
 
@@ -186,16 +190,15 @@ body {
 
 .control-brand-title {
   margin: 0;
-  font-size: clamp(0.95rem, 1.6vw, 1.2rem);
+  font-size: clamp(1rem, 1.8vw, 1.25rem);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.2;
   white-space: nowrap;
   color: var(--fg);
-  /* If space is extreme, ellipsis — never paint over the toolbar. */
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: min(14rem, 42vw);
+  max-width: min(22rem, 90vw);
 }
 
 .control-brand-name {
@@ -211,7 +214,7 @@ body {
   letter-spacing: 0.06em;
 }
 
-/* GPT / placeholder: ~half of header / window width (Julio yellow zone). */
+/* GPT / placeholder: ~half of tools strip / window width (Julio yellow zone). */
 .control-ad-slot {
   flex: 1 1 50%;
   min-width: min(18rem, 42vw);
@@ -280,7 +283,19 @@ body {
   max-height: 90px !important;
 }
 
-/* Left toolbar cluster — fills space between brand and GAM; scrolls if tight. */
+/* Tools strip under the title-only header (commands + TEMA + GAM). */
+.control-toolbar-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.5rem 0.75rem;
+  padding: 0.25rem 0.75rem 0.4rem;
+  min-height: 0;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* Left toolbar cluster — fills space before GAM; scrolls if tight. */
 .control-header-cluster {
   display: flex;
   flex-wrap: nowrap;
@@ -522,7 +537,7 @@ body {
   font-size: 0.78rem;
 }
 
-/* GAM occupies ~half the header on the right. */
+/* GAM occupies ~half the tools strip on the right. */
 .control-header-end {
   display: flex;
   flex-wrap: nowrap;
@@ -546,14 +561,10 @@ body {
   text-transform: uppercase;
 }
 
-/* ~1280px: slightly tighter toolbar; brand + gap preserved; cluster scrolls. */
+/* ~1280px: slightly tighter tools; title row unchanged (no collision). */
 @media (max-width: 1280px) {
-  .control-header {
-    gap: 0.45rem 0.85rem;
-  }
-
-  .control-brand-title {
-    max-width: min(13rem, 34vw);
+  .control-toolbar-strip {
+    gap: 0.4rem 0.65rem;
   }
 
   .control-header-end {
@@ -573,23 +584,16 @@ body {
   }
 }
 
-/* ~1024px and below: toolbar wraps under brand; GAM full-width below. */
+/* Narrow: tools strip wraps; GAM full-width below commands/TEMA. */
 @media (max-width: 1100px) {
-  .control-header {
+  .control-toolbar-strip {
     flex-wrap: wrap;
-    min-height: 0;
     align-items: flex-start;
-    gap: 0.55rem 0.75rem;
-  }
-
-  .control-brand {
-    flex: 0 0 auto;
-    max-width: calc(100% - 0.5rem);
-    margin-inline-end: 0;
+    gap: 0.45rem 0.65rem;
   }
 
   .control-brand-title {
-    max-width: min(16rem, 70vw);
+    max-width: min(20rem, 92vw);
   }
 
   .control-header-cluster,
@@ -643,11 +647,15 @@ body {
   }
 }
 
-/* Mobile-ish: compact icon buttons; toolbar scrolls if still tight. */
+/* Mobile-ish: compact icon buttons; tools scroll if still tight. */
 @media (max-width: 720px) {
   .control-header {
-    padding: 0.3rem 0.5rem;
-    gap: 0.4rem;
+    padding: 0.3rem 0.5rem 0.2rem;
+  }
+
+  .control-toolbar-strip {
+    padding: 0.2rem 0.5rem 0.35rem;
+    gap: 0.35rem;
   }
 
   .control-brand-logo {
@@ -657,7 +665,7 @@ body {
 
   .control-brand-title {
     font-size: 0.95rem;
-    max-width: min(12rem, 68vw);
+    max-width: min(16rem, 88vw);
   }
 
   .control-header-toolbar {
