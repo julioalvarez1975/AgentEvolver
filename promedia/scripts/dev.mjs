@@ -7,7 +7,9 @@
  * - our hub child logged "listening" (real bind, not a stale :8787), and
  * - /health answers while that child is still alive.
  *
- * Prints the ACTUAL Vite URL from "Local: http://localhost:PORT".
+ * Prints the ACTUAL Vite URL from "Local: http://localhost:PORT"
+ * (ANSI-safe, line-buffered). Writes `.promedia-ready-url` as soon as
+ * that URL is known so launchers can open Control without racing.
  */
 import concurrently from "concurrently";
 import { spawnSync } from "node:child_process";
@@ -25,6 +27,7 @@ const HUB_URL = (process.env.HUB_URL ?? "http://127.0.0.1:8787").replace(
 const HEALTH = `${HUB_URL}/health`;
 const HUB_WAIT_MS = Number(process.env.PROMEDIA_HUB_WAIT_MS ?? 45_000);
 const WEB_URL_WAIT_MS = Number(process.env.PROMEDIA_WEB_URL_WAIT_MS ?? 20_000);
+const VITE_PORTS = [5173, 5174, 5175, 5176, 5177, 5178];
 
 function clearReadyUrlFile() {
   try {
@@ -44,8 +47,13 @@ function writeReadyUrlFile(controlUrl) {
 
 clearReadyUrlFile();
 
+/** Strip CSI / OSC ANSI so "Local" + ":" still match when Vite colors output. */
+function stripAnsi(text) {
+  return text.replace(/\u001b\[[0-9;]*[a-zA-Z]|\u001b\][^\u0007]*(?:\u0007|\u001b\\)/g, "");
+}
 
-const LOCAL_URL_RE = /Local:\s*(https?:\/\/\S+)/i;
+// Vite: `Local:   http://…` (possibly with ANSI between tokens).
+const LOCAL_URL_RE = /Local:\s*(https?:\/\/[^\s\u001b]+)/i;
 const HUB_LISTENING_RE = /ProMedia hub listening on/i;
 const HUB_EADDR_RE = /EADDRINUSE|puerto \d+ ya está en uso/i;
 
@@ -77,7 +85,9 @@ const { result, commands } = concurrently(
   {
     cwd: ROOT,
     prefix: "name",
-    killOthersOn: ["failure", "success"],
+    // Only kill siblings on failure. Do NOT kill on "success" — Vite can
+    // exit 0 after an external SIGTERM; that must not tear down a healthy hub.
+    killOthersOn: ["failure"],
     restartTries: 0,
   },
 );
@@ -91,19 +101,37 @@ let hubListening = false;
 let hubBindFailed = false;
 let webLocalUrl = null;
 
-function scanHubOutput(buf) {
-  const text = buf.toString();
-  if (HUB_LISTENING_RE.test(text)) hubListening = true;
-  if (HUB_EADDR_RE.test(text)) hubBindFailed = true;
+function onWebLocalUrl(url) {
+  const cleaned = url.replace(/\/$/, "");
+  if (!cleaned || webLocalUrl === cleaned) return;
+  webLocalUrl = cleaned;
+  writeReadyUrlFile(`${cleaned}/control`);
 }
 
-function scanWebOutput(buf) {
-  const text = buf.toString();
-  const m = text.match(LOCAL_URL_RE);
-  if (m) {
-    webLocalUrl = m[1].replace(/\/$/, "");
-  }
+function makeLineScanner(onLine) {
+  let buf = "";
+  return (chunk) => {
+    buf += stripAnsi(chunk.toString());
+    let nl;
+    while ((nl = buf.indexOf("\n")) !== -1) {
+      const line = buf.slice(0, nl);
+      buf = buf.slice(nl + 1);
+      onLine(line);
+    }
+    // Also scan the incomplete tail (Vite may flush without a trailing newline).
+    if (buf) onLine(buf);
+  };
 }
+
+const scanHubOutput = makeLineScanner((line) => {
+  if (HUB_LISTENING_RE.test(line)) hubListening = true;
+  if (HUB_EADDR_RE.test(line)) hubBindFailed = true;
+});
+
+const scanWebOutput = makeLineScanner((line) => {
+  const m = line.match(LOCAL_URL_RE);
+  if (m) onWebLocalUrl(m[1]);
+});
 
 if (hubCmd) {
   hubCmd.close.subscribe((ev) => {
@@ -227,6 +255,22 @@ async function waitForWebLocalUrl(timeoutMs) {
   return webLocalUrl;
 }
 
+/** If concurrently stdout missed "Local:", probe Vite ports for /control. */
+async function probeViteControlUrl() {
+  for (const port of VITE_PORTS) {
+    const control = `http://127.0.0.1:${port}/control`;
+    try {
+      const res = await fetch(control, { cache: "no-store" });
+      if (res.ok) {
+        return `http://localhost:${port}`;
+      }
+    } catch {
+      // try next
+    }
+  }
+  return null;
+}
+
 const healthy = await waitForHub(HUB_WAIT_MS);
 if (!healthy) {
   killAll();
@@ -234,7 +278,12 @@ if (!healthy) {
   process.exit(1);
 }
 
-const localUrl = await waitForWebLocalUrl(WEB_URL_WAIT_MS);
+let localUrl = await waitForWebLocalUrl(WEB_URL_WAIT_MS);
+if (!localUrl) {
+  localUrl = await probeViteControlUrl();
+  if (localUrl) onWebLocalUrl(localUrl);
+}
+
 if (localUrl) {
   const control = `${localUrl.replace(/\/$/, "")}/control`;
   writeReadyUrlFile(control);
@@ -260,4 +309,3 @@ try {
   process.exit(1);
 }
 clearReadyUrlFile();
-

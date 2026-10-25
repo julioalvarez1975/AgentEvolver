@@ -15,6 +15,7 @@ set -e
 cd "$(dirname "$0")"
 
 READY_FILE=".promedia-ready-url"
+LOCK_FILE=".promedia-dev.lock"
 VITE_PORTS="5173 5174 5175 5176 5177 5178"
 
 echo "=========================================="
@@ -35,6 +36,7 @@ if ! command -v pnpm >/dev/null 2>&1; then
 fi
 
 # Liberar hub (:8787) y Vite (5173–5178) solo si el listener parece node/promedia/tsx/vite.
+# SOLO llamar ANTES de arrancar hijos — nunca desde open_control_when_ready.
 free_promedia_port() {
   local port="$1"
   local pids pid cmd
@@ -66,32 +68,18 @@ free_promedia_port() {
   done
 }
 
-rm -f "$READY_FILE"
-
-free_promedia_port 8787
-for port in $VITE_PORTS; do
-  free_promedia_port "$port"
-done
-sleep 1 2>/dev/null || sleep 1
-
-if [ ! -d node_modules ] || [ ! -f node_modules/.modules.yaml ]; then
-  echo "Instalando dependencias (pnpm install)…"
-  pnpm install || {
-    echo ""
-    echo "ERROR: pnpm install falló."
-    read -r -p "Pulsá Enter para cerrar…"
-    exit 1
-  }
-  echo ""
-fi
-
-# Espera a que Control responda (nunca abre bare "/") y usa el puerto real.
+# Espera a que Control responda (nunca abre bare "/"). NUNCA libera puertos.
 open_control_when_ready() {
   local max_wait="${PROMEDIA_OPEN_WAIT_S:-90}"
   local elapsed=0
   local port url
+  local opened_marker=".promedia-browser-opened"
+  rm -f "$opened_marker"
   echo "Cuando hub+web estén listos, se abrirá Control en el navegador…"
   while [ "$elapsed" -lt "$max_wait" ]; do
+    if [ -f "$opened_marker" ]; then
+      return 0
+    fi
     if [ -f "$READY_FILE" ]; then
       url=$(tr -d '[:space:]' < "$READY_FILE" 2>/dev/null || true)
       if [ -n "$url" ]; then
@@ -107,6 +95,7 @@ open_control_when_ready() {
           echo ""
           echo "Abriendo Control → ${url}"
           echo "Dejá esta Terminal abierta. Para detener: Ctrl+C."
+          touch "$opened_marker"
           if command -v xdg-open >/dev/null 2>&1; then
             xdg-open "$url" >/dev/null 2>&1 || true
           elif command -v gio >/dev/null 2>&1; then
@@ -125,6 +114,7 @@ open_control_when_ready() {
           echo ""
           echo "Abriendo Control → ${url}"
           echo "Dejá esta Terminal abierta. Para detener: Ctrl+C."
+          touch "$opened_marker"
           if command -v xdg-open >/dev/null 2>&1; then
             xdg-open "$url" >/dev/null 2>&1 || true
           elif command -v gio >/dev/null 2>&1; then
@@ -141,6 +131,7 @@ open_control_when_ready() {
           echo ""
           echo "Abriendo Control → ${url}"
           echo "Dejá esta Terminal abierta. Para detener: Ctrl+C."
+          touch "$opened_marker"
           if command -v xdg-open >/dev/null 2>&1; then
             xdg-open "$url" >/dev/null 2>&1 || true
           else
@@ -160,13 +151,69 @@ open_control_when_ready() {
   return 0
 }
 
-open_control_when_ready &
-OPENER_PID=$!
+open_existing_only() {
+  echo "ProMedia ya está en marcha${1:+ (PID $1)}."
+  echo "No se reinicia ni se liberan puertos (evita matar Vite con SIGTERM 143)."
+  echo "Abriendo Control en el navegador…"
+  open_control_when_ready
+  echo ""
+  read -r -p "Pulsá Enter para cerrar esta ventana (la otra Terminal sigue con ProMedia)…"
+  exit 0
+}
+
+# Segunda instancia: NO liberar puertos (evita SIGTERM 143 en Vite).
+if [ -f "$LOCK_FILE" ]; then
+  old_pid=$(tr -d '[:space:]' < "$LOCK_FILE" 2>/dev/null || true)
+  if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+    open_existing_only "$old_pid"
+  fi
+  rm -f "$LOCK_FILE"
+fi
+
+rm -f "$READY_FILE" ".promedia-browser-opened"
+
+# Atomic claim BEFORE freeing ports so a second start cannot also free/kill.
+if ! (set -C; echo $$ > "$LOCK_FILE") 2>/dev/null; then
+  old_pid=$(tr -d '[:space:]' < "$LOCK_FILE" 2>/dev/null || true)
+  open_existing_only "${old_pid:-}"
+fi
+
+free_promedia_port 8787
+for port in $VITE_PORTS; do
+  free_promedia_port "$port"
+done
+sleep 1 2>/dev/null || sleep 1
+
+if [ ! -d node_modules ] || [ ! -f node_modules/.modules.yaml ]; then
+  echo "Instalando dependencias (pnpm install)…"
+  pnpm install || {
+    rm -f "$LOCK_FILE"
+    echo ""
+    echo "ERROR: pnpm install falló."
+    read -r -p "Pulsá Enter para cerrar…"
+    exit 1
+  }
+  echo ""
+fi
+
+OPENER_PID=""
 
 cleanup_opener() {
-  kill "$OPENER_PID" 2>/dev/null || true
+  if [ -n "${OPENER_PID:-}" ] && kill -0 "$OPENER_PID" 2>/dev/null; then
+    kill "$OPENER_PID" 2>/dev/null || true
+    wait "$OPENER_PID" 2>/dev/null || true
+  fi
+  OPENER_PID=""
 }
-trap cleanup_opener EXIT INT TERM
+
+cleanup_all() {
+  cleanup_opener
+  rm -f "$LOCK_FILE" ".promedia-browser-opened"
+}
+trap cleanup_all EXIT INT TERM
+
+open_control_when_ready &
+OPENER_PID=$!
 
 echo "Arrancando hub + web (pnpm dev)…"
 echo "Esperá la línea [dev] ready — ahí está la URL REAL de Control (puede no ser :5173)."
@@ -175,7 +222,7 @@ echo "Una sola instancia a la vez. Para detener: Ctrl+C en esta ventana."
 echo ""
 
 pnpm dev || {
-  cleanup_opener
+  cleanup_all
   echo ""
   echo "ERROR: pnpm dev terminó con fallo."
   echo "¿Estás en la carpeta correcta? Debe ser …/AgentEvolver/promedia"
@@ -186,9 +233,14 @@ pnpm dev || {
   echo "  ss -ltnp 'sport = :5173'"
   echo "  kill <PID>"
   echo "Luego volvé a abrir start-linux.sh (o Abrir-ProMedia.sh)."
+  echo ""
+  echo "Workaround (dos Terminales):"
+  echo "  Terminal A: cd …/promedia && pnpm dev:hub"
+  echo "  Terminal B: cd …/promedia && pnpm dev:web"
+  echo "  Luego abrí http://localhost:5173/control"
   read -r -p "Pulsá Enter para cerrar…"
   exit 1
 }
 
-cleanup_opener
+cleanup_all
 read -r -p "ProMedia se detuvo. Pulsá Enter para cerrar…"
