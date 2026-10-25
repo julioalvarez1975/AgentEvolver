@@ -11,8 +11,9 @@ Proyección multimedia para **culto y evento**. Monorepo MVP en `promedia/` (la 
 1. Abrí Finder → carpeta del repo → **`promedia`**
 2. Doble clic en **`start-mac.command`** o **`Abrir-ProMedia.command`** (mismo arranque; el segundo es un atajo con nombre claro para el Escritorio)
 3. Si macOS pregunta, clic derecho → **Abrir** la primera vez
-4. Dejá la ventana Terminal abierta; al estar listos hub+web, el script **abre Control** en el navegador (detecta el puerto real de Vite, p. ej. 5173/5174)
-5. Enlaces fijos (si el navegador no se abrió solo): **`ProMedia-Control.url`** o **`open-control.html`** → `http://localhost:5173/control` (editá la URL si Vite usó otro puerto o en producción/hosteado)
+4. Dejá la ventana Terminal abierta; al estar listos hub+web, el script **abre Control** (`/control`, nunca la Home `/`) en el puerto real de Vite (5173–5178)
+5. Si copiaste **`Abrir-ProMedia.command`** al Escritorio y ves la UI vieja: tras `git pull`, **volvé a copiar** el atajo desde esta carpeta `promedia/` (debe apuntar a este repo, no a un clone viejo)
+6. Enlaces fijos (si el navegador no se abrió solo): **`open-control.html`** (prueba 5173–5178) o **`ProMedia-Control.url`** → `/control` (por defecto :5173)
 
 ### Windows — doble clic (Explorador)
 
@@ -27,7 +28,7 @@ Proyección multimedia para **culto y evento**. Monorepo MVP en `promedia/` (la 
 1. En la carpeta **`promedia`**, la primera vez: `chmod +x start-linux.sh Abrir-ProMedia.sh`
 2. Doble clic en **`start-linux.sh`** / **`Abrir-ProMedia.sh`**, o en terminal: `./start-linux.sh`
 3. Atajo de escritorio: **`ProMedia.desktop`** (doble clic desde `promedia/`, o copialo al Escritorio y editá `Exec`/`Path` con la ruta absoluta). En GNOME: “Permitir iniciar” / Mark as Trusted la primera vez
-4. Misma lógica: libera 8787/5173 si son ProMedia, `pnpm install` si hace falta, `pnpm dev`, abre Control
+4. Misma lógica: libera 8787 y Vite 5173–5178 si son ProMedia, `pnpm install` si hace falta, `pnpm dev`, abre **Control** (`/control`)
 
 ### Terminal (cualquier SO)
 
@@ -67,8 +68,9 @@ taskkill /PID <PID> /F
 ```
 
 Los launchers (`start-mac.command`, `start-windows.ps1` / `.bat`, `start-linux.sh`) intentan
-cerrar listeners node/promedia en **8787** y **5173** antes de arrancar
-(“Cerrando instancia anterior en puerto X…”).
+cerrar listeners node/promedia en **8787** y **5173–5178** antes de arrancar
+(“Cerrando instancia anterior en puerto X…”), esperan a que **`/control`**
+responda (o leen `.promedia-ready-url` que escribe `pnpm dev`) y recién ahí abren el navegador.
 
 | Servicio | URL | Puerto |
 |----------|-----|--------|
