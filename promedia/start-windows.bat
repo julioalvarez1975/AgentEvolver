@@ -1,8 +1,9 @@
 @echo off
 REM ProMedia — doble clic en el Explorador (Windows) para arrancar hub + web
-REM y abrir Control en el navegador predeterminado.
+REM y abrir Control (/control, puerto real Vite) en el navegador.
 REM Delega en start-windows.ps1 (detección de puertos más fiable).
 REM Ver también: Abrir-ProMedia.bat (mismo arranque, nombre claro para el Escritorio).
+REM Si el atajo del Escritorio abre UI vieja: re-copia desde este promedia\ tras git pull.
 
 cd /d "%~dp0"
 

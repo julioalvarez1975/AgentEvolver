@@ -11,11 +11,13 @@
  */
 import concurrently from "concurrently";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const READY_URL_FILE = path.join(ROOT, ".promedia-ready-url");
 const HUB_URL = (process.env.HUB_URL ?? "http://127.0.0.1:8787").replace(
   /\/$/,
   "",
@@ -23,6 +25,25 @@ const HUB_URL = (process.env.HUB_URL ?? "http://127.0.0.1:8787").replace(
 const HEALTH = `${HUB_URL}/health`;
 const HUB_WAIT_MS = Number(process.env.PROMEDIA_HUB_WAIT_MS ?? 45_000);
 const WEB_URL_WAIT_MS = Number(process.env.PROMEDIA_WEB_URL_WAIT_MS ?? 20_000);
+
+function clearReadyUrlFile() {
+  try {
+    fs.unlinkSync(READY_URL_FILE);
+  } catch {
+    // ignore
+  }
+}
+
+function writeReadyUrlFile(controlUrl) {
+  try {
+    fs.writeFileSync(READY_URL_FILE, `${controlUrl}\n`, "utf8");
+  } catch {
+    // ignore — launchers still probe /control on 5173–5178
+  }
+}
+
+clearReadyUrlFile();
+
 
 const LOCAL_URL_RE = /Local:\s*(https?:\/\/\S+)/i;
 const HUB_LISTENING_RE = /ProMedia hub listening on/i;
@@ -209,12 +230,14 @@ async function waitForWebLocalUrl(timeoutMs) {
 const healthy = await waitForHub(HUB_WAIT_MS);
 if (!healthy) {
   killAll();
+  clearReadyUrlFile();
   process.exit(1);
 }
 
 const localUrl = await waitForWebLocalUrl(WEB_URL_WAIT_MS);
 if (localUrl) {
   const control = `${localUrl.replace(/\/$/, "")}/control`;
+  writeReadyUrlFile(control);
   console.log(`[dev] ready — Control ${control} · health ${HEALTH}`);
   if (!/:(5173)(\/|$)/.test(localUrl)) {
     console.log(
@@ -233,5 +256,8 @@ if (localUrl) {
 try {
   await result;
 } catch {
+  clearReadyUrlFile();
   process.exit(1);
 }
+clearReadyUrlFile();
+

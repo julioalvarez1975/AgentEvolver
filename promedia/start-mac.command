@@ -2,13 +2,24 @@
 # ProMedia — doble clic en Finder (Mac) para arrancar hub + web
 # y abrir Control en el navegador predeterminado.
 # Mantiene la ventana abierta si algo falla.
+#
+# Si una copia en el Escritorio abre UI vieja: re-copiá desde
+# esta carpeta promedia/ (después de git pull). El atajo debe
+# apuntar a ESTE repo, no a un clone viejo.
 
 set -e
 cd "$(dirname "$0")"
 
+READY_FILE=".promedia-ready-url"
+VITE_PORTS="5173 5174 5175 5176 5177 5178"
+
 echo "=========================================="
 echo "  ProMedia — carpeta: $(pwd)"
 echo "=========================================="
+echo ""
+echo "AVISO: un alias del Escritorio debe apuntar a esta carpeta"
+echo "  promedia/ del repo (no a un clone viejo)."
+echo "Dejá esta ventana de Terminal abierta mientras usás ProMedia."
 echo ""
 
 if ! command -v pnpm >/dev/null 2>&1; then
@@ -19,7 +30,7 @@ if ! command -v pnpm >/dev/null 2>&1; then
   exit 1
 fi
 
-# Liberar hub (:8787) y Vite (:5173) solo si el listener parece node/promedia/tsx/vite.
+# Liberar hub (:8787) y Vite (5173–5178) solo si el listener parece node/promedia/tsx/vite.
 free_promedia_port() {
   local port="$1"
   local pids pid cmd
@@ -46,10 +57,15 @@ free_promedia_port() {
   done
 }
 
+# URL vieja de un arranque anterior — no abrir hasta que este run la reescriba.
+rm -f "$READY_FILE"
+
 free_promedia_port 8787
-free_promedia_port 5173
-# Dar tiempo a que el SO suelte el socket
-sleep 0.4 2>/dev/null || sleep 1
+for port in $VITE_PORTS; do
+  free_promedia_port "$port"
+done
+# Dar tiempo a que el SO suelte los sockets (evitar hit a proceso/caché viejo).
+sleep 1 2>/dev/null || sleep 1
 
 if [ ! -d node_modules ] || [ ! -f node_modules/.modules.yaml ]; then
   echo "Instalando dependencias (pnpm install)…"
@@ -62,19 +78,37 @@ if [ ! -d node_modules ] || [ ! -f node_modules/.modules.yaml ]; then
   echo ""
 fi
 
-# Espera a que Vite responda y abre Control (puerto real, no asume 5173).
-# Corre en segundo plano mientras pnpm dev ocupa la terminal.
+# Espera a que Control responda (nunca abre bare "/") y usa el puerto real.
+# Prefiere .promedia-ready-url que escribe scripts/dev.mjs (URL real de Vite).
 open_control_when_ready() {
   local max_wait="${PROMEDIA_OPEN_WAIT_S:-90}"
   local elapsed=0
   local port url
   echo "Cuando hub+web estén listos, se abrirá Control en el navegador…"
   while [ "$elapsed" -lt "$max_wait" ]; do
-    for port in 5173 5174 5175 5176 5177 5178; do
-      if curl -sf -o /dev/null --connect-timeout 1 "http://127.0.0.1:${port}/" 2>/dev/null; then
+    if [ -f "$READY_FILE" ]; then
+      url=$(tr -d '[:space:]' < "$READY_FILE" 2>/dev/null || true)
+      if [ -n "$url" ] && curl -sf -o /dev/null --connect-timeout 1 "$url" 2>/dev/null; then
+        echo ""
+        echo "Abriendo Control → ${url}"
+        echo "Dejá esta Terminal abierta. Para detener: Ctrl+C."
+        if command -v open >/dev/null 2>&1; then
+          open "$url" || true
+        elif command -v xdg-open >/dev/null 2>&1; then
+          xdg-open "$url" >/dev/null 2>&1 || true
+        else
+          echo "Abrí manualmente: ${url}"
+        fi
+        return 0
+      fi
+    fi
+    for port in $VITE_PORTS; do
+      # Esperar /control (no "/"): HomePage se ve como app “vieja” mínima.
+      if curl -sf -o /dev/null --connect-timeout 1 "http://127.0.0.1:${port}/control" 2>/dev/null; then
         url="http://localhost:${port}/control"
         echo ""
         echo "Abriendo Control → ${url}"
+        echo "Dejá esta Terminal abierta. Para detener: Ctrl+C."
         if command -v open >/dev/null 2>&1; then
           open "$url" || true
         elif command -v xdg-open >/dev/null 2>&1; then
@@ -89,9 +123,9 @@ open_control_when_ready() {
     elapsed=$((elapsed + 1))
   done
   echo ""
-  echo "AVISO: no se detectó Vite a tiempo."
+  echo "AVISO: no se detectó Control a tiempo."
   echo "Mirás en los logs la línea [dev] ready — Control http://… y abrila."
-  echo "También podés abrir ProMedia-Control.url (asume :5173) o open-control.html."
+  echo "También podés abrir open-control.html (prueba 5173–5178) o ProMedia-Control.url."
   return 0
 }
 
