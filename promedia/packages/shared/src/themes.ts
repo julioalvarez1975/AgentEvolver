@@ -11,6 +11,31 @@ export const THEME_IDS: readonly ThemeId[] = [
 
 export const DEFAULT_THEME_ID: ThemeId = "oscuro";
 
+/**
+ * Live Output transition when the live item changes (TEMA zone).
+ * Fixed duration: TRANSITION_DURATION_MS (0.5s).
+ */
+export type TransitionEffect = "none" | "fade" | "blur" | "pixelate";
+
+export const TRANSITION_EFFECTS: readonly TransitionEffect[] = [
+  "none",
+  "fade",
+  "blur",
+  "pixelate",
+] as const;
+
+export const DEFAULT_TRANSITION_EFFECT: TransitionEffect = "none";
+
+/** Fixed transition length on Output (ms). */
+export const TRANSITION_DURATION_MS = 500;
+
+export function isTransitionEffect(value: unknown): value is TransitionEffect {
+  return (
+    typeof value === "string" &&
+    (TRANSITION_EFFECTS as readonly string[]).includes(value)
+  );
+}
+
 export type ThemeFontSize = "sm" | "md" | "lg" | "xl";
 
 export type ThemeFontFamily = "sans" | "serif";

@@ -1,6 +1,11 @@
 import type { ReactNode } from "react";
 import type { Locale } from "@promedia/i18n";
-import type { SceneMode, ThemeId, ThemeOverrides } from "@promedia/shared";
+import type {
+  SceneMode,
+  ThemeId,
+  ThemeOverrides,
+  TransitionEffect,
+} from "@promedia/shared";
 import { LOCALE_SHORT, useLocale } from "../locale/LocaleContext";
 import { ThemePanel } from "./ThemePanel";
 import {
@@ -21,12 +26,14 @@ export type ControlHeaderToolbarProps = {
   sceneMode: SceneMode;
   themeId: ThemeId;
   themeOverrides: ThemeOverrides | null;
+  transitionEffect: TransitionEffect;
   onProject: () => void;
   onSceneNormal: () => void;
   onToggleScene: (mode: Exclude<SceneMode, "normal">) => void;
   onThemeChange: (patch: {
     themeId?: ThemeId;
     themeOverrides?: ThemeOverrides | null;
+    transitionEffect?: TransitionEffect;
   }) => void;
   onAbout: () => void;
   /** Manual create/join when no session yet (rare after auto-session). */
@@ -78,6 +85,7 @@ export function ControlHeaderToolbar({
   sceneMode,
   themeId,
   themeOverrides,
+  transitionEffect,
   onProject,
   onSceneNormal,
   onToggleScene,
@@ -195,6 +203,7 @@ export function ControlHeaderToolbar({
           hideTitle
           themeId={themeId}
           themeOverrides={themeOverrides}
+          transitionEffect={transitionEffect}
           disabled={!canMutate}
           onChange={onThemeChange}
         />

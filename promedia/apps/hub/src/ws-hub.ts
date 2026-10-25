@@ -13,6 +13,7 @@ import type {
 import {
   isSceneMode,
   isThemeId,
+  isTransitionEffect,
   normalizeThemeOverrides,
 } from "@promedia/shared";
 import { sessionStore, type SessionRecord } from "./session-store.js";
@@ -155,6 +156,7 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
       const p = payload as {
         themeId?: unknown;
         themeOverrides?: unknown;
+        transitionEffect?: unknown;
       } | undefined;
       if (!p) {
         return null;
@@ -162,6 +164,7 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
       const out: {
         themeId?: import("@promedia/shared").ThemeId;
         themeOverrides?: import("@promedia/shared").ThemeOverrides | null;
+        transitionEffect?: import("@promedia/shared").TransitionEffect;
       } = {};
       if (p.themeId !== undefined) {
         if (!isThemeId(p.themeId)) {
@@ -182,7 +185,17 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
           }
         }
       }
-      if (out.themeId === undefined && out.themeOverrides === undefined) {
+      if (p.transitionEffect !== undefined) {
+        if (!isTransitionEffect(p.transitionEffect)) {
+          return null;
+        }
+        out.transitionEffect = p.transitionEffect;
+      }
+      if (
+        out.themeId === undefined &&
+        out.themeOverrides === undefined &&
+        out.transitionEffect === undefined
+      ) {
         return null;
       }
       return { type: "live.setTheme", payload: out };

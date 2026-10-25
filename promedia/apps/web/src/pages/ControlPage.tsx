@@ -13,9 +13,14 @@ import type {
   SceneMode,
   TextPayload,
   ThemeId,
+  TransitionEffect,
   VideoPayload,
 } from "@promedia/shared";
-import { DEFAULT_THEME_ID, itemHasSlides } from "@promedia/shared";
+import {
+  DEFAULT_THEME_ID,
+  DEFAULT_TRANSITION_EFFECT,
+  itemHasSlides,
+} from "@promedia/shared";
 import { AboutDialog } from "../components/AboutDialog";
 import { BibleDialog } from "../components/BibleDialog";
 import { ControlAdBanner } from "../components/ControlAdBanner";
@@ -128,6 +133,8 @@ export function ControlPage() {
   const themeId: ThemeId =
     session.snapshot?.live.themeId ?? DEFAULT_THEME_ID;
   const themeOverrides = session.snapshot?.live.themeOverrides ?? null;
+  const transitionEffect: TransitionEffect =
+    session.snapshot?.live.transitionEffect ?? DEFAULT_TRANSITION_EFFECT;
   const themeStyle = themeSurfaceStyle(themeId, themeOverrides);
 
   const toggleSceneMode = (mode: SceneMode) => {
@@ -840,6 +847,7 @@ export function ControlPage() {
             sceneMode={sceneMode}
             themeId={themeId}
             themeOverrides={themeOverrides}
+            transitionEffect={transitionEffect}
             onProject={onStartProjection}
             onSceneNormal={() => session.setSceneMode("normal")}
             onToggleScene={(mode) => toggleSceneMode(mode)}
