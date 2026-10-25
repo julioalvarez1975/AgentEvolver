@@ -194,6 +194,7 @@
   "control.notificationsEmpty": "No messages yet — WS, projection, and errors appear here.",
   "control.liveClock": "Live clock",
   "control.timeRemaining": "Remaining",
+  "control.timeTotal": "Total",
   "video.play": "Play",
   "video.pause": "Pause",
   "video.skipBack": "Back 10 s",

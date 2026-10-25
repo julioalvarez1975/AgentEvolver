@@ -10,6 +10,7 @@ import {
   VideoTransportBar,
   formatMediaMs,
 } from "./VideoTransportBar.js";
+import { VideoStageTimeOverlay } from "./VideoStageTimeOverlay.js";
 import { YouTubeThumb } from "./YouTubeThumb.js";
 
 export type VideoLivePanelProps = {
@@ -75,6 +76,8 @@ export function VideoLivePanel({
     setScrubMs(clamped);
   };
 
+  const displayMs = scrubbing ? scrubMs : pos;
+
   return (
     <div className="video-live-panel">
       <div className="video-stage">
@@ -101,6 +104,10 @@ export function VideoLivePanel({
             caption="YouTube en Output — aquí solo miniatura + transporte (evita doble embed)."
           />
         )}
+        <VideoStageTimeOverlay
+          positionMs={displayMs}
+          durationMs={durationMs}
+        />
       </div>
       <VideoTransportBar
         playing={playing}
@@ -122,17 +129,17 @@ export function VideoLivePanel({
         }}
         remainingLabel={
           durationMs > 0
-            ? `−${formatMediaMs(Math.max(0, durationMs - (scrubbing ? scrubMs : pos)))}`
+            ? `−${formatMediaMs(Math.max(0, durationMs - displayMs))}`
             : "−−:−−"
         }
         onTogglePlay={() =>
           onMediaClockSet?.({
             playing: !playing,
-            positionMs: scrubbing ? scrubMs : pos,
+            positionMs: displayMs,
           })
         }
         onSkip={(delta) => {
-          seekTo((scrubbing ? scrubMs : pos) + delta);
+          seekTo(displayMs + delta);
         }}
         onSeekTo={seekTo}
         onScrubStart={() => {

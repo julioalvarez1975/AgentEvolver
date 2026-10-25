@@ -194,6 +194,7 @@
   "control.notificationsEmpty": "Aucun message — WS, projection et erreurs apparaissent ici.",
   "control.liveClock": "Horloge en direct",
   "control.timeRemaining": "Restant",
+  "control.timeTotal": "Total",
   "video.play": "Lecture",
   "video.pause": "Pause",
   "video.skipBack": "Reculer 10 s",

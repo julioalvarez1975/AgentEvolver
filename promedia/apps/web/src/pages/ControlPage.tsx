@@ -20,12 +20,7 @@ import { AboutDialog } from "../components/AboutDialog";
 import { BibleDialog } from "../components/BibleDialog";
 import { ControlAdBanner } from "../components/ControlAdBanner";
 import { ControlHeaderToolbar } from "../components/ControlHeaderToolbar";
-import {
-  ControlNotifications,
-  type ProMediaNotice,
-} from "../components/ControlNotifications";
 import { LinkAddDialog } from "../components/LinkAddDialog";
-import { LiveClockStrip } from "../components/LiveClockStrip";
 import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { SchedulePanel } from "../components/SchedulePanel";
 import { StatusTip } from "../components/StatusTip";
@@ -75,12 +70,11 @@ function assetSrcFor(
 
 /** Product Control — text + image + video playlist (subtarea 6). */
 export function ControlPage() {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const session = useSessionConnection("control");
   const [joinCode, setJoinCode] = useState("");
   const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null);
   const [projectionBusy, setProjectionBusy] = useState(false);
-  const [projectionNote, setProjectionNote] = useState<string | null>(null);
   const autoSessionStarted = useRef(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   /** Multi-select for bulk remove (checkboxes); separate from preview selection. */
@@ -92,10 +86,10 @@ export function ControlPage() {
   const [bibleDialogOpen, setBibleDialogOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
-  const [uploadHint, setUploadHint] = useState<string | null>(null);
+  /** Soft hints retained for setters (upload / playlist); message log panel removed. */
+  const [, setUploadHint] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
-  const [notices, setNotices] = useState<ProMediaNotice[]>([]);
   /** Remember video durations (preview metadata) for remaining-time / scrub max. */
   const [durationByItemId, setDurationByItemId] = useState<
     Record<string, number>
@@ -103,27 +97,6 @@ export function ControlPage() {
   const unifiedInputRef = useRef<HTMLInputElement>(null);
   /** Track item count for sequential multi-file order without stale closure. */
   const itemsLenRef = useRef(0);
-  const noticeSeqRef = useRef(0);
-  const lastWsStatusRef = useRef<string | null>(null);
-
-  const pushNotice = (
-    tone: ProMediaNotice["tone"],
-    text: string,
-  ) => {
-    const trimmed = text.trim();
-    if (!trimmed) {
-      return;
-    }
-    noticeSeqRef.current += 1;
-    const id = `n-${noticeSeqRef.current}`;
-    setNotices((prev) => {
-      const next = [
-        { id, at: Date.now(), tone, text: trimmed },
-        ...prev,
-      ];
-      return next.slice(0, 80);
-    });
-  };
 
   const rememberDuration = (itemId: string | null, ms: number) => {
     if (!itemId || !(ms > 0)) {
@@ -166,59 +139,6 @@ export function ControlPage() {
   };
 
   const wsReady = session.wsStatus === "open";
-
-  // ProMedia notifications: WS / hub / projection / upload hints.
-  useEffect(() => {
-    const prev = lastWsStatusRef.current;
-    const cur = session.hubUnreachable
-      ? "hub-down"
-      : session.wsStatus;
-    if (prev === cur) {
-      return;
-    }
-    lastWsStatusRef.current = cur;
-    if (cur === "hub-down") {
-      pushNotice("error", t("control.hubUnreachable"));
-    } else if (cur === "open") {
-      pushNotice("ok", t("control.wsConnected"));
-    } else if (cur === "connecting") {
-      pushNotice("info", t("control.wsConnecting"));
-    } else if (cur === "closed" || cur === "error") {
-      pushNotice("warn", t("control.wsDisconnected"));
-    }
-  }, [
-    session.wsStatus,
-    session.hubUnreachable,
-    t,
-  ]);
-
-  useEffect(() => {
-    if (projectionNote) {
-      pushNotice("info", projectionNote);
-    }
-  }, [projectionNote]);
-
-  useEffect(() => {
-    if (uploadHint) {
-      pushNotice("warn", uploadHint);
-    }
-  }, [uploadHint]);
-
-  useEffect(() => {
-    if (popupBlockedUrl) {
-      pushNotice("warn", t("control.popupBlocked"));
-    }
-  }, [popupBlockedUrl, t]);
-
-  useEffect(() => {
-    if (
-      session.error &&
-      !session.hubUnreachable &&
-      !session.error.startsWith("HUB_UNREACHABLE")
-    ) {
-      pushNotice("error", session.error);
-    }
-  }, [session.error, session.hubUnreachable]);
   const sessionReady = session.hasSession;
   /** Playlist chrome needs a session; mutations need WS (auto-reconnects if down). */
   const canMutate = sessionReady && wsReady;
@@ -309,12 +229,10 @@ export function ControlPage() {
    */
   const onStartProjection = () => {
     if (session.hubUnreachable) {
-      setProjectionNote(t("control.hubUnreachable"));
       void session.checkHubHealth();
       return;
     }
     setProjectionBusy(true);
-    setProjectionNote(null);
     void (async () => {
       try {
         const result = await startProjection({
@@ -340,17 +258,11 @@ export function ControlPage() {
         });
         if (result.popupBlocked) {
           setPopupBlockedUrl(result.url);
-          setProjectionNote(t("control.popupBlocked"));
           return;
         }
         setPopupBlockedUrl(null);
-        if (result.placement?.onSecondary) {
-          setProjectionNote(t("control.projectionOnSecondary"));
-        } else {
-          setProjectionNote(t("control.projectionOpened"));
-        }
-      } catch (err) {
-        setProjectionNote(String(err));
+      } catch {
+        // Footer / banner cover hub errors; no message panel.
       } finally {
         setProjectionBusy(false);
       }
@@ -901,16 +813,6 @@ export function ControlPage() {
 
   const liveDurationMs =
     (liveItemId && durationByItemId[liveItemId]) || 0;
-  const localeTag =
-    locale === "zh-CN"
-      ? "zh-CN"
-      : locale === "en"
-        ? "en-US"
-        : locale === "pt"
-          ? "pt-BR"
-          : locale === "fr"
-            ? "fr-FR"
-            : "es-ES";
 
   return (
     <div className="control-shell">
@@ -1235,11 +1137,6 @@ export function ControlPage() {
             className="zone zone-live zone-live-sidebar"
             aria-label={t("control.live")}
           >
-            <LiveClockStrip
-              mediaClock={liveItem?.type === "video" ? mediaClock : null}
-              durationMs={liveDurationMs}
-              localeTag={localeTag}
-            />
             <div className="zone-body zone-stage pm-theme" style={themeStyle}>
               <span className="stage-overlay-label" aria-hidden="true">
                 {t("control.live")}
@@ -1283,7 +1180,7 @@ export function ControlPage() {
           </section>
         </div>
 
-        {/* Right column: maximized Vista previa + ProMedia notifications. */}
+        {/* Right column: maximized Vista previa. */}
         <div className="control-stages control-stages-preview-only">
           <section
             className="zone zone-preview"
@@ -1386,7 +1283,6 @@ export function ControlPage() {
               )}
             </div>
           </section>
-          <ControlNotifications notices={notices} />
         </div>
       </div>
 

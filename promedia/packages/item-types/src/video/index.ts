@@ -16,4 +16,8 @@ export {
   YouTubePlayer,
   type YouTubePlayerHandle,
 } from "./YouTubePlayer.js";
+export {
+  VideoStageTimeOverlay,
+  type VideoStageTimeOverlayProps,
+} from "./VideoStageTimeOverlay.js";
 export { MEDIA_CLOCK_DRIFT_MS, shouldCorrectSeek } from "./clock.js";

@@ -194,6 +194,7 @@
   "control.notificationsEmpty": "暂无消息 — 连接、投影与错误会显示在此。",
   "control.liveClock": "实时时钟",
   "control.timeRemaining": "剩余",
+  "control.timeTotal": "总时长",
   "video.play": "播放",
   "video.pause": "暂停",
   "video.skipBack": "后退 10 秒",

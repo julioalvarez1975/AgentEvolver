@@ -19,6 +19,8 @@ export type ThemePanelProps = {
   compact?: boolean;
   /** Single toolbar row: presets as icon+label + essential picks. */
   toolbar?: boolean;
+  /** When true, omit the inline TEMA label (parent zone already shows it). */
+  hideTitle?: boolean;
   onChange: (patch: {
     themeId?: ThemeId;
     themeOverrides?: ThemeOverrides | null;
@@ -49,6 +51,7 @@ export function ThemePanel({
   disabled,
   compact,
   toolbar,
+  hideTitle,
   onChange,
 }: ThemePanelProps) {
   const { t } = useLocale();
@@ -234,9 +237,11 @@ export function ThemePanel({
   if (toolbar) {
     return (
       <div className="theme-panel theme-panel-toolbar">
-        <span className="toolbar-theme-title" aria-hidden>
-          {t("theme.title")}
-        </span>
+        {!hideTitle ? (
+          <span className="toolbar-theme-title" aria-hidden>
+            {t("theme.title")}
+          </span>
+        ) : null}
         {presets}
         {editor}
       </div>
