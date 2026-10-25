@@ -1,9 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 import { getItemType } from "@promedia/item-types";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
-import type { SceneMode, ThemeId } from "@promedia/shared";
-import { DEFAULT_THEME_ID } from "@promedia/shared";
+import type { SceneMode, ThemeId, TransitionEffect } from "@promedia/shared";
+import {
+  DEFAULT_THEME_ID,
+  DEFAULT_TRANSITION_EFFECT,
+  TRANSITION_DURATION_MS,
+} from "@promedia/shared";
 import { SceneOverlay } from "../components/SceneOverlay";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import { buildAssetUrl } from "../lib/assets";
@@ -53,10 +63,20 @@ export function OutputPage() {
   const sceneMode: SceneMode = snapshot?.live.sceneMode ?? "normal";
   const themeId: ThemeId = snapshot?.live.themeId ?? DEFAULT_THEME_ID;
   const themeOverrides = snapshot?.live.themeOverrides ?? null;
+  const transitionEffect: TransitionEffect =
+    snapshot?.live.transitionEffect ?? DEFAULT_TRANSITION_EFFECT;
   const themeStyle = themeSurfaceStyle(themeId, themeOverrides);
+  const liveItemKey = liveItem?.id ?? "__empty__";
   const OutputRenderer = liveItem
     ? getItemType(liveItem.type)?.OutputRenderer
     : undefined;
+
+  // Remount item layer on live item change so CSS enter transition can run.
+  // Single layer only — keeps YouTube to one iframe (no dual-embed).
+  const txClass =
+    transitionEffect !== "none"
+      ? ` pm-tx pm-tx-${transitionEffect}`
+      : "";
 
   const assetSrc = (() => {
     if (!liveItem || !sessionId || !wsTicket) {
@@ -194,18 +214,40 @@ export function OutputPage() {
             {/* Keep item mounted under overlays so video clock/audio continue (Q1). */}
             {liveItem && OutputRenderer ? (
               <div
-                className="output-item-layer"
+                key={liveItemKey}
+                className={`output-item-layer${txClass}`}
+                style={
+                  {
+                    "--pm-tx-ms": `${TRANSITION_DURATION_MS}ms`,
+                  } as CSSProperties
+                }
                 aria-hidden={sceneMode !== "normal"}
               >
-                <OutputRenderer
-                  item={liveItem}
-                  slideIndex={liveSlideIndex}
-                  assetSrc={assetSrc}
-                  mediaClock={mediaClock}
-                />
+                <div className="output-item-transition-inner">
+                  <OutputRenderer
+                    item={liveItem}
+                    slideIndex={liveSlideIndex}
+                    assetSrc={assetSrc}
+                    mediaClock={mediaClock}
+                  />
+                </div>
               </div>
             ) : sceneMode === "normal" ? (
-              <p className="output-waiting">{t(locale, "output.waiting")}</p>
+              <div
+                key={liveItemKey}
+                className={`output-item-layer${txClass}`}
+                style={
+                  {
+                    "--pm-tx-ms": `${TRANSITION_DURATION_MS}ms`,
+                  } as CSSProperties
+                }
+              >
+                <div className="output-item-transition-inner">
+                  <p className="output-waiting">
+                    {t(locale, "output.waiting")}
+                  </p>
+                </div>
+              </div>
             ) : null}
             <SceneOverlay mode={sceneMode} />
           </>

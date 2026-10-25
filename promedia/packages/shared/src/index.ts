@@ -169,24 +169,32 @@ export type {
   ThemeId,
   ThemeOverrides,
   ThemePreset,
+  TransitionEffect,
 } from "./themes.js";
 export {
   DEFAULT_THEME_ID,
+  DEFAULT_TRANSITION_EFFECT,
   THEME_IDS,
   THEME_PRESETS,
+  TRANSITION_DURATION_MS,
+  TRANSITION_EFFECTS,
   fontFamilyCss,
   fontSizeCss,
   getThemePreset,
   isThemeFontFamily,
   isThemeFontSize,
   isThemeId,
+  isTransitionEffect,
   normalizeThemeOverrides,
   resolveTheme,
   themeToCssVars,
 } from "./themes.js";
 
-import type { ThemeId, ThemeOverrides } from "./themes.js";
-import { DEFAULT_THEME_ID } from "./themes.js";
+import type { ThemeId, ThemeOverrides, TransitionEffect } from "./themes.js";
+import {
+  DEFAULT_THEME_ID,
+  DEFAULT_TRANSITION_EFFECT,
+} from "./themes.js";
 
 export type SessionLiveState = {
   currentItemId: string | null;
@@ -195,6 +203,8 @@ export type SessionLiveState = {
   themeId: ThemeId;
   /** Deltas over preset; null = pure preset. */
   themeOverrides: ThemeOverrides | null;
+  /** CSS transition on Output when live item changes. */
+  transitionEffect: TransitionEffect;
   mediaClock: MediaClock | null;
 };
 
@@ -308,6 +318,7 @@ export type LiveSetThemeMessage = {
   payload: {
     themeId?: ThemeId;
     themeOverrides?: ThemeOverrides | null;
+    transitionEffect?: TransitionEffect;
   };
 };
 
@@ -356,7 +367,7 @@ export type JoinSessionResponse = {
   snapshot: SessionSnapshot;
 };
 
-export const SHARED_PACKAGE_VERSION = "0.0.12-mvp" as const;
+export const SHARED_PACKAGE_VERSION = "0.0.13-mvp" as const;
 
 export function emptyLiveState(): SessionLiveState {
   return {
@@ -365,6 +376,7 @@ export function emptyLiveState(): SessionLiveState {
     sceneMode: "normal",
     themeId: DEFAULT_THEME_ID,
     themeOverrides: null,
+    transitionEffect: DEFAULT_TRANSITION_EFFECT,
     mediaClock: null,
   };
 }

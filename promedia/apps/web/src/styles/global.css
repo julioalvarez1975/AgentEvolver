@@ -490,6 +490,10 @@ body {
   padding: 0.15rem 0.2rem;
 }
 
+.theme-editor-toolbar .theme-transition-label select {
+  max-width: 7.5rem;
+}
+
 .theme-toolbar-reset {
   padding: 0.15rem 0.35rem;
   font-size: 0.85rem;
@@ -1360,6 +1364,93 @@ body {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.output-item-transition-inner {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Live item transitions (TEMA → Output). Duration via --pm-tx-ms (0.5s). */
+@property --pm-px {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+.pm-tx-fade {
+  animation: pm-tx-fade var(--pm-tx-ms, 0.5s) ease-out both;
+}
+
+@keyframes pm-tx-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pm-tx-blur {
+  animation: pm-tx-blur var(--pm-tx-ms, 0.5s) ease-out both;
+}
+
+@keyframes pm-tx-blur {
+  from {
+    opacity: 0;
+    filter: blur(28px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.pm-tx-pixelate {
+  overflow: hidden;
+}
+
+.pm-tx-pixelate .output-item-transition-inner {
+  width: calc(100% / var(--pm-px, 1));
+  height: calc(100% / var(--pm-px, 1));
+  transform: scale(var(--pm-px, 1));
+  transform-origin: top left;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  animation: pm-tx-pixelate var(--pm-tx-ms, 0.5s) ease-out both;
+}
+
+@keyframes pm-tx-pixelate {
+  from {
+    --pm-px: 28;
+  }
+  to {
+    --pm-px: 1;
+  }
+}
+
+@supports not (width: calc(100% / var(--pm-px))) {
+  .pm-tx-pixelate .output-item-transition-inner {
+    width: 100%;
+    height: 100%;
+    transform: none;
+    animation: pm-tx-pixelate-fallback var(--pm-tx-ms, 0.5s) steps(6, end) both;
+  }
+
+  @keyframes pm-tx-pixelate-fallback {
+    0% {
+      filter: contrast(1.35) blur(10px);
+      opacity: 0.55;
+      transform: scale(1.04);
+    }
+    100% {
+      filter: none;
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
 }
 
 .scene-overlay {

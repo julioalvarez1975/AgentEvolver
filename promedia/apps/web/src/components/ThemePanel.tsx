@@ -1,11 +1,14 @@
 import {
   DEFAULT_THEME_ID,
+  DEFAULT_TRANSITION_EFFECT,
   THEME_PRESETS,
+  TRANSITION_EFFECTS,
   type ThemeFontFamily,
   type ThemeFontSize,
   type ThemeId,
   type ThemeOverrides,
   type TextAlign,
+  type TransitionEffect,
 } from "@promedia/shared";
 import { useLocale } from "../locale/LocaleContext";
 import { StatusTip } from "./StatusTip";
@@ -14,6 +17,7 @@ import { IconTheme } from "./UiIcons";
 export type ThemePanelProps = {
   themeId: ThemeId;
   themeOverrides: ThemeOverrides | null;
+  transitionEffect?: TransitionEffect;
   disabled?: boolean;
   /** Compact header strip (presets + editor in one dense block). */
   compact?: boolean;
@@ -24,7 +28,15 @@ export type ThemePanelProps = {
   onChange: (patch: {
     themeId?: ThemeId;
     themeOverrides?: ThemeOverrides | null;
+    transitionEffect?: TransitionEffect;
   }) => void;
+};
+
+const TRANSITION_LABEL_KEYS: Record<TransitionEffect, string> = {
+  none: "theme.transitionNone",
+  fade: "theme.transitionFade",
+  blur: "theme.transitionBlur",
+  pixelate: "theme.transitionPixelate",
 };
 
 function merged(
@@ -48,6 +60,7 @@ function merged(
 export function ThemePanel({
   themeId,
   themeOverrides,
+  transitionEffect = DEFAULT_TRANSITION_EFFECT,
   disabled,
   compact,
   toolbar,
@@ -56,12 +69,38 @@ export function ThemePanel({
 }: ThemePanelProps) {
   const { t } = useLocale();
   const values = merged(themeId || DEFAULT_THEME_ID, themeOverrides);
+  const effect = transitionEffect || DEFAULT_TRANSITION_EFFECT;
 
   const patchOverride = (partial: ThemeOverrides) => {
     onChange({
       themeOverrides: { ...(themeOverrides ?? {}), ...partial },
     });
   };
+
+  const transitionSelect = (
+    <label
+      className={toolbar ? "theme-transition-label" : undefined}
+      title={t("theme.transition")}
+    >
+      {!toolbar ? t("theme.transition") : null}
+      <select
+        value={effect}
+        disabled={disabled}
+        aria-label={t("theme.transition")}
+        onChange={(e) =>
+          onChange({
+            transitionEffect: e.target.value as TransitionEffect,
+          })
+        }
+      >
+        {TRANSITION_EFFECTS.map((id) => (
+          <option key={id} value={id}>
+            {t(TRANSITION_LABEL_KEYS[id])}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 
   const presets = (
     <div
@@ -220,6 +259,7 @@ export function ThemePanel({
           </select>
         </label>
       )}
+      {toolbar ? transitionSelect : null}
       {toolbar && themeOverrides ? (
         <button
           type="button"
@@ -252,6 +292,7 @@ export function ThemePanel({
     <div className={compact ? "theme-panel theme-panel-compact" : "theme-panel"}>
       {presets}
       {editor}
+      {transitionSelect}
       {!compact ? (
         <div className="theme-hint-row">
           <StatusTip

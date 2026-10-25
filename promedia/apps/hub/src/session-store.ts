@@ -13,6 +13,7 @@ import type {
   TextPayload,
   ThemeId,
   ThemeOverrides,
+  TransitionEffect,
   VideoPayload,
 } from "@promedia/shared";
 import {
@@ -20,6 +21,7 @@ import {
   emptyPlaylist,
   isSceneMode,
   isThemeId,
+  isTransitionEffect,
   normalizeThemeOverrides,
 } from "@promedia/shared";
 import { validatePlaylistItem } from "@promedia/item-types/validate";
@@ -387,6 +389,7 @@ export class SessionStore {
     patch: {
       themeId?: ThemeId;
       themeOverrides?: ThemeOverrides | null;
+      transitionEffect?: TransitionEffect;
     },
   ): HubMessage | { error: string } {
     if (patch.themeId !== undefined) {
@@ -410,7 +413,17 @@ export class SessionStore {
         session.live.themeOverrides = normalized;
       }
     }
-    if (patch.themeId === undefined && patch.themeOverrides === undefined) {
+    if (patch.transitionEffect !== undefined) {
+      if (!isTransitionEffect(patch.transitionEffect)) {
+        return { error: "invalid_transition_effect" };
+      }
+      session.live.transitionEffect = patch.transitionEffect;
+    }
+    if (
+      patch.themeId === undefined &&
+      patch.themeOverrides === undefined &&
+      patch.transitionEffect === undefined
+    ) {
       return { error: "empty_theme_patch" };
     }
     return this.bumpUpdated(session);

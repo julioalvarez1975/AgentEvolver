@@ -9,6 +9,7 @@ import type {
   TextPayload,
   ThemeId,
   ThemeOverrides,
+  TransitionEffect,
   VideoPayload,
 } from "@promedia/shared";
 import {
@@ -302,6 +303,7 @@ export function useSessionConnection(role: ClientRole) {
     (patch: {
       themeId?: ThemeId;
       themeOverrides?: ThemeOverrides | null;
+      transitionEffect?: TransitionEffect;
     }): boolean => send("live.setTheme", patch),
     [send],
   );
