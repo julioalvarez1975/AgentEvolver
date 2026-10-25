@@ -13,6 +13,8 @@ $ErrorActionPreference = "Continue"
 Set-Location -LiteralPath $PSScriptRoot
 
 $ReadyFile = Join-Path (Get-Location) ".promedia-ready-url"
+$LockFile = Join-Path (Get-Location) ".promedia-dev.lock"
+$OpenedMarker = Join-Path (Get-Location) ".promedia-browser-opened"
 $VitePorts = @(5173, 5174, 5175, 5176, 5177, 5178)
 
 Write-Host "=========================================="
@@ -33,6 +35,7 @@ if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
 }
 
 # Liberar hub (:8787) y Vite (5173–5178) solo si el listener parece node/promedia/tsx/vite.
+# SOLO llamar ANTES de arrancar hijos — nunca desde el opener.
 function Free-ProMediaPort([int]$Port) {
   $pids = @()
   try {
@@ -76,8 +79,119 @@ function Free-ProMediaPort([int]$Port) {
   }
 }
 
+function Test-ProMediaUrl([string]$u) {
+  try {
+    if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+      & curl.exe -sf -o NUL --connect-timeout 1 $u 2>$null
+      if ($LASTEXITCODE -eq 0) { return $true }
+    }
+  } catch {}
+  try {
+    $req = [System.Net.WebRequest]::Create($u)
+    $req.Timeout = 1000
+    $req.Method = 'GET'
+    $resp = $req.GetResponse()
+    $resp.Close()
+    return $true
+  } catch { return $false }
+}
+
+# Opener: solo verifica y abre — NUNCA libera puertos.
+function Open-ControlWhenReady {
+  $maxWait = if ($env:PROMEDIA_OPEN_WAIT_S) { [int]$env:PROMEDIA_OPEN_WAIT_S } else { 90 }
+  $elapsed = 0
+  Remove-Item -LiteralPath $OpenedMarker -Force -ErrorAction SilentlyContinue
+  Write-Host "Cuando hub+web estén listos, se abrirá Control en el navegador…"
+  while ($elapsed -lt $maxWait) {
+    if (Test-Path -LiteralPath $OpenedMarker) { return }
+    if (Test-Path -LiteralPath $ReadyFile) {
+      $url = (Get-Content -LiteralPath $ReadyFile -Raw -ErrorAction SilentlyContinue)
+      if ($url) { $url = $url.Trim() }
+      if ($url -and (Test-ProMediaUrl $url)) {
+        Write-Host ""
+        Write-Host "Abriendo Control → $url"
+        Write-Host "Dejá esta ventana abierta. Para detener: Ctrl+C."
+        New-Item -LiteralPath $OpenedMarker -ItemType File -Force | Out-Null
+        Start-Process $url
+        return
+      }
+    }
+    foreach ($port in $VitePorts) {
+      $probe = "http://127.0.0.1:$port/control"
+      if (Test-ProMediaUrl $probe) {
+        $url = "http://localhost:$port/control"
+        Write-Host ""
+        Write-Host "Abriendo Control → $url"
+        Write-Host "Dejá esta ventana abierta. Para detener: Ctrl+C."
+        New-Item -LiteralPath $OpenedMarker -ItemType File -Force | Out-Null
+        Start-Process $url
+        return
+      }
+    }
+    Start-Sleep -Seconds 1
+    $elapsed++
+  }
+  Write-Host ""
+  Write-Host "AVISO: no se detectó Control a tiempo."
+  Write-Host "Mirás en los logs la línea [dev] ready — Control http://… y abrila."
+  Write-Host "También podés abrir open-control.html (prueba 5173–5178) o ProMedia-Control.url."
+}
+
+function Test-LockAlive {
+  if (-not (Test-Path -LiteralPath $LockFile)) { return $false }
+  $oldPid = (Get-Content -LiteralPath $LockFile -Raw -ErrorAction SilentlyContinue)
+  if (-not $oldPid) { return $false }
+  $oldPid = $oldPid.Trim()
+  if ($oldPid -notmatch '^\d+$') { return $false }
+  try {
+    $p = Get-Process -Id ([int]$oldPid) -ErrorAction Stop
+    return $null -ne $p
+  } catch {
+    return $false
+  }
+}
+
+function Open-ExistingOnly([string]$OldPid) {
+  if ($OldPid) {
+    Write-Host "ProMedia ya está en marcha (PID $OldPid)."
+  } else {
+    Write-Host "ProMedia ya está en marcha."
+  }
+  Write-Host "No se reinicia ni se liberan puertos (evita matar Vite con SIGTERM 143)."
+  Write-Host "Abriendo Control en el navegador…"
+  Open-ControlWhenReady
+  Write-Host ""
+  Read-Host "Pulsá Enter para cerrar esta ventana (la otra sigue con ProMedia)"
+  exit 0
+}
+
+# Segunda instancia: NO liberar puertos (evita SIGTERM 143 en Vite).
+if (Test-LockAlive) {
+  $oldPid = (Get-Content -LiteralPath $LockFile -Raw).Trim()
+  Open-ExistingOnly $oldPid
+}
+if (Test-Path -LiteralPath $LockFile) {
+  Remove-Item -LiteralPath $LockFile -Force -ErrorAction SilentlyContinue
+}
+
 # URL vieja de un arranque anterior — no abrir hasta que este run la reescriba.
 Remove-Item -LiteralPath $ReadyFile -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $OpenedMarker -Force -ErrorAction SilentlyContinue
+
+# Claim lock BEFORE freeing ports (fail if another starter won the race).
+try {
+  $fs = [System.IO.File]::Open($LockFile, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+  $bytes = [System.Text.Encoding]::ASCII.GetBytes("$PID`n")
+  $fs.Write($bytes, 0, $bytes.Length)
+  $fs.Close()
+} catch {
+  $oldPid = ""
+  if (Test-Path -LiteralPath $LockFile) {
+    $oldPid = (Get-Content -LiteralPath $LockFile -Raw -ErrorAction SilentlyContinue)
+    if ($oldPid) { $oldPid = $oldPid.Trim() }
+  }
+  Open-ExistingOnly $oldPid
+}
 
 Free-ProMediaPort 8787
 foreach ($p in $VitePorts) { Free-ProMediaPort $p }
@@ -88,6 +202,7 @@ if (-not (Test-Path "node_modules") -or -not (Test-Path $modulesYaml)) {
   Write-Host "Instalando dependencias (pnpm install)…"
   & pnpm install
   if ($LASTEXITCODE -ne 0) {
+    Remove-Item -LiteralPath $LockFile -Force -ErrorAction SilentlyContinue
     Write-Host ""
     Write-Host "ERROR: pnpm install falló."
     Read-Host "Pulsá Enter para cerrar"
@@ -96,13 +211,15 @@ if (-not (Test-Path "node_modules") -or -not (Test-Path $modulesYaml)) {
   Write-Host ""
 }
 
-# Opener en proceso aparte (equivalente al & de bash en start-mac.command).
+# Opener en proceso aparte (equivalente al & de bash).
 $waitS = if ($env:PROMEDIA_OPEN_WAIT_S) { $env:PROMEDIA_OPEN_WAIT_S } else { "90" }
 $readyPathEsc = $ReadyFile.Replace("'", "''")
+$openedPathEsc = $OpenedMarker.Replace("'", "''")
 $openerScript = @"
 `$maxWait = $waitS
 `$elapsed = 0
 `$readyFile = '$readyPathEsc'
+`$openedMarker = '$openedPathEsc'
 `$ports = @(5173, 5174, 5175, 5176, 5177, 5178)
 function Test-Url(`$u) {
   try {
@@ -120,7 +237,9 @@ function Test-Url(`$u) {
     return `$true
   } catch { return `$false }
 }
+Remove-Item -LiteralPath `$openedMarker -Force -ErrorAction SilentlyContinue
 while (`$elapsed -lt `$maxWait) {
+  if (Test-Path -LiteralPath `$openedMarker) { exit 0 }
   if (Test-Path -LiteralPath `$readyFile) {
     `$url = (Get-Content -LiteralPath `$readyFile -Raw -ErrorAction SilentlyContinue)
     if (`$url) { `$url = `$url.Trim() }
@@ -128,18 +247,19 @@ while (`$elapsed -lt `$maxWait) {
       Write-Host ""
       Write-Host "Abriendo Control → `$url"
       Write-Host "Dejá esta ventana abierta. Para detener: Ctrl+C."
+      New-Item -LiteralPath `$openedMarker -ItemType File -Force | Out-Null
       Start-Process `$url
       exit 0
     }
   }
   foreach (`$port in `$ports) {
-    # Esperar /control (no "/"): HomePage se ve como app "vieja" mínima.
     `$probe = "http://127.0.0.1:`$port/control"
     if (Test-Url `$probe) {
       `$url = "http://localhost:`$port/control"
       Write-Host ""
       Write-Host "Abriendo Control → `$url"
       Write-Host "Dejá esta ventana abierta. Para detener: Ctrl+C."
+      New-Item -LiteralPath `$openedMarker -ItemType File -Force | Out-Null
       Start-Process `$url
       exit 0
     }
@@ -165,6 +285,11 @@ function Stop-Opener {
   }
 }
 
+function Clear-Lock {
+  Remove-Item -LiteralPath $LockFile -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath $OpenedMarker -Force -ErrorAction SilentlyContinue
+}
+
 try {
   Write-Host "Arrancando hub + web (pnpm dev)…"
   Write-Host "Esperá la línea [dev] ready — ahí está la URL REAL de Control (puede no ser :5173)."
@@ -176,6 +301,7 @@ try {
   $devExit = $LASTEXITCODE
 } finally {
   Stop-Opener
+  Clear-Lock
 }
 
 if ($devExit -ne 0) {
@@ -189,6 +315,11 @@ if ($devExit -ne 0) {
   Write-Host "  netstat -ano -p tcp | findstr :5173"
   Write-Host "  taskkill /PID <PID> /F"
   Write-Host "Luego volvé a abrir start-windows.bat (o Abrir-ProMedia.bat)."
+  Write-Host ""
+  Write-Host "Workaround (dos Terminales):"
+  Write-Host "  Terminal A: cd …\promedia && pnpm dev:hub"
+  Write-Host "  Terminal B: cd …\promedia && pnpm dev:web"
+  Write-Host "  Luego abrí http://localhost:5173/control"
   Read-Host "Pulsá Enter para cerrar"
   exit 1
 }
