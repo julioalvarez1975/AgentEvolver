@@ -74,8 +74,8 @@ function ToolbarBtn({
 }
 
 /**
- * Header toolbar: left commands (Proyectar · idioma · Acerca de) + TEMA zone
- * (escenas + presets + pickers). Icon above / label below — uniform look.
+ * Control tools strip (below title-only header): Proyectar · idioma · Acerca de
+ * + TEMA zone (escenas + presets + pickers + transitions). Icon above / label below.
  */
 export function ControlHeaderToolbar({
   projectionBusy,

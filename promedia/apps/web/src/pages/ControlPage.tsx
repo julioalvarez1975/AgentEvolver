@@ -823,91 +823,99 @@ export function ControlPage() {
 
   return (
     <div className="control-shell">
-      <header className="control-header">
-        <div className="control-brand">
-          <img
-            className="control-brand-logo"
-            src="/logo-mark.svg"
-            alt=""
-            width={40}
-            height={40}
-            decoding="async"
-          />
-          <h1 className="control-brand-title">
-            {t("control.headerTitle")}
-          </h1>
-        </div>
+      <div className="control-chrome">
+        {/* Row 1: brand + title only — tools never share this bar. */}
+        <header className="control-header">
+          <div className="control-brand">
+            <img
+              className="control-brand-logo"
+              src="/logo-mark.svg"
+              alt=""
+              width={40}
+              height={40}
+              decoding="async"
+            />
+            <h1 className="control-brand-title">
+              {t("control.headerTitle")}
+            </h1>
+          </div>
+        </header>
 
-        <div className="control-header-cluster">
-          <ControlHeaderToolbar
-            projectionBusy={projectionBusy}
-            hubUnreachable={session.hubUnreachable}
-            canMutate={canMutate}
-            hasSession={session.hasSession}
-            sceneMode={sceneMode}
-            themeId={themeId}
-            themeOverrides={themeOverrides}
-            transitionEffect={transitionEffect}
-            onProject={onStartProjection}
-            onSceneNormal={() => session.setSceneMode("normal")}
-            onToggleScene={(mode) => toggleSceneMode(mode)}
-            onThemeChange={(patch) => session.setTheme(patch)}
-            onAbout={() => setAboutOpen(true)}
-            sessionFallback={
-              <>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => {
-                    void session
-                      .create()
-                      .then((res) => {
-                        persistSession(res.code, res.accessToken);
-                      })
-                      .catch(() => undefined);
-                  }}
-                >
-                  {t("control.createSession")}
-                </button>
-                <label className="field-inline">
-                  <span className="sr-only">{t("control.code")}</span>
-                  <input
-                    value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    placeholder={t("control.joinPlaceholder")}
-                    maxLength={8}
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="btn"
-                  disabled={!joinCode.trim()}
-                  onClick={() => {
-                    void session
-                      .join({ code: joinCode.trim() })
-                      .then((res) => {
-                        persistSession(res.code);
-                      })
-                      .catch(() => undefined);
-                  }}
-                >
-                  {t("control.joinSession")}
-                </button>
-              </>
-            }
-          />
-        </div>
+        {/* Row 2: Proyectar / idioma / Acerca de / TEMA / GAM */}
+        <div className="control-toolbar-strip">
+          <div className="control-header-cluster">
+            <ControlHeaderToolbar
+              projectionBusy={projectionBusy}
+              hubUnreachable={session.hubUnreachable}
+              canMutate={canMutate}
+              hasSession={session.hasSession}
+              sceneMode={sceneMode}
+              themeId={themeId}
+              themeOverrides={themeOverrides}
+              transitionEffect={transitionEffect}
+              onProject={onStartProjection}
+              onSceneNormal={() => session.setSceneMode("normal")}
+              onToggleScene={(mode) => toggleSceneMode(mode)}
+              onThemeChange={(patch) => session.setTheme(patch)}
+              onAbout={() => setAboutOpen(true)}
+              sessionFallback={
+                <>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => {
+                      void session
+                        .create()
+                        .then((res) => {
+                          persistSession(res.code, res.accessToken);
+                        })
+                        .catch(() => undefined);
+                    }}
+                  >
+                    {t("control.createSession")}
+                  </button>
+                  <label className="field-inline">
+                    <span className="sr-only">{t("control.code")}</span>
+                    <input
+                      value={joinCode}
+                      onChange={(e) =>
+                        setJoinCode(e.target.value.toUpperCase())
+                      }
+                      placeholder={t("control.joinPlaceholder")}
+                      maxLength={8}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={!joinCode.trim()}
+                    onClick={() => {
+                      void session
+                        .join({ code: joinCode.trim() })
+                        .then((res) => {
+                          persistSession(res.code);
+                        })
+                        .catch(() => undefined);
+                    }}
+                  >
+                    {t("control.joinSession")}
+                  </button>
+                </>
+              }
+            />
+          </div>
 
-        <div className="control-header-end">
-          <div
-            className="control-header-sep"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={t("control.headerSeparator")}
-          />
-          <ControlAdBanner />
+          <div className="control-header-end">
+            <div
+              className="control-header-sep"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={t("control.headerSeparator")}
+            />
+            <ControlAdBanner />
+          </div>
         </div>
-      </header>
+      </div>
 
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
 
