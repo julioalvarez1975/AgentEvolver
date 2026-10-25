@@ -131,8 +131,9 @@ body {
   display: flex;
   flex-wrap: nowrap;
   align-items: stretch;
-  gap: 0.45rem 0.65rem;
-  padding: 0.35rem 0.65rem;
+  /* Clear horizontal gap so brand title never sits against the toolbar. */
+  gap: 0.5rem 1rem;
+  padding: 0.35rem 0.75rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elev);
   /* Keep banner below dialogs / menus; never cover Guion / Preview / Live.
@@ -146,10 +147,13 @@ body {
 
 .control-brand {
   display: flex;
-  flex-shrink: 0;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 0.4rem;
-  max-width: min(11.5rem, 18vw);
+  gap: 0.45rem;
+  /* Sized to logo + title; never crush under the toolbar cluster. */
+  max-width: none;
+  margin-inline-end: 0.15rem;
+  min-width: 0;
 }
 
 .control-header-sep {
@@ -188,6 +192,10 @@ body {
   line-height: 1.2;
   white-space: nowrap;
   color: var(--fg);
+  /* If space is extreme, ellipsis — never paint over the toolbar. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(14rem, 42vw);
 }
 
 .control-brand-name {
@@ -272,18 +280,19 @@ body {
   max-height: 90px !important;
 }
 
-/* Left toolbar cluster — single row, icon above / label below. */
+/* Left toolbar cluster — fills space between brand and GAM; scrolls if tight. */
 .control-header-cluster {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
   gap: 0.25rem;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
-  max-width: calc(50% - 0.5rem);
+  max-width: none;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
 }
 
 .control-header-toolbar {
@@ -292,6 +301,7 @@ body {
   align-items: stretch;
   gap: 0.35rem 0.55rem;
   min-width: 0;
+  width: max-content;
 }
 
 .toolbar-commands,
@@ -514,10 +524,10 @@ body {
   flex-wrap: nowrap;
   align-items: center;
   gap: 0.45rem 0.55rem;
-  margin-left: auto;
-  flex: 1 1 50%;
+  margin-left: 0;
+  flex: 0 0 50%;
   min-width: 0;
-  max-width: 52%;
+  max-width: 50%;
   justify-content: flex-end;
 }
 
@@ -532,15 +542,50 @@ body {
   text-transform: uppercase;
 }
 
+/* ~1280px: slightly tighter toolbar; brand + gap preserved; cluster scrolls. */
+@media (max-width: 1280px) {
+  .control-header {
+    gap: 0.45rem 0.85rem;
+  }
+
+  .control-brand-title {
+    max-width: min(13rem, 34vw);
+  }
+
+  .control-header-end {
+    flex-basis: 48%;
+    max-width: 48%;
+  }
+
+  .toolbar-icon-btn {
+    min-width: 2.45rem;
+    max-width: 3.2rem;
+    padding: 0.18rem 0.12rem 0.14rem;
+  }
+
+  .toolbar-lang {
+    min-width: 2.8rem;
+    max-width: 3.5rem;
+  }
+}
+
+/* ~1024px and below: toolbar wraps under brand; GAM full-width below. */
 @media (max-width: 1100px) {
   .control-header {
     flex-wrap: wrap;
     min-height: 0;
     align-items: flex-start;
+    gap: 0.55rem 0.75rem;
   }
 
   .control-brand {
-    max-width: 100%;
+    flex: 0 0 auto;
+    max-width: calc(100% - 0.5rem);
+    margin-inline-end: 0;
+  }
+
+  .control-brand-title {
+    max-width: min(16rem, 70vw);
   }
 
   .control-header-cluster,
@@ -551,8 +596,22 @@ body {
   }
 
   .control-header-cluster {
+    flex: 1 1 100%;
+    width: 100%;
     max-width: 100%;
     overflow-x: auto;
+  }
+
+  .control-header-toolbar {
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: none;
+    row-gap: 0.35rem;
+  }
+
+  .toolbar-commands,
+  .toolbar-tema-zone {
+    flex-wrap: wrap;
   }
 
   .control-header-end {
@@ -577,6 +636,47 @@ body {
 
   .control-ad-gpt {
     max-height: 50px;
+  }
+}
+
+/* Mobile-ish: compact icon buttons; toolbar scrolls if still tight. */
+@media (max-width: 720px) {
+  .control-header {
+    padding: 0.3rem 0.5rem;
+    gap: 0.4rem;
+  }
+
+  .control-brand-logo {
+    height: 2rem;
+    width: 2rem;
+  }
+
+  .control-brand-title {
+    font-size: 0.95rem;
+    max-width: min(12rem, 68vw);
+  }
+
+  .control-header-toolbar {
+    flex-wrap: nowrap;
+    width: max-content;
+  }
+
+  .toolbar-commands,
+  .toolbar-tema-zone {
+    flex-wrap: nowrap;
+  }
+
+  .toolbar-icon-btn {
+    min-width: 2.25rem;
+    max-width: 2.9rem;
+  }
+
+  .toolbar-icon-btn-label {
+    font-size: 0.52rem;
+  }
+
+  .toolbar-theme-title {
+    font-size: 0.5rem;
   }
 }
 
