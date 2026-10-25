@@ -14,6 +14,7 @@ import {
   VideoTransportBar,
   formatMediaMs,
 } from "./VideoTransportBar.js";
+import { VideoStageTimeOverlay } from "./VideoStageTimeOverlay.js";
 
 export type VideoPreviewProps = {
   item: PlaylistItem;
@@ -251,6 +252,10 @@ function LiveSyncedFilePreview({
           muted={muted}
           autoPlay={false}
         />
+        <VideoStageTimeOverlay
+          positionMs={transport.scrubbing ? transport.scrubMs : transport.pos}
+          durationMs={durationMs}
+        />
       </div>
       <MediaClockTransportBar
         transport={transport}
@@ -282,7 +287,19 @@ function LiveSyncedYouTubePreview({
 
   return (
     <div className="video-preview-scrub">
-      <YouTubeThumb videoId={videoId} title={title} />
+      <div className="video-file-wrap">
+        <YouTubeThumb
+          videoId={videoId}
+          title={title}
+          className="video-yt-thumb-fill"
+        />
+        <VideoStageTimeOverlay
+          positionMs={
+            transport.scrubbing ? transport.scrubMs : transport.pos
+          }
+          durationMs={durationMsHint}
+        />
+      </div>
       <p className="preview-toolbar-note preview-toolbar-note-inline">
         YouTube en Output — aquí solo miniatura + transporte (un solo iframe).
       </p>
@@ -429,6 +446,8 @@ function FilePreviewWithToolbar({
     setPositionMs(clamped);
   };
 
+  const displayMs = scrubbing ? scrubMs : positionMs;
+
   return (
     <div className="video-preview-scrub">
       <div className="video-file-wrap">
@@ -442,6 +461,10 @@ function FilePreviewWithToolbar({
           loop={loop}
           muted={muted}
           autoPlay={false}
+        />
+        <VideoStageTimeOverlay
+          positionMs={displayMs}
+          durationMs={durationMs}
         />
       </div>
       <VideoTransportBar
@@ -464,7 +487,7 @@ function FilePreviewWithToolbar({
           }
         }}
         onSkip={(delta) => {
-          seekTo((scrubbing ? scrubMs : positionMs) + delta);
+          seekTo(displayMs + delta);
         }}
         onSeekTo={seekTo}
         onToggleMute={() => setMuted((m) => !m)}
@@ -552,18 +575,26 @@ function YouTubePreviewWithToolbar({
     setPositionMs(clamped);
   };
 
+  const displayMs = scrubbing ? scrubMs : positionMs;
+
   return (
     <div className="video-preview-scrub">
-      <YouTubePlayer
-        ref={playerRef}
-        videoId={videoId}
-        preview
-        hideNativeControls
-        muted={muted}
-        loop={loop}
-        onReadyChange={setReady}
-        onPlayingChange={setPlaying}
-      />
+      <div className="video-yt-wrap">
+        <YouTubePlayer
+          ref={playerRef}
+          videoId={videoId}
+          preview
+          hideNativeControls
+          muted={muted}
+          loop={loop}
+          onReadyChange={setReady}
+          onPlayingChange={setPlaying}
+        />
+        <VideoStageTimeOverlay
+          positionMs={displayMs}
+          durationMs={durationMs}
+        />
+      </div>
       <VideoTransportBar
         playing={playing}
         muted={muted}
@@ -585,7 +616,7 @@ function YouTubePreviewWithToolbar({
           }
         }}
         onSkip={(delta) => {
-          seekTo((scrubbing ? scrubMs : positionMs) + delta);
+          seekTo(displayMs + delta);
         }}
         onSeekTo={seekTo}
         onToggleMute={() => setMuted((m) => !m)}
