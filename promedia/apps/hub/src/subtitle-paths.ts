@@ -1,19 +1,29 @@
 import path from "node:path";
 import { mkdir } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+
+/**
+ * Monorepo `promedia/` root — same whether the hub is started from repo root
+ * or `apps/hub` via pnpm filter (cwd alone is unreliable).
+ */
+export function promediaRoot(): string {
+  // src|dist → apps/hub → apps → promedia
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+}
 
 /** Gitignored model + cache root under promedia/data/. */
 export function subtitleDataRoot(): string {
-  return (
-    process.env.SUBTITLE_DATA_ROOT?.trim() ||
-    path.join(process.cwd(), "data", "subtitles")
-  );
+  if (process.env.SUBTITLE_DATA_ROOT?.trim()) {
+    return process.env.SUBTITLE_DATA_ROOT.trim();
+  }
+  return path.join(promediaRoot(), "data", "subtitles");
 }
 
 export function subtitleModelsRoot(): string {
-  return (
-    process.env.SUBTITLE_MODELS_ROOT?.trim() ||
-    path.join(process.cwd(), "data", "models")
-  );
+  if (process.env.SUBTITLE_MODELS_ROOT?.trim()) {
+    return process.env.SUBTITLE_MODELS_ROOT.trim();
+  }
+  return path.join(promediaRoot(), "data", "models");
 }
 
 export async function ensureSubtitleDirs(): Promise<{

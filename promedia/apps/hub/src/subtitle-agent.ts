@@ -23,6 +23,25 @@ import { sessionStore } from "./session-store.js";
 /** In-flight jobs keyed by sessionId — cancel by generation bump. */
 const jobGeneration = new Map<string, number>();
 
+/**
+ * Hard YouTube / path failures: do not tight-loop retries on focus/Go Live.
+ * Allow another attempt after backoff or when the user toggles the agent on.
+ */
+const HARD_YT_HINT_PREFIXES = [
+  "youtube_download_failed",
+  "youtube_cache_path_error",
+  "youtube_cache_missing_after_download",
+  "youtube_age_restricted",
+  "youtube_blocked",
+  "youtube_private",
+  "youtube_unavailable",
+  "youtube_invalid",
+  "yt_dlp_spawn_failed",
+] as const;
+
+const YT_HARD_FAIL_BACKOFF_MS = 30_000;
+const ytHardFailUntil = new Map<string, number>();
+
 function bumpJob(sessionId: string): number {
   const next = (jobGeneration.get(sessionId) ?? 0) + 1;
   jobGeneration.set(sessionId, next);
@@ -31,6 +50,31 @@ function bumpJob(sessionId: string): number {
 
 function isCurrent(sessionId: string, gen: number): boolean {
   return jobGeneration.get(sessionId) === gen;
+}
+
+function isHardYoutubeHint(hint: string | null | undefined): boolean {
+  if (!hint) return false;
+  return HARD_YT_HINT_PREFIXES.some(
+    (p) => hint === p || hint.startsWith(`${p}:`) || hint.startsWith(`${p}_`),
+  );
+}
+
+function markYtHardFail(sessionId: string): void {
+  ytHardFailUntil.set(sessionId, Date.now() + YT_HARD_FAIL_BACKOFF_MS);
+}
+
+function clearYtHardFail(sessionId: string): void {
+  ytHardFailUntil.delete(sessionId);
+}
+
+function ytHardFailInBackoff(sessionId: string): boolean {
+  const until = ytHardFailUntil.get(sessionId);
+  if (!until) return false;
+  if (Date.now() >= until) {
+    ytHardFailUntil.delete(sessionId);
+    return false;
+  }
+  return true;
 }
 
 function patchAndBroadcast(
@@ -149,6 +193,14 @@ function isStickyMissingBin(agent: SubtitleAgentState | null | undefined): boole
   );
 }
 
+function isStickyHardYoutube(
+  agent: SubtitleAgentState | null | undefined,
+): boolean {
+  return Boolean(
+    agent && agent.status === "error" && isHardYoutubeHint(agent.hint),
+  );
+}
+
 async function missingBinStillAbsent(hint: string): Promise<boolean> {
   if (hint === "yt_dlp_missing") {
     return !(await ytDlpAvailable());
@@ -179,6 +231,7 @@ export function setSubtitleAgent(
 
   if (!enabled) {
     bumpJob(session.id);
+    clearYtHardFail(session.id);
     session.live.subtitleAgent = {
       ...emptySubtitleAgentState(targetLang),
       enabled: false,
@@ -188,9 +241,13 @@ export function setSubtitleAgent(
     return sessionStore.touchSubtitleAgent(session);
   }
 
-  // Keep missing-binary error visible when focus/lang changes; only clear on
-  // toggle-on (wasOff) so Control can show the install hint instead of retry spam.
-  const keepSticky = stickyMissing && !wasOff;
+  // Keep missing-binary / hard YT error visible when focus/lang changes; only
+  // clear on toggle-on (wasOff) so Control shows the hint instead of retry spam.
+  const stickyHardYt = isStickyHardYoutube(prev);
+  const keepSticky = (stickyMissing || stickyHardYt) && !wasOff;
+  if (wasOff) {
+    clearYtHardFail(session.id);
+  }
 
   session.live.subtitleAgent = {
     ...prev,
@@ -208,7 +265,7 @@ export function setSubtitleAgent(
   const message = sessionStore.touchSubtitleAgent(session);
 
   // Fire-and-forget local job (does not block WS).
-  // force=true only when enabling from off (user toggle) — retries missing bins.
+  // force=true only when enabling from off (user toggle) — retries missing bins / YT.
   void runSubtitleJob(session.id, patch.itemId, { force: wasOff });
 
   return message;
@@ -240,6 +297,15 @@ async function runSubtitleJob(
     (await missingBinStillAbsent(agentPeek.hint))
   ) {
     // Still missing — fail once; wait for toggle-off/on or deps to appear.
+    return;
+  }
+  if (
+    !force &&
+    agentPeek &&
+    isStickyHardYoutube(agentPeek) &&
+    ytHardFailInBackoff(sessionId)
+  ) {
+    // Same hard YT failure — wait for backoff or user toggle-on.
     return;
   }
 
@@ -432,6 +498,9 @@ async function runSubtitleJob(
       console.error(`[subtitle] job failed: ${missingHint}`);
     } else {
       console.error("[subtitle] job failed:", raw);
+    }
+    if (isHardYoutubeHint(hint)) {
+      markYtHardFail(sessionId);
     }
     if (!isCurrent(sessionId, gen)) return;
     const live = sessionStore.get(sessionId);
