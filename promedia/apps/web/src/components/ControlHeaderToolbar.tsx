@@ -2,13 +2,11 @@ import type { ReactNode } from "react";
 import type { Locale } from "@promedia/i18n";
 import type {
   SceneMode,
-  SubtitleTargetLang,
   ThemeBackground,
   ThemeId,
   ThemeOverrides,
   TransitionEffect,
 } from "@promedia/shared";
-import { SUBTITLE_TARGET_LANGS } from "@promedia/shared";
 import { LOCALE_SHORT, useLocale } from "../locale/LocaleContext";
 import {
   ThemePanel,
@@ -56,11 +54,9 @@ export type ControlHeaderToolbarProps = {
   sessionFallback?: ReactNode;
   /** Local AI subtitle agent (Phase 1). */
   subtitleAgentEnabled?: boolean;
-  subtitleTargetLang?: SubtitleTargetLang;
   /** Tooltip when current selection cannot run ASR (YouTube / text-only). */
   subtitleAgentTitle?: string;
   onToggleSubtitleAgent?: () => void;
-  onSubtitleTargetLang?: (lang: SubtitleTargetLang) => void;
 };
 
 function ToolbarBtn({
@@ -70,6 +66,7 @@ function ToolbarBtn({
   label,
   onClick,
   icon,
+  className,
 }: {
   active?: boolean;
   disabled?: boolean;
@@ -77,11 +74,12 @@ function ToolbarBtn({
   label: string;
   onClick: () => void;
   icon: ReactNode;
+  className?: string;
 }) {
   return (
     <button
       type="button"
-      className={`btn toolbar-icon-btn${active ? " active" : ""}`}
+      className={`btn toolbar-icon-btn${active ? " active" : ""}${className ? ` ${className}` : ""}`}
       disabled={disabled}
       title={title}
       aria-label={title}
@@ -122,10 +120,8 @@ export function ControlHeaderToolbar({
   onAbout,
   sessionFallback,
   subtitleAgentEnabled = false,
-  subtitleTargetLang = "es",
   subtitleAgentTitle,
   onToggleSubtitleAgent,
-  onSubtitleTargetLang,
 }: ControlHeaderToolbarProps) {
   const { t, locale, setLocale, locales } = useLocale();
 
@@ -156,7 +152,9 @@ export function ControlHeaderToolbar({
       role="toolbar"
       aria-label={t("control.toolbar")}
     >
+      {/* Primary row peers: Project → Subtitle agent → Language (then Library). */}
       <ToolbarBtn
+        className="toolbar-primary-action"
         disabled={projectionBusy || hubUnreachable}
         title={t("shortcuts.startProjection")}
         label={
@@ -169,14 +167,7 @@ export function ControlHeaderToolbar({
       />
 
       <ToolbarBtn
-        disabled={hubUnreachable}
-        title={t("library.hint")}
-        label={t("library.open")}
-        icon={<IconLibrary />}
-        onClick={onOpenLibrary}
-      />
-
-      <ToolbarBtn
+        className="toolbar-primary-action toolbar-subtitle-agent"
         active={subtitleAgentEnabled}
         disabled={!canMutate || !onToggleSubtitleAgent}
         title={subtitleTitle}
@@ -185,36 +176,10 @@ export function ControlHeaderToolbar({
         onClick={() => onToggleSubtitleAgent?.()}
       />
 
-      {subtitleAgentEnabled ? (
-        <label
-          className="toolbar-lang toolbar-subtitle-lang"
-          title={t("control.subtitleAgentLang")}
-        >
-          <span className="toolbar-icon-btn-glyph" aria-hidden>
-            <IconSubtitles />
-          </span>
-          <select
-            className="toolbar-lang-select"
-            value={subtitleTargetLang}
-            aria-label={t("control.subtitleAgentLang")}
-            disabled={!canMutate || !onSubtitleTargetLang}
-            onChange={(e) =>
-              onSubtitleTargetLang?.(e.target.value as SubtitleTargetLang)
-            }
-          >
-            {SUBTITLE_TARGET_LANGS.map((code) => (
-              <option key={code} value={code}>
-                {LOCALE_SHORT[code as Locale] ?? code}
-              </option>
-            ))}
-          </select>
-          <span className="toolbar-icon-btn-label">
-            {t("control.subtitleAgentLangShort")}
-          </span>
-        </label>
-      ) : null}
-
-      <label className="toolbar-lang" title={t("control.language")}>
+      <label
+        className="toolbar-lang toolbar-primary-action"
+        title={t("control.language")}
+      >
         <span className="toolbar-icon-btn-glyph" aria-hidden>
           <IconLanguage />
         </span>
@@ -232,6 +197,15 @@ export function ControlHeaderToolbar({
         </select>
         <span className="toolbar-icon-btn-label">{t("control.languageShort")}</span>
       </label>
+
+      <ToolbarBtn
+        className="toolbar-primary-action"
+        disabled={hubUnreachable}
+        title={t("library.hint")}
+        label={t("library.open")}
+        icon={<IconLibrary />}
+        onClick={onOpenLibrary}
+      />
 
       <ToolbarBtn
         title={t("control.about")}

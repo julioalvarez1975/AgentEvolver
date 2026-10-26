@@ -23,6 +23,7 @@ import {
   DEFAULT_THEME_ID,
   DEFAULT_TRANSITION_EFFECT,
   emptySubtitleAgentState,
+  isSubtitleTargetLang,
   itemHasSlides,
   itemProjectionSlideCount,
   normalizeThemeBackground,
@@ -96,7 +97,12 @@ function assetSrcFor(
 
 /** Product Control — text + image + video playlist (subtarea 6). */
 export function ControlPage() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+
+  /** Subtitle target follows Control UI language (ES/EN/PT/FR/ZH). */
+  const subtitleTargetFromLocale = (
+    isSubtitleTargetLang(locale) ? locale : "es"
+  ) as SubtitleTargetLang;
   const session = useSessionConnection("control");
   const [joinCode, setJoinCode] = useState("");
   const [popupBlockedUrl, setPopupBlockedUrl] = useState<string | null>(null);
@@ -276,17 +282,38 @@ export function ControlPage() {
     }
     session.setSubtitleAgent({
       enabled: true,
-      targetLang: subtitleAgent.targetLang,
+      targetLang: subtitleTargetFromLocale,
       itemId: focusId,
     });
     // Intentionally depend on focus ids / enabled — not full agent object.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     subtitleAgent.enabled,
-    subtitleAgent.targetLang,
     subtitleAgent.itemId,
     liveItemId,
     selectedItemId,
+    canMutate,
+    subtitleTargetFromLocale,
+  ]);
+
+  // Keep subtitle targetLang in sync with Control language selector.
+  useEffect(() => {
+    if (!subtitleAgent.enabled || !canMutate) {
+      return;
+    }
+    if (subtitleAgent.targetLang === subtitleTargetFromLocale) {
+      return;
+    }
+    session.setSubtitleAgent({
+      enabled: true,
+      targetLang: subtitleTargetFromLocale,
+      itemId: (liveItemId || selectedItemId || undefined) ?? undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    subtitleAgent.enabled,
+    subtitleAgent.targetLang,
+    subtitleTargetFromLocale,
     canMutate,
   ]);
 
@@ -1062,21 +1089,12 @@ export function ControlPage() {
               onUploadBackground={onUploadThemeBackground}
               onAbout={() => setAboutOpen(true)}
               subtitleAgentEnabled={subtitleAgent.enabled}
-              subtitleTargetLang={subtitleAgent.targetLang}
               subtitleAgentTitle={subtitleAgentTitle}
               onToggleSubtitleAgent={() => {
                 const next = !subtitleAgent.enabled;
                 session.setSubtitleAgent({
                   enabled: next,
-                  targetLang: subtitleAgent.targetLang,
-                  itemId:
-                    (liveItemId || selectedItemId || undefined) ?? undefined,
-                });
-              }}
-              onSubtitleTargetLang={(lang: SubtitleTargetLang) => {
-                session.setSubtitleAgent({
-                  enabled: true,
-                  targetLang: lang,
+                  targetLang: subtitleTargetFromLocale,
                   itemId:
                     (liveItemId || selectedItemId || undefined) ?? undefined,
                 });
