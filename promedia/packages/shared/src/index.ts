@@ -468,6 +468,11 @@ export function cueAtPositionMs(
  * Cue for display with signed offset: lookup at `positionMs - leadMs`.
  * Negative leadMs (adelante) advances the cue so the line is readable before
  * the sung words (timed agent cues only).
+ *
+ * Intro hold: before the first timed cue (musical intro / filtered [MÚSICA]
+ * labels), keep showing that first lyric from media start so the line appears
+ * with (or slightly ahead of, via Adelante) the theme — not many seconds late.
+ * Gaps after the first cue stay blank (no fill-forward).
  */
 export function cueAtPositionWithLeadMs(
   cues: readonly SubtitleCue[],
@@ -478,7 +483,20 @@ export function cueAtPositionWithLeadMs(
     typeof leadMs === "number" && Number.isFinite(leadMs)
       ? leadMs
       : DEFAULT_SUBTITLE_LEAD_MS;
-  return cueAtPositionMs(cues, positionMs - offset);
+  const lookup = positionMs - offset;
+  const hit = cueAtPositionMs(cues, lookup);
+  if (hit) {
+    return hit;
+  }
+  if (!cues.length || !Number.isFinite(lookup)) {
+    return null;
+  }
+  const first = cues[0]!;
+  // Hold opening line through the lead-in until its real startMs window.
+  if (lookup < first.startMs && first.text) {
+    return first;
+  }
+  return null;
 }
 
 /** Visual overlay on Output; does not clear live item (subtarea 7). */
@@ -676,7 +694,7 @@ export type LiveSubtitleAgentSetMessage = {
     targetLang?: SubtitleTargetLang;
     /** Caption size SM–XL (persisted on session). */
     fontSize?: SubtitleFontSize;
-    /** Show cues this many ms early (1.5–3s). Display-only; no ASR restart. */
+    /** Signed Adelante offset (−3s…0). Display-only; no ASR restart. */
     leadMs?: SubtitleLeadMs;
     /** Optional: process this playlist item (defaults to live, else ignored). */
     itemId?: string;

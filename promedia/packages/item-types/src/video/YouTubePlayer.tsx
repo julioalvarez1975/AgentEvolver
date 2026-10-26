@@ -7,7 +7,11 @@ import {
   useState,
 } from "react";
 import type { MediaClock } from "@promedia/shared";
-import { shouldCorrectSeek } from "./clock.js";
+import {
+  MEDIA_CLOCK_COLD_START_MS,
+  shouldCorrectSeek,
+  shouldSnapMediaClockToStart,
+} from "./clock.js";
 
 type YtPlayer = {
   playVideo: () => void;
@@ -160,6 +164,8 @@ export type YouTubePlayerProps = {
   muted?: boolean;
   className?: string;
   onBlocked?: () => void;
+  /** Output: snap hub clock to 0 when audible start follows handoff / autoplay block. */
+  onMediaClockSet?: (patch: { playing: boolean; positionMs?: number }) => void;
   onReadyChange?: (ready: boolean) => void;
   onPlayingChange?: (playing: boolean) => void;
 };
@@ -175,6 +181,7 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
       muted = false,
       className,
       onBlocked,
+      onMediaClockSet,
       onReadyChange,
       onPlayingChange,
     },
@@ -185,8 +192,24 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
     const playerRef = useRef<YtPlayer | null>(null);
     const mediaClockRef = useRef(mediaClock);
     mediaClockRef.current = mediaClock;
+    const onMediaClockSetRef = useRef(onMediaClockSet);
+    onMediaClockSetRef.current = onMediaClockSet;
+    const coldSnapDoneRef = useRef(false);
     const mutedRef = useRef(muted);
     mutedRef.current = muted;
+
+    useEffect(() => {
+      if (!mediaClock) {
+        coldSnapDoneRef.current = false;
+        return;
+      }
+      if (mediaClock.positionMs > MEDIA_CLOCK_COLD_START_MS) {
+        coldSnapDoneRef.current = true;
+      }
+      if (!mediaClock.playing) {
+        coldSnapDoneRef.current = false;
+      }
+    }, [mediaClock?.itemId, mediaClock?.positionMs, mediaClock?.playing]);
     const onBlockedRef = useRef(onBlocked);
     onBlockedRef.current = onBlocked;
     const failStreakRef = useRef(0);
@@ -388,9 +411,21 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
         }
         try {
           const localMs = (player.getCurrentTime?.() ?? 0) * 1000;
-          const { seek, targetMs } = shouldCorrectSeek(localMs, clock);
-          if (seek) {
-            player.seekTo(targetMs / 1000, true);
+          // Handoff / mount lag: hub clock ran ahead while iframe was still at 0.
+          // Snap both back so the theme and first lyric start together.
+          if (
+            !coldSnapDoneRef.current &&
+            shouldSnapMediaClockToStart(localMs, clock) &&
+            onMediaClockSetRef.current
+          ) {
+            coldSnapDoneRef.current = true;
+            onMediaClockSetRef.current({ playing: true, positionMs: 0 });
+            player.seekTo(0, true);
+          } else {
+            const { seek, targetMs } = shouldCorrectSeek(localMs, clock);
+            if (seek) {
+              player.seekTo(targetMs / 1000, true);
+            }
           }
           if (!clock.playing) {
             player.pauseVideo();
@@ -435,9 +470,19 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
         failStreakRef.current += 1;
         try {
           const localMs = (player.getCurrentTime?.() ?? 0) * 1000;
-          const { seek, targetMs } = shouldCorrectSeek(localMs, clock);
-          if (seek) {
-            player.seekTo(targetMs / 1000, true);
+          if (
+            !coldSnapDoneRef.current &&
+            shouldSnapMediaClockToStart(localMs, clock) &&
+            onMediaClockSetRef.current
+          ) {
+            coldSnapDoneRef.current = true;
+            onMediaClockSetRef.current({ playing: true, positionMs: 0 });
+            player.seekTo(0, true);
+          } else {
+            const { seek, targetMs } = shouldCorrectSeek(localMs, clock);
+            if (seek) {
+              player.seekTo(targetMs / 1000, true);
+            }
           }
           if (failStreakRef.current >= 2 && !mutedRef.current) {
             // Muted autoplay usually succeeds — get video motion, ask for click for audio.
@@ -471,9 +516,19 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
         const clock = mediaClockRef.current;
         if (clock && !preview) {
           const localMs = (player.getCurrentTime?.() ?? 0) * 1000;
-          const { seek, targetMs } = shouldCorrectSeek(localMs, clock);
-          if (seek) {
-            player.seekTo(targetMs / 1000, true);
+          // Gesture after autoplay block: start the theme at 0 with cues, not mid-track.
+          if (
+            !coldSnapDoneRef.current &&
+            shouldSnapMediaClockToStart(localMs, clock)
+          ) {
+            coldSnapDoneRef.current = true;
+            onMediaClockSetRef.current?.({ playing: true, positionMs: 0 });
+            player.seekTo(0, true);
+          } else {
+            const { seek, targetMs } = shouldCorrectSeek(localMs, clock);
+            if (seek) {
+              player.seekTo(targetMs / 1000, true);
+            }
           }
         }
         if (!mutedRef.current) {
