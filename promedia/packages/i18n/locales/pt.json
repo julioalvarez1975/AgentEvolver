@@ -278,6 +278,8 @@
   "control.subtitleAgentDownloadingAudio": "A descarregar áudio do YouTube…",
   "control.subtitleAgentDepsMissing": "Instale yt-dlp e ffmpeg (`brew install yt-dlp ffmpeg`) e reinicie o ProMedia.",
   "control.subtitleAgentYtDlpMissing": "Instale yt-dlp e ffmpeg (`brew install yt-dlp ffmpeg`) e reinicie o ProMedia.",
+  "control.subtitleAgentFfmpegMissing": "Instale ffmpeg (`brew install ffmpeg`) e reinicie o ProMedia.",
+  "control.subtitleAgentExtractFailed": "Não foi possível extrair o áudio (download incompleto ou codec). Tente de novo ou instale/atualize ffmpeg (`brew install ffmpeg`).",
   "control.subtitleAgentYoutubeAge": "YouTube com restrição de idade — não foi possível descarregar o áudio",
   "control.subtitleAgentYoutubePrivate": "Vídeo YouTube privado ou com login — não foi possível descarregar",
   "control.subtitleAgentYoutubeFailed": "Não foi possível descarregar o áudio do YouTube (privado, bloqueado ou sem rede)",

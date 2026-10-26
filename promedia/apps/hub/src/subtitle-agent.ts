@@ -12,6 +12,7 @@ import {
   emptySubtitleAgentState,
   normalizeSubtitleLeadMs,
 } from "@promedia/shared";
+import { rm } from "node:fs/promises";
 import { assetStore } from "./asset-store.js";
 import { broadcastSession } from "./broadcast.js";
 import {
@@ -30,7 +31,7 @@ import { sessionStore } from "./session-store.js";
 const jobGeneration = new Map<string, number>();
 
 /**
- * Hard YouTube / path failures: do not tight-loop retries on focus/Go Live.
+ * Hard YouTube / extract failures: do not tight-loop retries on focus/Go Live.
  * Allow another attempt after backoff or when the user toggles the agent on.
  */
 const HARD_YT_HINT_PREFIXES = [
@@ -43,6 +44,7 @@ const HARD_YT_HINT_PREFIXES = [
   "youtube_unavailable",
   "youtube_invalid",
   "yt_dlp_spawn_failed",
+  "ffmpeg_extract_failed",
 ] as const;
 
 const YT_HARD_FAIL_BACKOFF_MS = 30_000;
@@ -382,12 +384,12 @@ async function runSubtitleJob(
     return;
   }
 
+  let mediaPath: string | null = resolved.mediaPath;
+  let assetId = resolved.assetId;
+
   try {
     await ensureSubtitleDirs();
     if (!isCurrent(sessionId, gen)) return;
-
-    let mediaPath = resolved.mediaPath;
-    let assetId = resolved.assetId;
 
     if (resolved.youtube) {
       patchAndBroadcast(session, {
@@ -530,19 +532,33 @@ async function runSubtitleJob(
     // Log missing binaries once; sticky state prevents retry spam.
     if (missingHint) {
       console.error(`[subtitle] job failed: ${missingHint}`);
+    } else if (hint.startsWith("ffmpeg_extract_failed")) {
+      console.error("[subtitle] job failed: ffmpeg_extract_failed");
     } else {
       console.error("[subtitle] job failed:", raw);
     }
     if (isHardYoutubeHint(hint)) {
       markYtHardFail(sessionId);
     }
+    // Drop bad YouTube cache so the next user toggle re-downloads once.
+    if (
+      hint.startsWith("ffmpeg_extract_failed") &&
+      mediaPath &&
+      resolved.youtube
+    ) {
+      void rm(mediaPath, { force: true }).catch(() => undefined);
+    }
     if (!isCurrent(sessionId, gen)) return;
     const live = sessionStore.get(sessionId);
     if (!live) return;
+    // Prefer stable hint codes for Control (strip long ffmpeg stderr tails).
+    const uiHint = hint.startsWith("ffmpeg_extract_failed")
+      ? "ffmpeg_extract_failed"
+      : hint;
     patchAndBroadcast(live, {
       status: "error",
       cues: [],
-      hint,
+      hint: uiHint,
       itemId: resolved.item.id,
       assetId: resolved.assetId,
     });

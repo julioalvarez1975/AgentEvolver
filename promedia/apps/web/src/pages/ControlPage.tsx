@@ -208,8 +208,14 @@ export function ControlPage() {
         return t("control.subtitleAgentReady");
       }
       if (st === "error") {
-        if (hint === "yt_dlp_missing" || hint === "ffmpeg_missing") {
-          return t("control.subtitleAgentDepsMissing");
+        if (hint === "yt_dlp_missing") {
+          return t("control.subtitleAgentYtDlpMissing");
+        }
+        if (hint === "ffmpeg_missing") {
+          return t("control.subtitleAgentFfmpegMissing");
+        }
+        if (hint === "ffmpeg_extract_failed") {
+          return t("control.subtitleAgentExtractFailed");
         }
         if (hint === "youtube_age_restricted") {
           return t("control.subtitleAgentYoutubeAge");
@@ -1160,8 +1166,13 @@ export function ControlPage() {
                 subtitleAgent.enabled &&
                 subtitleAgent.status === "error" &&
                 (subtitleAgent.hint === "yt_dlp_missing" ||
-                  subtitleAgent.hint === "ffmpeg_missing")
-                  ? t("control.subtitleAgentDepsMissing")
+                  subtitleAgent.hint === "ffmpeg_missing" ||
+                  subtitleAgent.hint === "ffmpeg_extract_failed")
+                  ? subtitleAgent.hint === "ffmpeg_missing"
+                    ? t("control.subtitleAgentFfmpegMissing")
+                    : subtitleAgent.hint === "ffmpeg_extract_failed"
+                      ? t("control.subtitleAgentExtractFailed")
+                      : t("control.subtitleAgentYtDlpMissing")
                   : null
               }
               onToggleSubtitleAgent={() => {

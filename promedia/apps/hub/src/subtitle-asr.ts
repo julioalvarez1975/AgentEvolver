@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
-import { access, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import wavefile from "wavefile";
 import type { SubtitleCue, SubtitleTargetLang } from "@promedia/shared";
@@ -76,10 +76,18 @@ export async function extractWav16k(
   outWavPath: string,
 ): Promise<void> {
   const bin = resolveFfmpegBin();
+  await mkdir(path.dirname(outWavPath), { recursive: true });
+  // Drop any previous partial/corrupt output before remux.
+  await rm(outWavPath, { force: true }).catch(() => undefined);
+
   let code: number;
   let stderr: string;
   try {
+    // Safer remux: audio-only, mono, 16 kHz PCM (Whisper). Avoid copy/codec
+    // passthrough that fails on partial AAC from incomplete YouTube downloads.
     ({ code, stderr } = await runCmd(bin, [
+      "-hide_banner",
+      "-nostdin",
       "-y",
       "-i",
       mediaPath,
@@ -88,22 +96,35 @@ export async function extractWav16k(
       "1",
       "-ar",
       "16000",
+      "-c:a",
+      "pcm_s16le",
       "-f",
       "wav",
       outWavPath,
     ]));
   } catch (err) {
+    await rm(outWavPath, { force: true }).catch(() => undefined);
     if (missingBinHintFromError(err, "ffmpeg")) {
       throw new Error("ffmpeg_missing");
     }
     throw err;
   }
   if (code !== 0) {
-    const tail = (stderr || "").split("\n").slice(-6).join(" ");
-    if (/not found|no such file|cannot find/i.test(tail)) {
+    await rm(outWavPath, { force: true }).catch(() => undefined);
+    const tail = (stderr || "").split("\n").slice(-6).join(" ").trim();
+    // Only treat as missing binary when ffmpeg itself is absent — not when
+    // the input media is corrupt (AAC decode / Conversion failed).
+    if (
+      /ffmpeg.*(not found|no such file)|unable to (find|run) .*ffmpeg|cannot find.*ffmpeg/i.test(
+        tail,
+      ) ||
+      (/^\s*$/.test(tail) && /enoent|not found/i.test(String(code)))
+    ) {
       throw new Error("ffmpeg_missing");
     }
-    throw new Error(`ffmpeg_extract_failed: ${tail}`);
+    throw new Error(
+      `ffmpeg_extract_failed: ${tail || "conversion failed"}`.slice(0, 180),
+    );
   }
 }
 

@@ -40,12 +40,19 @@ async function main(): Promise<void> {
   }
 
   const id = "3sur4BmjQt8";
-  const fake = path.join(dirs.youtubeCache, `${id}.m4a`);
-  await writeFile(fake, "smoke");
-  const found = await findCachedAudio(dirs.youtubeCache, id);
-  console.log("findCachedAudio:", found);
-  if (found !== fake) throw new Error("glob resolve failed");
-  await rm(fake);
+  const fakeM4a = path.join(dirs.youtubeCache, `${id}.m4a`);
+  const fakeWav = path.join(dirs.youtubeCache, `${id}.wav`);
+  // Prefer wav over m4a when both exist; skip tiny/empty partials (<64 bytes).
+  await writeFile(fakeM4a, "x".repeat(80));
+  let found = await findCachedAudio(dirs.youtubeCache, id);
+  console.log("findCachedAudio m4a:", found);
+  if (found !== fakeM4a) throw new Error("glob resolve failed (m4a)");
+  await writeFile(fakeWav, "y".repeat(80));
+  found = await findCachedAudio(dirs.youtubeCache, id);
+  console.log("findCachedAudio prefers wav:", found);
+  if (found !== fakeWav) throw new Error("glob resolve failed (wav preferred)");
+  await rm(fakeM4a);
+  await rm(fakeWav);
 
   process.chdir(path.join(root, "apps", "hub"));
   const dirs2 = await ensureSubtitleDirs();
