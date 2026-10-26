@@ -6,6 +6,7 @@ import {
   subtitleDataRoot,
 } from "../src/subtitle-paths.ts";
 import {
+  classifyYoutubeError,
   findCachedAudio,
   youtubeYtDlpOutputArgs,
 } from "../src/subtitle-youtube.ts";
@@ -61,6 +62,23 @@ async function main(): Promise<void> {
   if (dirs2.youtubeCache !== dirs.youtubeCache) {
     throw new Error("path drifted after chdir");
   }
+
+  // ffmpeg postprocessor ENOENT must not look like a cache mkdir bug.
+  const ffmpegGone = classifyYoutubeError(
+    "ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location",
+  );
+  console.log("classify ffmpeg missing:", ffmpegGone);
+  if (ffmpegGone !== "ffmpeg_missing") {
+    throw new Error(`expected ffmpeg_missing, got ${ffmpegGone}`);
+  }
+  const renameOnly = classifyYoutubeError(
+    "ERROR: unable to rename file: [Errno 2] No such file or directory",
+  );
+  console.log("classify cache path:", renameOnly);
+  if (renameOnly !== "youtube_cache_path_error") {
+    throw new Error(`expected youtube_cache_path_error, got ${renameOnly}`);
+  }
+
   console.log("SMOKE_OK");
 }
 

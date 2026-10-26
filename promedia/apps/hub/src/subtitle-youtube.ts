@@ -8,9 +8,10 @@ import {
   resolveYtDlpBin,
 } from "./subtitle-bins.js";
 import { ensureSubtitleDirs } from "./subtitle-paths.js";
+import { extractWav16k } from "./subtitle-asr.js";
 
 export type YoutubeAudioResult = {
-  /** Absolute path to cached audio file (wav/m4a/webm/opus/…). */
+  /** Absolute path to cached audio file (wav preferred; else raw bestaudio). */
   mediaPath: string;
   /** Synthetic asset id used for ASR cue cache (`yt_<videoId>`). */
   assetId: string;
@@ -59,45 +60,62 @@ export async function ytDlpAvailable(): Promise<boolean> {
   }
 }
 
-/** Probe resolved ffmpeg (Homebrew PATH + FFMPEG_PATH) before yt-dlp `-x`. */
-async function ensureFfmpegForExtract(): Promise<string> {
+/**
+ * Probe resolved ffmpeg (Homebrew PATH + FFMPEG_PATH) before any extract/remux.
+ * Throws `ffmpeg_missing` so Control can show the brew hint — never a cache-path error.
+ */
+export async function ensureFfmpegForExtract(): Promise<string> {
   const bin = resolveFfmpegBin();
   try {
-    const { code, stderr } = await runCmd(bin, ["-version"]);
+    const { code } = await runCmd(bin, ["-version"]);
     if (code === 0) return bin;
-    if (/not found|no such file|cannot find/i.test(stderr || "")) {
-      throw new Error("ffmpeg_missing");
-    }
-    throw new Error("ffmpeg_missing");
   } catch (err) {
     if (missingBinHintFromError(err, "ffmpeg")) {
       throw new Error("ffmpeg_missing");
     }
-    throw new Error("ffmpeg_missing");
   }
+  throw new Error("ffmpeg_missing");
 }
 
-/** Pass absolute ffmpeg to yt-dlp so GUI/launcher PATH gaps do not break `-x`. */
-function ffmpegLocationArgs(ffmpegBin: string): string[] {
-  if (ffmpegBin.includes("/") || ffmpegBin.includes("\\")) {
-    return ["--ffmpeg-location", ffmpegBin];
-  }
-  return [];
-}
-
-function classifyYoutubeError(stderr: string): string {
+/**
+ * Map yt-dlp stderr to stable hints.
+ * ffmpeg/Postprocessing ENOENT must NOT become `youtube_cache_path_error`
+ * (that mislabel is what Julio saw when brew ffmpeg was missing mid `-x`).
+ */
+export function classifyYoutubeError(stderr: string): string {
   const s = (stderr || "").toLowerCase();
-  // ffmpeg missing must win over generic "no such file" → cache_path_error.
-  if (
-    (s.includes("ffmpeg") || s.includes("ffprobe")) &&
-    (s.includes("not found") ||
+
+  const mentionsFfmpeg =
+    s.includes("ffmpeg") ||
+    s.includes("ffprobe") ||
+    s.includes("postprocessing") ||
+    s.includes("post-processing") ||
+    s.includes("--ffmpeg-location");
+
+  if (mentionsFfmpeg) {
+    if (
+      s.includes("not found") ||
       s.includes("no such file") ||
-      s.includes("install") ||
-      s.includes("--ffmpeg-location") ||
-      s.includes("is not installed"))
-  ) {
-    return "ffmpeg_missing";
+      s.includes("errno 2") ||
+      s.includes("unable to") ||
+      s.includes("is not installed") ||
+      s.includes("install or provide") ||
+      s.includes("please install")
+    ) {
+      return "ffmpeg_missing";
+    }
+    if (
+      s.includes("conversion failed") ||
+      s.includes("error while decoding") ||
+      s.includes("invalid data found") ||
+      s.includes("error opening input")
+    ) {
+      return "ffmpeg_extract_failed";
+    }
+    // Postprocessor failed for an unclear reason — still not a cache mkdir bug.
+    return "ffmpeg_extract_failed";
   }
+
   if (
     s.includes("sign in to confirm your age") ||
     s.includes("age-restricted") ||
@@ -129,21 +147,16 @@ function classifyYoutubeError(stderr: string): string {
   ) {
     return "youtube_unavailable";
   }
+
+  // Real cache/path issues only when ffmpeg/postprocessing is not involved.
   if (
-    s.includes("no such file or directory") ||
     s.includes("unable to rename") ||
+    s.includes("no such file or directory") ||
     s.includes("errno 2")
   ) {
     return "youtube_cache_path_error";
   }
-  if (
-    s.includes("conversion failed") ||
-    s.includes("error while decoding") ||
-    s.includes("invalid data found") ||
-    s.includes("postprocessing")
-  ) {
-    return "ffmpeg_extract_failed";
-  }
+
   const last = (stderr || "")
     .split("\n")
     .map((l) => l.trim())
@@ -234,37 +247,63 @@ export function youtubeYtDlpOutputArgs(cacheDir: string): string[] {
   return ["-P", absCache, "-o", "%(id)s.%(ext)s"];
 }
 
-async function invokeYtDlpExtract(options: {
+/**
+ * Download bestaudio only — no `-x` / postprocessor (avoids yt-dlp spawning
+ * ffmpeg from a GUI PATH that lacks Homebrew).
+ */
+async function invokeYtDlpBestaudio(options: {
   bin: string;
-  ffmpegBin: string;
   cacheDir: string;
   url: string;
-  audioFormat: "wav" | "m4a";
 }): Promise<{ code: number; stderr: string; stdout: string }> {
-  const { bin, ffmpegBin, cacheDir, url, audioFormat } = options;
+  const { bin, cacheDir, url } = options;
   await mkdir(cacheDir, { recursive: true });
-  const args = [
+  return runCmd(bin, [
     "--no-playlist",
     "--no-warnings",
     "-f",
     "bestaudio/best",
-    "-x",
-    "--audio-format",
-    audioFormat,
-    "--audio-quality",
-    "0",
-    ...ffmpegLocationArgs(ffmpegBin),
     ...youtubeYtDlpOutputArgs(cacheDir),
-  ];
-  args.push("--", url);
-  return runCmd(bin, args);
+    "--",
+    url,
+  ]);
+}
+
+async function remuxCachedToWav(
+  cacheDir: string,
+  videoId: string,
+  rawPath: string,
+): Promise<string> {
+  const wavPath = path.join(cacheDir, `${videoId}.wav`);
+  if (/\.wav$/i.test(rawPath) && path.resolve(rawPath) === path.resolve(wavPath)) {
+    return wavPath;
+  }
+  try {
+    await extractWav16k(rawPath, wavPath);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === "ffmpeg_missing" || msg.includes("ffmpeg_missing")) {
+      throw new Error("ffmpeg_missing");
+    }
+    if (msg.startsWith("ffmpeg_extract_failed")) {
+      throw new Error("ffmpeg_extract_failed");
+    }
+    throw new Error(
+      `ffmpeg_extract_failed: ${msg.slice(0, 120)}`,
+    );
+  }
+  // Prefer wav; drop raw container so next cache hit is clean.
+  if (path.resolve(rawPath) !== path.resolve(wavPath)) {
+    await rm(rawPath, { force: true }).catch(() => undefined);
+  }
+  return wavPath;
 }
 
 /**
- * Download YouTube audio via local yt-dlp into
- * `promedia/data/subtitles/youtube-cache/<videoId>.*` (gitignored).
- * Prefers one-step `-x --audio-format wav`; falls back to m4a.
- * Retries download once after clearing partials (no tight loop).
+ * Download YouTube audio into `promedia/data/subtitles/youtube-cache/`.
+ * Strategy: require ffmpeg up front → yt-dlp bestaudio (no `-x`) → remux to
+ * 16 kHz mono WAV with the resolved brew ffmpeg. One retry after clearing
+ * partials (no tight loop).
  */
 export async function ensureYoutubeAudio(options: {
   videoId: string;
@@ -276,59 +315,59 @@ export async function ensureYoutubeAudio(options: {
   const dirs = await ensureSubtitleDirs();
   const cacheDir = path.resolve(dirs.youtubeCache);
 
-  // Always mkdir -p immediately before invoke (parents + writable check).
   await mkdir(cacheDir, { recursive: true });
 
   const cached = await findCachedAudio(cacheDir, videoId);
-  if (cached) {
+  if (cached && /\.wav$/i.test(cached)) {
     return { mediaPath: cached, assetId, videoId };
   }
 
   const bin = resolveYtDlpBin();
-  const available = await ytDlpAvailable();
-  if (!available) {
+  if (!(await ytDlpAvailable())) {
     throw new Error("yt_dlp_missing");
   }
 
-  const ffmpegBin = await ensureFfmpegForExtract();
+  // Fail fast with brew hint — do not let a later postprocessor ENOENT
+  // look like youtube_cache_path_error.
+  await ensureFfmpegForExtract();
+
+  // Existing raw bestaudio (m4a/webm/…) from older builds: remux in place.
+  if (cached) {
+    try {
+      const wavPath = await remuxCachedToWav(cacheDir, videoId, cached);
+      return { mediaPath: wavPath, assetId, videoId };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg === "ffmpeg_missing" || msg.includes("ffmpeg_missing")) {
+        throw new Error("ffmpeg_missing");
+      }
+      // Corrupt raw — clear and re-download once below.
+      await clearYoutubeCacheArtifacts(cacheDir, videoId);
+    }
+  }
 
   const url =
     sourceUrl?.trim() || `https://www.youtube.com/watch?v=${videoId}`;
 
   let lastHint = "youtube_download_failed";
 
-  // Attempt 0: wav. Attempt 1: clear partials + wav again. Then one m4a fallback.
   for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt > 0) {
       await clearYoutubeCacheArtifacts(cacheDir, videoId);
     }
+
     let result: { code: number; stderr: string; stdout: string };
     try {
-      result = await invokeYtDlpExtract({
-        bin,
-        ffmpegBin,
-        cacheDir,
-        url,
-        audioFormat: "wav",
-      });
+      result = await invokeYtDlpBestaudio({ bin, cacheDir, url });
     } catch (err) {
       if (missingBinHintFromError(err, "yt_dlp")) {
         throw new Error("yt_dlp_missing");
-      }
-      if (missingBinHintFromError(err, "ffmpeg")) {
-        throw new Error("ffmpeg_missing");
       }
       const msg = err instanceof Error ? err.message : String(err);
       throw new Error(`yt_dlp_spawn_failed: ${msg.slice(0, 120)}`);
     }
 
-    if (result.code === 0) {
-      const mediaPath = await findCachedAudio(cacheDir, videoId);
-      if (mediaPath) {
-        return { mediaPath, assetId, videoId };
-      }
-      lastHint = "youtube_cache_missing_after_download";
-    } else {
+    if (result.code !== 0) {
       lastHint = classifyYoutubeError(result.stderr || result.stdout);
       if (lastHint === "ffmpeg_missing") {
         throw new Error("ffmpeg_missing");
@@ -341,45 +380,36 @@ export async function ensureYoutubeAudio(options: {
       ) {
         throw new Error(lastHint);
       }
-      if (!isRetryableDownloadHint(lastHint)) {
+      if (!isRetryableDownloadHint(lastHint) || attempt === 1) {
+        throw new Error(lastHint);
+      }
+      continue;
+    }
+
+    const rawPath = await findCachedAudio(cacheDir, videoId);
+    if (!rawPath) {
+      lastHint = "youtube_cache_missing_after_download";
+      if (attempt === 1) throw new Error(lastHint);
+      continue;
+    }
+
+    try {
+      const wavPath = await remuxCachedToWav(cacheDir, videoId, rawPath);
+      return { mediaPath: wavPath, assetId, videoId };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg === "ffmpeg_missing" || msg.includes("ffmpeg_missing")) {
+        throw new Error("ffmpeg_missing");
+      }
+      lastHint = msg.startsWith("ffmpeg_extract_failed")
+        ? "ffmpeg_extract_failed"
+        : msg.slice(0, 180);
+      await clearYoutubeCacheArtifacts(cacheDir, videoId);
+      if (attempt === 1) {
         throw new Error(lastHint);
       }
     }
   }
 
-  // Last resort: m4a container; ASR extractWav16k remuxes with safe flags.
-  await clearYoutubeCacheArtifacts(cacheDir, videoId);
-  let m4aResult: { code: number; stderr: string; stdout: string };
-  try {
-    m4aResult = await invokeYtDlpExtract({
-      bin,
-      ffmpegBin,
-      cacheDir,
-      url,
-      audioFormat: "m4a",
-    });
-  } catch (err) {
-    if (missingBinHintFromError(err, "yt_dlp")) {
-      throw new Error("yt_dlp_missing");
-    }
-    if (missingBinHintFromError(err, "ffmpeg")) {
-      throw new Error("ffmpeg_missing");
-    }
-    throw new Error(lastHint);
-  }
-
-  if (m4aResult.code !== 0) {
-    const hint = classifyYoutubeError(m4aResult.stderr || m4aResult.stdout);
-    if (hint === "ffmpeg_missing") {
-      throw new Error("ffmpeg_missing");
-    }
-    throw new Error(hint === "ffmpeg_extract_failed" ? hint : lastHint);
-  }
-
-  const mediaPath = await findCachedAudio(cacheDir, videoId);
-  if (!mediaPath) {
-    throw new Error("youtube_cache_missing_after_download");
-  }
-
-  return { mediaPath, assetId, videoId };
+  throw new Error(lastHint);
 }

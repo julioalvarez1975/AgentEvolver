@@ -217,6 +217,12 @@ export function ControlPage() {
         if (hint === "ffmpeg_extract_failed") {
           return t("control.subtitleAgentExtractFailed");
         }
+        if (hint === "model_download_failed") {
+          return t("control.subtitleAgentModelDownload");
+        }
+        if (hint === "model_path_error") {
+          return t("control.subtitleAgentModelPath");
+        }
         if (hint === "youtube_age_restricted") {
           return t("control.subtitleAgentYoutubeAge");
         }

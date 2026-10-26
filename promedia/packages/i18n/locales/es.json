@@ -280,6 +280,8 @@
   "control.subtitleAgentYtDlpMissing": "Instalá yt-dlp y ffmpeg (`brew install yt-dlp ffmpeg`) y reiniciá ProMedia.",
   "control.subtitleAgentFfmpegMissing": "Instalá ffmpeg (`brew install ffmpeg`) y reiniciá ProMedia.",
   "control.subtitleAgentExtractFailed": "No se pudo extraer el audio (descarga incompleta o códec). Probá de nuevo o instalá/actualizá ffmpeg (`brew install ffmpeg`).",
+  "control.subtitleAgentModelDownload": "No se pudo descargar el modelo Whisper (hace falta red la primera vez). Revisá la conexión y reintentá.",
+  "control.subtitleAgentModelPath": "Error de ruta/caché del modelo Whisper. Borrá `promedia/data/models/` parcial y reiniciá con red una vez.",
   "control.subtitleAgentYoutubeAge": "YouTube con restricción de edad — no se pudo descargar el audio",
   "control.subtitleAgentYoutubePrivate": "Vídeo de YouTube privado o con login — no se pudo descargar",
   "control.subtitleAgentYoutubeFailed": "No se pudo descargar el audio de YouTube (privado, bloqueado o sin red)",

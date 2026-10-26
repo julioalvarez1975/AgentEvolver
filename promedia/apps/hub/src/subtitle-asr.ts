@@ -9,7 +9,12 @@ import {
   missingBinHintFromError,
   resolveFfmpegBin,
 } from "./subtitle-bins.js";
-import { ensureSubtitleDirs } from "./subtitle-paths.js";
+import {
+  applyTransformersCacheEnv,
+  clearCorruptModelCache,
+  ensureSubtitleDirs,
+  subtitleModelsRoot,
+} from "./subtitle-paths.js";
 
 const { WaveFile } = wavefile as unknown as {
   WaveFile: new (buf?: Buffer | Uint8Array) => {
@@ -205,24 +210,109 @@ async function wavToFloat32(wavPath: string): Promise<Float32Array> {
   return out;
 }
 
+/** Default Xenova whisper-tiny; pin revision so ONNX layout stays stable. */
+const DEFAULT_WHISPER_MODEL = "Xenova/whisper-tiny";
+/** Known-good revision with onnx/ weights (override: SUBTITLE_WHISPER_REVISION). */
+const DEFAULT_WHISPER_REVISION = "main";
+
 let whisperPromise: Promise<WhisperPipeline> | null = null;
+
+function whisperModelId(): string {
+  return process.env.SUBTITLE_WHISPER_MODEL?.trim() || DEFAULT_WHISPER_MODEL;
+}
+
+function whisperRevision(): string {
+  return (
+    process.env.SUBTITLE_WHISPER_REVISION?.trim() || DEFAULT_WHISPER_REVISION
+  );
+}
+
+/**
+ * Map transformers / download failures to Control-facing hint codes.
+ * - model_download_failed: network / HF hub unreachable
+ * - model_path_error: cache path / buffer / corrupt local files
+ */
+export function classifyWhisperLoadError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  const lower = msg.toLowerCase();
+  if (
+    /fetch failed|econnrefused|enotfound|etimedout|econnreset|network|socket|getaddrinfo|und_err|certificate|ssl|tls|huggingface\.co|status (?:4\d\d|5\d\d)|403|429|502|503|504|download/i.test(
+      msg,
+    ) ||
+    /network|offline|dns|timeout/.test(lower)
+  ) {
+    return "model_download_failed";
+  }
+  if (
+    /unable to get model file path or buffer|local_files_only|unable to load from local path|ENOENT|EACCES|EPERM|EISDIR|ENOSPC/i.test(
+      msg,
+    ) ||
+    /model file path|file path or buffer/i.test(lower)
+  ) {
+    return "model_path_error";
+  }
+  return msg.slice(0, 180) || "asr_failed";
+}
+
+async function loadWhisperPipeline(attempt: number): Promise<WhisperPipeline> {
+  const dirs = await ensureSubtitleDirs();
+  const modelsRoot = dirs.models || subtitleModelsRoot();
+  const modelId = whisperModelId();
+  const revision = whisperRevision();
+
+  // Dynamic import keeps `tsc` / cold start light.
+  const transformers = await import("@huggingface/transformers");
+  applyTransformersCacheEnv(transformers.env, modelsRoot);
+
+  console.log(
+    `[subtitle] Whisper cacheDir=${transformers.env.cacheDir} localModelPath=${transformers.env.localModelPath} model=${modelId}@${revision} attempt=${attempt}`,
+  );
+
+  const pipe = await transformers.pipeline(
+    "automatic-speech-recognition",
+    modelId,
+    {
+      revision,
+      // tiny quantized ONNX is the Xenova default and stays CPU-friendly
+      dtype: "q8",
+    },
+  );
+  return pipe as unknown as WhisperPipeline;
+}
 
 async function getWhisper(): Promise<WhisperPipeline> {
   if (!whisperPromise) {
     whisperPromise = (async () => {
-      await ensureSubtitleDirs();
-      const modelId =
-        process.env.SUBTITLE_WHISPER_MODEL?.trim() || "Xenova/whisper-tiny";
-      // Dynamic import keeps `tsc` / cold start light; models download into data/models.
-      const transformers = await import("@huggingface/transformers");
-      const pipe = await transformers.pipeline(
-        "automatic-speech-recognition",
-        modelId,
-        {
-          // dtype optional — tiny fp32 is fine on CPU for Phase 1
-        },
-      );
-      return pipe as unknown as WhisperPipeline;
+      try {
+        return await loadWhisperPipeline(1);
+      } catch (firstErr) {
+        const firstMsg =
+          firstErr instanceof Error ? firstErr.message : String(firstErr);
+        console.warn(
+          `[subtitle] Whisper load failed (will clear corrupt cache + retry once): ${firstMsg}`,
+        );
+        try {
+          const cleared = await clearCorruptModelCache(
+            subtitleModelsRoot(),
+            whisperModelId(),
+          );
+          console.warn(
+            `[subtitle] cleared model cache tmp=${cleared.removedTmp} modelDir=${cleared.removedModelDir}`,
+          );
+        } catch (clearErr) {
+          console.warn(
+            "[subtitle] cache clear failed:",
+            clearErr instanceof Error ? clearErr.message : clearErr,
+          );
+        }
+        try {
+          return await loadWhisperPipeline(2);
+        } catch (secondErr) {
+          // Reset so a later job can try again after network/path is fixed.
+          whisperPromise = null;
+          throw new Error(classifyWhisperLoadError(secondErr));
+        }
+      }
     })();
   }
   return whisperPromise;
@@ -230,7 +320,7 @@ async function getWhisper(): Promise<WhisperPipeline> {
 
 /**
  * Local ASR with Whisper tiny (ONNX via @huggingface/transformers).
- * Models download once into gitignored `data/models/` (TRANSFORMERS_CACHE).
+ * Models download once into gitignored `data/models/` (`env.cacheDir`).
  */
 export async function transcribeLocalFile(options: {
   mediaPath: string;
