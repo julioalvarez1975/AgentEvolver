@@ -233,7 +233,7 @@ También: `node scripts/import-bibles.mjs` (crea `bibles/import` si falta y llam
 
 ### Agente de subtítulos (IA local)
 
-Subtítulos automáticos **100 % locales** (sin API keys ni STT/MT en la nube). YouTube: el hub descarga **solo audio** con `yt-dlp` y luego corre el mismo Whisper local (el iframe de YouTube sigue solo en Output).
+Subtítulos automáticos **100 % locales** (sin API keys ni STT/MT en la nube). YouTube: el hub intenta **captions manuales/auto** con `yt-dlp` (idioma de Control); si faltan, descarga audio y corre Whisper local (el iframe de YouTube sigue solo en Output).
 
 **Dependencias en el PATH (Mac)**
 
@@ -251,14 +251,14 @@ En **macOS** (y en cualquier host) el hub usa **whisper.cpp exclusivamente** cua
 2. Añadí un **vídeo/audio local** o un **YouTube** público al Guion
 3. Pulsá **Agente subtítulos** en la barra (junto a **Proyectar** / **Idioma**; queda activo). El idioma de subtítulos **sigue el selector Idioma** de Control (ES / EN / PT / FR / ZH)
 4. Poné el ítem **En vivo** (o dejalo seleccionado en Vista previa). Prioridad **letra real**, no etiquetas de sonido:
-   - YouTube: primero captions oficiales/auto (`yt-dlp` `--write-subs` / `--write-auto-subs`); si no hay, bestaudio → Whisper
-   - Local: `ffmpeg` → WAV → **whisper.cpp** (`whisper-cli` + ggml-tiny; `-l auto`, `-sns` si el CLI lo soporta; si solo salen `[MUSIC]`/`[MÚSICA]`, reintento con `-tr` + MT)
-   - Se filtran etiquetas no-speech (`[MUSIC]`, `[MÚSICA]`, etc.) antes de mostrar
+   - YouTube: primero captions **manuales** (luego auto) con `yt-dlp`, preferiendo el idioma de Control; si no hay, bestaudio → Whisper
+   - Local: `ffmpeg` → WAV → **whisper.cpp** (`whisper-cli` + **ggml-base** ~142 MB; `-l auto`, `-sns` si el CLI lo soporta; si solo salen `[MUSIC]`/`[MÚSICA]`, reintento con `-tr` + MT)
+   - Se filtran etiquetas no-speech (`[MUSIC]`, `[MÚSICA]`, etc.) antes de mostrar; no se re-traduce texto ya en el idioma destino (evita Marian sobre español)
 5. Las captions aparecen **arriba del vídeo** (estilo cancionero / `FittedTextStage`), alineadas al mismo `mediaClock`, con anticipación configurable (1,5–3 s, default 2 s) para leer la letra antes de cantarla. Tamaño SM–XL y anticipación van junto al botón **Agente subtítulos**. Canciones de Biblioteca con diapositivas ←/→ siguen siendo manuales (la anticipación solo aplica a cues con tiempo del agente).
 
 **Primera ejecución (descarga de modelos)**
 
-- Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-tiny.bin` a `promedia/data/models/whisper/` (gitignore). La descarga es atómica (tmp único + rename) y se coalescen jobs concurrentes (un solo fetch; no se pisan `.tmp` a medias). ASR no arranca hasta que el archivo tenga tamaño válido (~70 MB+). El hub pasa `-l auto` (y `-sns` cuando el CLI lo acepta) a `whisper-cli`. Luego offline.
+- Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-base.bin` (~142 MB) a `promedia/data/models/whisper/` (gitignore). Más preciso que `ggml-tiny` (~75 MB); override `SUBTITLE_WHISPER_CPP_MODEL=ggml-tiny.bin` si hace falta. La descarga es atómica (tmp único + rename) y se coalescen jobs concurrentes. ASR no arranca hasta tamaño válido (~140 MB+ para base). El hub pasa `-l auto` (y `-sns` cuando el CLI lo acepta) a `whisper-cli`. Luego offline.
 - Sin whisper-cli: error claro `whisper_cpp_missing` → `brew install whisper-cpp` (no se usa Xenova/ONNX por defecto).
 - Errores claros en Control: `whisper_cpp_missing` / `whisper_cpp_failed` / `model_download_failed`.
 - Caché de cues por asset: `promedia/data/subtitles/cache/`
@@ -280,7 +280,7 @@ En **macOS** (y en cualquier host) el hub usa **whisper.cpp exclusivamente** cua
 - Canciones de Biblioteca **solo texto** (sin pista de audio): el agente no hace STT (aviso)
 - Primera transcripción puede tardar (descarga + CPU); las siguientes del mismo archivo / videoId usan caché
 
-Env útiles: `SUBTITLE_MODELS_ROOT`, `SUBTITLE_DATA_ROOT`, `SUBTITLE_ASR_BACKEND`, `SUBTITLE_WHISPER_MODEL`, `SUBTITLE_WHISPER_REVISION`, `FFMPEG_PATH`, `YT_DLP_PATH`, `WHISPER_CPP_PATH`
+Env útiles: `SUBTITLE_MODELS_ROOT`, `SUBTITLE_DATA_ROOT`, `SUBTITLE_ASR_BACKEND`, `SUBTITLE_WHISPER_CPP_MODEL`, `SUBTITLE_WHISPER_CPP_MODEL_URL`, `SUBTITLE_WHISPER_CPP_MIN_BYTES`, `SUBTITLE_WHISPER_MODEL`, `SUBTITLE_WHISPER_REVISION`, `FFMPEG_PATH`, `YT_DLP_PATH`, `WHISPER_CPP_PATH`
 
 ### Tema (zona TEMA)
 
@@ -349,7 +349,8 @@ Ver `.env.example`. Las más relevantes:
 | `MEDIA_ADAPTER` / `MEDIA_ROOT` / `PLAYLISTS_PATH` | Storage local |
 | `S3_*` | Stub S3-compatible (fallback a disco si incompleto) |
 | `SUBTITLE_MODELS_ROOT` / `SUBTITLE_DATA_ROOT` | Modelos Whisper/MT y caché de cues (default `data/models`, `data/subtitles`) |
-| `SUBTITLE_WHISPER_MODEL` | Modelo ASR local (default `Xenova/whisper-tiny`) |
+| `SUBTITLE_WHISPER_CPP_MODEL` | ggml whisper.cpp (default `ggml-base.bin` ~142 MB; `ggml-tiny.bin` ~75 MB) |
+| `SUBTITLE_WHISPER_MODEL` | Modelo ASR Xenova opt-in (default `Xenova/whisper-tiny`) |
 | `SUBTITLE_WHISPER_REVISION` | Revisión HF del modelo (default `main`) |
 | `FFMPEG_PATH` | Binario ffmpeg para extraer audio (default `ffmpeg`) |
 | `YT_DLP_PATH` | Binario yt-dlp para audio de YouTube (default `yt-dlp`) |
@@ -384,7 +385,7 @@ cd promedia
 - Guion multi-tipo con drag, multi-select, guardar/cargar
 - Texto: import PDF (hub), XML, `.txt`/`.md` → slides
 - Preview ≠ live; transporte vídeo + `mediaClock`
-- **Agente subtítulos** local (Whisper tiny + MT opcional; archivos o YouTube vía yt-dlp)
+- **Agente subtítulos** local (whisper.cpp ggml-base + MT opcional; archivos o YouTube vía yt-dlp)
 - Escenas, temas, transiciones 0,5 s en Output
 - i18n ES · EN · PT · FR · ZH
 - Banner GAM opcional en Control

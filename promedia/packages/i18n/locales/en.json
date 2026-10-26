@@ -275,7 +275,7 @@
   "library.songFolderResult": "Imported {n} song(s){updated}{skipped}.",
   "bible.localBadge": "local",
   "control.subtitleAgent": "Subtitle agent",
-  "control.subtitleAgentTitle": "Enable local subtitles (offline ASR via whisper.cpp). Hub files or YouTube (audio via yt-dlp). Needs ffmpeg + whisper-cli; YouTube also needs yt-dlp (`brew install yt-dlp ffmpeg whisper-cpp`). First run downloads ggml-tiny. Subtitle language follows the Control language selector.",
+  "control.subtitleAgentTitle": "Enable local subtitles (offline ASR via whisper.cpp). Hub files or YouTube (audio via yt-dlp). Needs ffmpeg + whisper-cli; YouTube also needs yt-dlp (`brew install yt-dlp ffmpeg whisper-cpp`). First run downloads ggml-base (~142 MB). Subtitle language follows the Control language selector.",
   "control.subtitleAgentLang": "Subtitle language (follows Control language)",
   "control.subtitleAgentLangShort": "Subs",
   "control.subtitleAgentYoutube": "YouTube: hub downloads audio with yt-dlp (local) then runs Whisper. Needs yt-dlp + ffmpeg on PATH.",

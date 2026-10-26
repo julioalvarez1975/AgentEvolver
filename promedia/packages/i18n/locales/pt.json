@@ -275,7 +275,7 @@
   "library.songFolderResult": "Importada(s) {n} canção(ões){updated}{skipped}.",
   "bible.localBadge": "local",
   "control.subtitleAgent": "Agente legendas",
-  "control.subtitleAgentTitle": "Ativar legendas locais (ASR offline via whisper.cpp). Ficheiros do hub ou YouTube (áudio via yt-dlp). Precisa de ffmpeg + whisper-cli; YouTube também yt-dlp (`brew install yt-dlp ffmpeg whisper-cpp`). A primeira execução descarrega ggml-tiny. O idioma das legendas segue o seletor Idioma do Controlo.",
+  "control.subtitleAgentTitle": "Ativar legendas locais (ASR offline via whisper.cpp). Ficheiros do hub ou YouTube (áudio via yt-dlp). Precisa de ffmpeg + whisper-cli; YouTube também yt-dlp (`brew install yt-dlp ffmpeg whisper-cpp`). A primeira execução descarrega ggml-base (~142 MB). O idioma das legendas segue o seletor Idioma do Controlo.",
   "control.subtitleAgentLang": "Idioma das legendas (segue Idioma do Control)",
   "control.subtitleAgentLangShort": "Subs",
   "control.subtitleAgentYoutube": "YouTube: o hub descarrega o áudio com yt-dlp (local) e corre Whisper. Requer yt-dlp + ffmpeg no PATH.",

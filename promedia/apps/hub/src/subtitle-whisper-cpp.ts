@@ -13,15 +13,35 @@ import {
 import { cleanCueText, filterSpeechCues } from "./subtitle-cue-text.js";
 import { ensureSubtitleDirs, subtitleModelsRoot } from "./subtitle-paths.js";
 
-/** ggml tiny multilingual — small, good enough for local ASR fallback. */
-const DEFAULT_GGML_URL =
-  "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin";
-const DEFAULT_GGML_NAME = "ggml-tiny.bin";
 /**
- * Reject truncated downloads. Real `ggml-tiny.bin` is ~74–78 MB; the old 10 MB
- * floor accepted partial files that then made ASR return empty cues.
+ * Default ggml **base** multilingual (~142 MB). Tiny (~75 MB) often mangled
+ * Spanish speech / lyrics (`[MUSIC]`-only); base is the accuracy/size sweet
+ * spot for Mac local ASR. Override with `SUBTITLE_WHISPER_CPP_MODEL=ggml-tiny.bin`
+ * (and matching URL / MIN_BYTES) if disk/bandwidth is tight.
  */
-const DEFAULT_MIN_GGML_BYTES = 70 * 1024 * 1024;
+const DEFAULT_GGML_NAME = "ggml-base.bin";
+const HF_GGML_BASE =
+  "https://huggingface.co/ggerganov/whisper.cpp/resolve/main";
+
+/** Resolve download URL from model filename unless `SUBTITLE_WHISPER_CPP_MODEL_URL` is set. */
+export function whisperCppDefaultModelUrl(modelName: string): string {
+  const name = modelName.trim() || DEFAULT_GGML_NAME;
+  return `${HF_GGML_BASE}/${name}`;
+}
+
+/**
+ * Size floor by model family so a switch to base does not accept a leftover
+ * tiny file, and an override to tiny still works without raising MIN_BYTES.
+ */
+export function whisperCppDefaultMinBytes(modelName: string): number {
+  const n = (modelName || DEFAULT_GGML_NAME).toLowerCase();
+  if (n.includes("tiny")) return 70 * 1024 * 1024; // ~75 MB
+  if (n.includes("base")) return 140 * 1024 * 1024; // ~142 MB
+  if (n.includes("small")) return 450 * 1024 * 1024; // ~466 MB
+  if (n.includes("medium")) return 1400 * 1024 * 1024;
+  if (n.includes("large")) return 2800 * 1024 * 1024;
+  return 140 * 1024 * 1024;
+}
 
 /** In-flight downloads keyed by absolute model path (one fetch per path). */
 const downloadInflight = new Map<string, Promise<string>>();
@@ -30,10 +50,12 @@ export function whisperCppModelsDir(modelsRoot?: string): string {
   return path.join(modelsRoot ?? subtitleModelsRoot(), "whisper");
 }
 
+export function whisperCppModelName(): string {
+  return process.env.SUBTITLE_WHISPER_CPP_MODEL?.trim() || DEFAULT_GGML_NAME;
+}
+
 export function whisperCppModelPath(modelsRoot?: string): string {
-  const name =
-    process.env.SUBTITLE_WHISPER_CPP_MODEL?.trim() || DEFAULT_GGML_NAME;
-  return path.join(whisperCppModelsDir(modelsRoot), name);
+  return path.join(whisperCppModelsDir(modelsRoot), whisperCppModelName());
 }
 
 /** Minimum accepted ggml size (override with SUBTITLE_WHISPER_CPP_MIN_BYTES for tests). */
@@ -43,7 +65,7 @@ export function whisperCppMinBytes(): number {
     const n = Number(raw);
     if (Number.isFinite(n) && n > 0) return Math.floor(n);
   }
-  return DEFAULT_MIN_GGML_BYTES;
+  return whisperCppDefaultMinBytes(whisperCppModelName());
 }
 
 /** @internal test helper — how many coalesced downloads are running. */
@@ -212,7 +234,8 @@ async function downloadWhisperCppModelOnce(modelPath: string): Promise<string> {
     }
 
     const url =
-      process.env.SUBTITLE_WHISPER_CPP_MODEL_URL?.trim() || DEFAULT_GGML_URL;
+      process.env.SUBTITLE_WHISPER_CPP_MODEL_URL?.trim() ||
+      whisperCppDefaultModelUrl(path.basename(modelPath));
     // Unique tmp so we never `rm` another job's in-progress stream.
     const tmpPath = `${modelPath}.part-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.tmp`;
     await rm(tmpPath, { force: true }).catch(() => undefined);
@@ -287,7 +310,7 @@ async function downloadWhisperCppModelOnce(modelPath: string): Promise<string> {
 }
 
 /**
- * Download ggml tiny once into `data/models/whisper/` (gitignored).
+ * Download ggml (default **base**) once into `data/models/whisper/` (gitignored).
  * Skips when a complete file already exists. Concurrent callers share one
  * in-flight promise; cross-process callers serialize on a `.lock` file.
  * ASR must not start until this resolves with a size-valid model.

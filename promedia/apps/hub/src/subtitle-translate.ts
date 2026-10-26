@@ -1,6 +1,11 @@
 import type { SubtitleCue, SubtitleTargetLang } from "@promedia/shared";
 import { filterSpeechCues, isNonSpeechCueText } from "./subtitle-cue-text.js";
 import {
+  cuesLikelyInLanguage,
+  cuesLookLikeLyrics,
+  inferDominantLanguage,
+} from "./subtitle-lang-detect.js";
+import {
   applyTransformersCacheEnv,
   ensureSubtitleDirs,
 } from "./subtitle-paths.js";
@@ -124,6 +129,12 @@ export type TranslateResult = {
 /**
  * Translate ASR cues to targetLang with local Marian models.
  * Never calls cloud APIs. On failure, returns source cues (stage A).
+ *
+ * Guards against bad text:
+ * - Do not re-translate cues that already read as the target language
+ *   (Spanish captions / Whisper mis-tagged as `en`).
+ * - Optionally keep YouTube lyric lines in the source language — Marian
+ *   often mangles sung poetry worse than showing accurate EN/ES originals.
  */
 export async function translateCuesLocal(options: {
   cues: SubtitleCue[];
@@ -131,9 +142,20 @@ export async function translateCuesLocal(options: {
   targetLang: SubtitleTargetLang;
   /** Already English from Whisper translate task. */
   alreadyEnglish?: boolean;
+  /**
+   * When true (YouTube caption path), skip Marian for lyric-shaped cues so
+   * we do not mangle accurate uploaded/auto lyrics into bad MT.
+   */
+  preserveLyricsSource?: boolean;
   onStatus?: () => void;
 }): Promise<TranslateResult> {
-  const { cues, targetLang, alreadyEnglish, onStatus } = options;
+  const {
+    cues,
+    targetLang,
+    alreadyEnglish,
+    preserveLyricsSource,
+    onStatus,
+  } = options;
   if (!cues.length) {
     return { cues, translated: false, note: null };
   }
@@ -144,8 +166,28 @@ export async function translateCuesLocal(options: {
     src = "en";
   }
 
+  // Trust cue text over a wrong Whisper/YT lang tag: already-Spanish must not
+  // go through en→es Marian (that is a common "texto equivocado" failure).
+  const speechPreview = filterSpeechCues(cues);
+  if (speechPreview.length && cuesLikelyInLanguage(speechPreview, tgt)) {
+    return { cues: speechPreview, translated: false, note: null };
+  }
+  const inferred = speechPreview.length
+    ? inferDominantLanguage(speechPreview)
+    : null;
+  if (inferred && (!src || src !== inferred)) {
+    // Prefer LID over a conflicting metadata tag when signal is clear.
+    if (!src || src !== tgt) {
+      src = inferred;
+    }
+  }
+
   if (src && src === tgt) {
-    return { cues, translated: alreadyEnglish === true && tgt === "en", note: null };
+    return {
+      cues: speechPreview.length ? speechPreview : cues,
+      translated: alreadyEnglish === true && tgt === "en",
+      note: null,
+    };
   }
 
   // Unknown source: if Whisper already produced English, translate en→target.
@@ -157,7 +199,7 @@ export async function translateCuesLocal(options: {
       src = "en";
     } else {
       return {
-        cues,
+        cues: speechPreview.length ? speechPreview : cues,
         translated: false,
         note: tgt === "es" ? null : `mt_unavailable:unknown->${tgt}`,
       };
@@ -165,16 +207,37 @@ export async function translateCuesLocal(options: {
   }
 
   if (src === tgt) {
-    return { cues, translated: false, note: null };
+    return {
+      cues: speechPreview.length ? speechPreview : cues,
+      translated: false,
+      note: null,
+    };
   }
 
-  onStatus?.();
   // Skip MT for sound labels — Marian turns `[MUSIC]` into `[MÚSICA]` which
   // looks like a Spanish lyric line but is not. Prefer dropping them.
-  const speechCues = filterSpeechCues(cues);
+  const speechCues = speechPreview;
   if (!speechCues.length) {
     return { cues: [], translated: false, note: null };
   }
+
+  // YouTube lyrics: accurate source language beats mangled Marian poetry.
+  if (
+    preserveLyricsSource &&
+    cuesLookLikeLyrics(speechCues) &&
+    src !== tgt
+  ) {
+    console.warn(
+      `[subtitle] skipping Marian for lyric-shaped cues (${src}->${tgt}) — keeping source text`,
+    );
+    return {
+      cues: speechCues,
+      translated: false,
+      note: "mt_lyrics_preserved",
+    };
+  }
+
+  onStatus?.();
   const texts = speechCues.map((c) => c.text);
   try {
     const translated = await translateViaPair(texts, src, tgt);

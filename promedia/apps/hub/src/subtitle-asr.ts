@@ -147,15 +147,15 @@ async function fileSha256(filePath: string): Promise<string> {
 }
 
 /**
- * Cache key v3: busts music-label-only cues (`[MUSIC]` / `[MÚSICA]`) that v2
- * cached as "ready", and empty/garbage Spanish cues from pre-`-l auto` runs.
+ * Cache key v4: busts tiny-model ASR caches after default ggml upgrade to
+ * **base**, plus music-label-only / pre-`-l auto` leftovers from v2/v3.
  */
 function cacheKey(
   assetId: string,
   targetLang: SubtitleTargetLang,
   translateToEn: boolean,
 ): string {
-  return `${assetId}_${translateToEn ? "en" : "src"}_${targetLang}_v3`;
+  return `${assetId}_${translateToEn ? "en" : "src"}_${targetLang}_v4`;
 }
 
 function normalizeChunks(

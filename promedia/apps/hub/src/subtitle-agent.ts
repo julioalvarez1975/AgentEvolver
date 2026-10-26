@@ -413,8 +413,8 @@ async function runSubtitleJob(
         sourceLang: null,
       });
 
-      // Prefer YouTube manual/auto captions (real lyrics) over Whisper tiny,
-      // which often emits only `[MUSIC]` / `[MÚSICA]` for songs.
+      // Prefer YouTube **manual** captions (then auto) matching app language
+      // over Whisper — tiny/base still stumble on sung lyrics (`[MUSIC]`).
       const preferLangs = [targetLang, "en"].filter(
         (v, i, a) => a.indexOf(v) === i,
       );
@@ -438,13 +438,17 @@ async function runSubtitleJob(
             sourceLang,
             targetLang,
             alreadyEnglish: sourceLang === "en",
+            // Keep accurate YT lyric text; Marian often mangles song poetry.
+            preserveLyricsSource: true,
           });
           cues = filterSpeechCues(mt.cues);
           translated = mt.translated || translated;
           if (mt.note && !mt.translated) {
-            hint = mt.note.startsWith("mt_unavailable")
-              ? "mt_source_only"
-              : mt.note;
+            hint =
+              mt.note === "mt_lyrics_preserved" ||
+              mt.note.startsWith("mt_unavailable")
+                ? "mt_source_only"
+                : mt.note;
           }
 
           if (!isCurrent(sessionId, gen)) return;

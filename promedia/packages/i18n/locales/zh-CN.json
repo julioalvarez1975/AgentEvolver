@@ -275,7 +275,7 @@
   "library.songFolderResult": "已导入 {n} 首歌曲{updated}{skipped}。",
   "bible.localBadge": "本地",
   "control.subtitleAgent": "字幕助手",
-  "control.subtitleAgentTitle": "启用本地字幕（离线 ASR，whisper.cpp）。支持 Hub 文件或 YouTube（yt-dlp 拉取音频）。需要 ffmpeg + whisper-cli；YouTube 还需要 yt-dlp（`brew install yt-dlp ffmpeg whisper-cpp`）。首次运行会下载 ggml-tiny。字幕语言跟随控制台语言选择器。",
+  "control.subtitleAgentTitle": "启用本地字幕（离线 ASR，whisper.cpp）。支持 Hub 文件或 YouTube（yt-dlp 拉取音频）。需要 ffmpeg + whisper-cli；YouTube 还需要 yt-dlp（`brew install yt-dlp ffmpeg whisper-cpp`）。首次运行会下载 ggml-base (~142 MB)。字幕语言跟随控制台语言选择器。",
   "control.subtitleAgentLang": "字幕语言（跟随控制台语言）",
   "control.subtitleAgentLangShort": "字幕",
   "control.subtitleAgentYoutube": "YouTube：集线器用 yt-dlp 本地下载音频后运行 Whisper。需要 PATH 中有 yt-dlp 与 ffmpeg。",

@@ -430,11 +430,20 @@ export async function ensureYoutubeAudio(options: {
 /** Caption sidecar extensions we accept after yt-dlp `--convert-subs vtt`. */
 const CAPTION_EXTS = new Set([".vtt", ".srt"]);
 
+export type YoutubeCaptionTrackKind = "manual" | "auto" | "unknown";
+
 type CaptionCandidate = {
   filePath: string;
   lang: string;
-  /** Lower rank = better (manual preferred, then language preference). */
+  trackKind: YoutubeCaptionTrackKind;
+  /** Lower rank = better (manual > auto; preferred language first). */
   rank: number;
+};
+
+/** A track advertised by yt-dlp JSON (`subtitles` vs `automatic_captions`). */
+export type YoutubeCaptionTrackInfo = {
+  lang: string;
+  kind: "manual" | "auto";
 };
 
 /**
@@ -456,31 +465,72 @@ export function youtubeCaptionLangFromName(
   return langPart.toLowerCase();
 }
 
-function captionLangBase(lang: string): string {
+export function captionLangBase(lang: string): string {
   return lang.split(/[-_.]/)[0] || lang;
 }
 
+/** Guess auto vs manual from yt-dlp filename conventions when meta is missing. */
+export function youtubeCaptionKindFromLangTag(
+  lang: string,
+): YoutubeCaptionTrackKind {
+  const l = lang.toLowerCase();
+  // yt-dlp sometimes tags auto as `en-orig` / `…-auto` / leading `a.`.
+  if (/(^|[.-])(orig|auto)([.-]|$)/i.test(l) || /^a\./i.test(l)) {
+    return "auto";
+  }
+  return "unknown";
+}
+
 /**
- * Rank caption files: prefer preferred language list, then shorter tags, then
- * path for stability. Auto tracks (`…-orig` / longer tags) still usable.
+ * Rank caption tracks. Lower = better.
+ * 1. Match app / preferLangs first (ES UI → Spanish track before English).
+ * 2. Within the same language preference: **manual ≫ auto**.
+ * 3. Prefer plain tags (`es` over `es-419`).
  */
 export function rankYoutubeCaptionLang(
   lang: string,
   preferLangs: string[],
+  trackKind: YoutubeCaptionTrackKind = "unknown",
 ): number {
   const base = captionLangBase(lang);
   const prefs = preferLangs.map((l) => captionLangBase(l.toLowerCase()));
   const prefIdx = prefs.findIndex((p) => p === base || lang.startsWith(`${p}-`));
   const prefScore = prefIdx >= 0 ? prefIdx : 100;
+  // Manual uploaded tracks beat auto-generated ASR for the same language.
+  const kindScore =
+    trackKind === "manual" ? 0 : trackKind === "unknown" ? 5 : 10;
   // Prefer plain `en` / `es` over `en-orig` / regional when tied.
   const specificity = lang.includes("-") || lang.includes(".") ? 1 : 0;
-  return prefScore * 10 + specificity;
+  return prefScore * 1000 + kindScore * 10 + specificity;
+}
+
+/**
+ * Pick the best advertised track: manual matching preferLangs first, then
+ * auto matching preferLangs, then any manual, then any auto.
+ */
+export function pickBestYoutubeCaptionTrack(
+  tracks: YoutubeCaptionTrackInfo[],
+  preferLangs: string[],
+): YoutubeCaptionTrackInfo | null {
+  if (!tracks.length) return null;
+  const scored = tracks.map((t) => ({
+    t,
+    rank: rankYoutubeCaptionLang(t.lang, preferLangs, t.kind),
+  }));
+  scored.sort(
+    (a, b) =>
+      a.rank - b.rank ||
+      a.t.lang.localeCompare(b.t.lang) ||
+      (a.t.kind === "manual" ? -1 : 1),
+  );
+  return scored[0]?.t ?? null;
 }
 
 export async function findYoutubeCaptionFiles(
   cacheDir: string,
   videoId: string,
   preferLangs: string[],
+  trackKindByLang?: Map<string, YoutubeCaptionTrackKind>,
 ): Promise<CaptionCandidate[]> {
   let names: string[];
   try {
@@ -499,13 +549,75 @@ export async function findYoutubeCaptionFiles(
     } catch {
       continue;
     }
+    const base = captionLangBase(lang);
+    const fromMeta =
+      trackKindByLang?.get(lang) ||
+      trackKindByLang?.get(base) ||
+      null;
+    const trackKind =
+      fromMeta || youtubeCaptionKindFromLangTag(lang);
     out.push({
       filePath,
       lang,
-      rank: rankYoutubeCaptionLang(lang, preferLangs),
+      trackKind,
+      rank: rankYoutubeCaptionLang(lang, preferLangs, trackKind),
     });
   }
   out.sort((a, b) => a.rank - b.rank || a.filePath.localeCompare(b.filePath));
+  return out;
+}
+
+/**
+ * Probe yt-dlp JSON for manual (`subtitles`) vs auto (`automatic_captions`).
+ * Returns [] on failure — caller may still try a blind caption download.
+ */
+export async function listYoutubeCaptionTracks(options: {
+  videoId: string;
+  sourceUrl: string;
+}): Promise<YoutubeCaptionTrackInfo[]> {
+  const { videoId, sourceUrl } = options;
+  assertSafeVideoId(videoId);
+  if (!(await ytDlpAvailable())) return [];
+  const bin = resolveYtDlpBin();
+  const url =
+    sourceUrl?.trim() || `https://www.youtube.com/watch?v=${videoId}`;
+  let result: { code: number; stderr: string; stdout: string };
+  try {
+    result = await runCmd(bin, [
+      "--no-playlist",
+      "--no-warnings",
+      "--skip-download",
+      "-J",
+      "--",
+      url,
+    ]);
+  } catch {
+    return [];
+  }
+  if (result.code !== 0 || !result.stdout.trim()) return [];
+  let data: {
+    subtitles?: Record<string, unknown>;
+    automatic_captions?: Record<string, unknown>;
+  };
+  try {
+    data = JSON.parse(result.stdout) as typeof data;
+  } catch {
+    return [];
+  }
+  const out: YoutubeCaptionTrackInfo[] = [];
+  const seen = new Set<string>();
+  for (const lang of Object.keys(data.subtitles || {})) {
+    const key = `manual:${lang.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ lang: lang.toLowerCase(), kind: "manual" });
+  }
+  for (const lang of Object.keys(data.automatic_captions || {})) {
+    const key = `auto:${lang.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ lang: lang.toLowerCase(), kind: "auto" });
+  }
   return out;
 }
 
@@ -513,11 +625,43 @@ async function invokeYtDlpCaptions(options: {
   bin: string;
   cacheDir: string;
   url: string;
+  /** Exact lang tag to request (e.g. `es`, `en`). */
+  lang: string;
+  /** Manual uploaded vs auto-generated. */
+  kind: "manual" | "auto";
+}): Promise<{ code: number; stderr: string; stdout: string }> {
+  const { bin, cacheDir, url, lang, kind } = options;
+  await mkdir(cacheDir, { recursive: true });
+  const base = captionLangBase(lang);
+  const langArgs = [...new Set([`${base}.*`, base, lang])].filter(Boolean);
+  const writeFlag =
+    kind === "manual" ? "--write-subs" : "--write-auto-subs";
+  return runCmd(bin, [
+    "--no-playlist",
+    "--no-warnings",
+    "--skip-download",
+    writeFlag,
+    "--sub-langs",
+    langArgs.join(","),
+    "--sub-format",
+    "vtt/srt/best",
+    "--convert-subs",
+    "vtt",
+    ...youtubeYtDlpOutputArgs(cacheDir),
+    "--",
+    url,
+  ]);
+}
+
+/** Legacy blind download (manual + auto) when JSON probe is unavailable. */
+async function invokeYtDlpCaptionsBlind(options: {
+  bin: string;
+  cacheDir: string;
+  url: string;
   preferLangs: string[];
 }): Promise<{ code: number; stderr: string; stdout: string }> {
   const { bin, cacheDir, url, preferLangs } = options;
   await mkdir(cacheDir, { recursive: true });
-  // Prefer UI language, then English (lyrics often uploaded in EN), then any.
   const langs = [
     ...preferLangs.map((l) => `${captionLangBase(l)}.*`),
     ...preferLangs.map((l) => captionLangBase(l)),
@@ -545,7 +689,8 @@ async function invokeYtDlpCaptions(options: {
 
 /**
  * Prefer official / auto YouTube captions over Whisper-on-audio for music
- * videos — Whisper tiny often emits only `[MUSIC]` / `[MÚSICA]` for songs.
+ * videos — Whisper often emits only `[MUSIC]` / `[MÚSICA]` for songs.
+ * Prefers **manual** tracks over auto, matching app language when possible.
  * Returns null when no usable speech/lyric cues are available (caller falls
  * through to audio ASR). Never throws for "no captions"; hard yt-dlp failures
  * are swallowed so the Whisper path can still run.
@@ -563,28 +708,86 @@ export async function tryYoutubeCaptions(options: {
   const cacheDir = path.resolve(dirs.youtubeCache);
   await mkdir(cacheDir, { recursive: true });
 
+  const url =
+    sourceUrl?.trim() || `https://www.youtube.com/watch?v=${videoId}`;
+
+  // Probe manual vs auto so we can prefer uploaded tracks and match UI lang.
+  const advertised = await listYoutubeCaptionTracks({ videoId, sourceUrl });
+  const kindByLang = new Map<string, YoutubeCaptionTrackKind>();
+  for (const t of advertised) {
+    const prev = kindByLang.get(t.lang);
+    // Manual wins if both exist for the same tag.
+    if (!prev || t.kind === "manual") {
+      kindByLang.set(t.lang, t.kind);
+      kindByLang.set(captionLangBase(t.lang), t.kind);
+    }
+  }
+
+  const picked = pickBestYoutubeCaptionTrack(advertised, preferLangs);
+
   // Reuse previously downloaded caption sidecars when present.
   let candidates = await findYoutubeCaptionFiles(
     cacheDir,
     videoId,
     preferLangs,
+    kindByLang,
   );
+
+  // If we know the best track and it's not on disk yet, fetch only that one.
+  if (picked && (await ytDlpAvailable())) {
+    const already = candidates.some(
+      (c) =>
+        captionLangBase(c.lang) === captionLangBase(picked.lang) &&
+        (c.trackKind === picked.kind || c.trackKind === "unknown"),
+    );
+    if (!already) {
+      const bin = resolveYtDlpBin();
+      try {
+        await ensureFfmpegForExtract();
+      } catch {
+        // convert-subs may need ffmpeg; keep going — raw vtt often works.
+      }
+      try {
+        const result = await invokeYtDlpCaptions({
+          bin,
+          cacheDir,
+          url,
+          lang: picked.lang,
+          kind: picked.kind,
+        });
+        if (result.code !== 0) {
+          const hint = classifyYoutubeError(result.stderr || result.stdout);
+          console.warn(
+            `[subtitle] YouTube ${picked.kind} captions lang=${picked.lang} unavailable (${hint})`,
+          );
+        }
+      } catch (err) {
+        console.warn(
+          "[subtitle] YouTube captions fetch failed:",
+          err instanceof Error ? err.message : err,
+        );
+      }
+      candidates = await findYoutubeCaptionFiles(
+        cacheDir,
+        videoId,
+        preferLangs,
+        kindByLang,
+      );
+    }
+  }
 
   if (!candidates.length) {
     if (!(await ytDlpAvailable())) {
       return null;
     }
     const bin = resolveYtDlpBin();
-    // convert-subs may need ffmpeg; missing ffmpeg → skip captions, keep ASR.
     try {
       await ensureFfmpegForExtract();
     } catch {
       return null;
     }
-    const url =
-      sourceUrl?.trim() || `https://www.youtube.com/watch?v=${videoId}`;
     try {
-      const result = await invokeYtDlpCaptions({
+      const result = await invokeYtDlpCaptionsBlind({
         bin,
         cacheDir,
         url,
@@ -604,7 +807,25 @@ export async function tryYoutubeCaptions(options: {
       );
       return null;
     }
-    candidates = await findYoutubeCaptionFiles(cacheDir, videoId, preferLangs);
+    candidates = await findYoutubeCaptionFiles(
+      cacheDir,
+      videoId,
+      preferLangs,
+      kindByLang,
+    );
+  }
+
+  // Prefer the probed track's language/kind when scoring local files.
+  if (picked) {
+    for (const c of candidates) {
+      if (captionLangBase(c.lang) === captionLangBase(picked.lang)) {
+        c.trackKind = picked.kind;
+        c.rank = rankYoutubeCaptionLang(c.lang, preferLangs, picked.kind);
+      }
+    }
+    candidates.sort(
+      (a, b) => a.rank - b.rank || a.filePath.localeCompare(b.filePath),
+    );
   }
 
   for (const cand of candidates) {
@@ -617,16 +838,22 @@ export async function tryYoutubeCaptions(options: {
     const parsed = filterSpeechCues(parseWhisperCppVttOrSrt(raw));
     if (parsed.length < 1) continue;
     const sourceLang = captionLangBase(cand.lang);
+    const trackKind: YoutubeCaptionTrackKind =
+      cand.trackKind !== "unknown"
+        ? cand.trackKind
+        : picked && captionLangBase(picked.lang) === sourceLang
+          ? picked.kind
+          : youtubeCaptionKindFromLangTag(cand.lang);
     console.log(
-      `[subtitle] YouTube captions used lang=${cand.lang} cues=${parsed.length} → ${cand.filePath}`,
+      `[subtitle] YouTube captions used kind=${trackKind} lang=${cand.lang} cues=${parsed.length} → ${cand.filePath}`,
     );
-    // Persist a tiny marker so Control/debug can see caption source was used.
     void writeFile(
       path.join(cacheDir, `${videoId}.captions-meta.json`),
       JSON.stringify(
         {
           lang: cand.lang,
           sourceLang,
+          trackKind,
           cues: parsed.length,
           file: path.basename(cand.filePath),
           at: new Date().toISOString(),
@@ -641,7 +868,7 @@ export async function tryYoutubeCaptions(options: {
       sourceLang,
       assetId,
       videoId,
-      trackKind: /orig|auto/i.test(cand.lang) ? "auto" : "unknown",
+      trackKind,
     };
   }
 

@@ -12,11 +12,22 @@ import {
 } from "../src/subtitle-cue-text.ts";
 import { ensureSubtitleDirs } from "../src/subtitle-paths.ts";
 import {
+  cuesLikelyInLanguage,
+  cuesLookLikeLyrics,
+  inferDominantLanguage,
+} from "../src/subtitle-lang-detect.ts";
+import {
   findYoutubeCaptionFiles,
+  pickBestYoutubeCaptionTrack,
   rankYoutubeCaptionLang,
+  youtubeCaptionKindFromLangTag,
   youtubeCaptionLangFromName,
 } from "../src/subtitle-youtube.ts";
-import { parseWhisperCppVttOrSrt } from "../src/subtitle-whisper-cpp.ts";
+import {
+  parseWhisperCppVttOrSrt,
+  whisperCppDefaultMinBytes,
+  whisperCppDefaultModelUrl,
+} from "../src/subtitle-whisper-cpp.ts";
 
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg);
@@ -92,6 +103,80 @@ The club isn't the best place to find a lover
     rankYoutubeCaptionLang("es", ["es", "en"]) <
       rankYoutubeCaptionLang("en", ["es", "en"]),
     "prefer es over en when target es",
+  );
+  assert(
+    rankYoutubeCaptionLang("es", ["es", "en"], "auto") <
+      rankYoutubeCaptionLang("en", ["es", "en"], "manual"),
+    "matching ES (even auto) beats manual EN when UI is ES",
+  );
+  assert(
+    rankYoutubeCaptionLang("es", ["es", "en"], "manual") <
+      rankYoutubeCaptionLang("es", ["es", "en"], "auto"),
+    "manual ES beats auto ES",
+  );
+  assert(
+    youtubeCaptionKindFromLangTag("en-orig") === "auto",
+    "en-orig is auto",
+  );
+  const picked = pickBestYoutubeCaptionTrack(
+    [
+      { lang: "en", kind: "auto" },
+      { lang: "es", kind: "auto" },
+      { lang: "en", kind: "manual" },
+      { lang: "es", kind: "manual" },
+    ],
+    ["es", "en"],
+  );
+  assert(
+    picked?.lang === "es" && picked.kind === "manual",
+    `expected manual es, got ${picked?.kind}:${picked?.lang}`,
+  );
+
+  // Already-Spanish must not look like English for MT skip.
+  const esCues = [
+    {
+      id: "1",
+      startMs: 0,
+      endMs: 1000,
+      text: "El Señor es mi pastor y nada me faltará en la vida",
+    },
+    {
+      id: "2",
+      startMs: 1000,
+      endMs: 2000,
+      text: "Porque Él está conmigo para siempre en el amor",
+    },
+    {
+      id: "3",
+      startMs: 2000,
+      endMs: 3000,
+      text: "Gracias Dios por tu gracia y por el corazón nuevo",
+    },
+  ];
+  assert(inferDominantLanguage(esCues) === "es", "infer Spanish");
+  assert(cuesLikelyInLanguage(esCues, "es"), "likely Spanish");
+  assert(!cuesLikelyInLanguage(esCues, "en"), "not English");
+
+  const lyricCues = Array.from({ length: 8 }, (_, i) => ({
+    id: `l${i}`,
+    startMs: i * 1000,
+    endMs: i * 1000 + 900,
+    text: "Shape of you love",
+  }));
+  assert(cuesLookLikeLyrics(lyricCues), "short dense lines = lyrics");
+
+  assert(
+    whisperCppDefaultModelUrl("ggml-base.bin").endsWith("/ggml-base.bin"),
+    "default URL base",
+  );
+  assert(
+    whisperCppDefaultMinBytes("ggml-base.bin") >= 140 * 1024 * 1024,
+    "base min bytes",
+  );
+  assert(
+    whisperCppDefaultMinBytes("ggml-tiny.bin") <
+      whisperCppDefaultMinBytes("ggml-base.bin"),
+    "tiny min < base min",
   );
 
   const dirs = await ensureSubtitleDirs();
