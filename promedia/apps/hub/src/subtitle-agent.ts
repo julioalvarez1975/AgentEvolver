@@ -8,10 +8,15 @@ import type {
 import { emptySubtitleAgentState } from "@promedia/shared";
 import { assetStore } from "./asset-store.js";
 import { broadcastSession } from "./broadcast.js";
-import { mediaFileExists, transcribeLocalFile } from "./subtitle-asr.js";
+import {
+  ffmpegAvailable,
+  mediaFileExists,
+  transcribeLocalFile,
+} from "./subtitle-asr.js";
+import { isMissingBinHint, missingBinHintFromError } from "./subtitle-bins.js";
 import { ensureSubtitleDirs } from "./subtitle-paths.js";
 import { translateCuesLocal } from "./subtitle-translate.js";
-import { ensureYoutubeAudio } from "./subtitle-youtube.js";
+import { ensureYoutubeAudio, ytDlpAvailable } from "./subtitle-youtube.js";
 import type { SessionRecord } from "./session-store.js";
 import { sessionStore } from "./session-store.js";
 
@@ -138,6 +143,22 @@ function hintForReason(
   }
 }
 
+function isStickyMissingBin(agent: SubtitleAgentState | null | undefined): boolean {
+  return Boolean(
+    agent && agent.status === "error" && isMissingBinHint(agent.hint),
+  );
+}
+
+async function missingBinStillAbsent(hint: string): Promise<boolean> {
+  if (hint === "yt_dlp_missing") {
+    return !(await ytDlpAvailable());
+  }
+  if (hint === "ffmpeg_missing") {
+    return !(await ffmpegAvailable());
+  }
+  return true;
+}
+
 /**
  * Apply enable/lang patch and kick off local ASR when appropriate.
  * Always returns a HubMessage (session.updated).
@@ -153,6 +174,8 @@ export function setSubtitleAgent(
   const prev = session.live.subtitleAgent ?? emptySubtitleAgentState();
   const enabled = patch.enabled ?? prev.enabled;
   const targetLang = patch.targetLang ?? prev.targetLang;
+  const wasOff = !prev.enabled;
+  const stickyMissing = isStickyMissingBin(prev);
 
   if (!enabled) {
     bumpJob(session.id);
@@ -165,22 +188,28 @@ export function setSubtitleAgent(
     return sessionStore.touchSubtitleAgent(session);
   }
 
+  // Keep missing-binary error visible when focus/lang changes; only clear on
+  // toggle-on (wasOff) so Control can show the install hint instead of retry spam.
+  const keepSticky = stickyMissing && !wasOff;
+
   session.live.subtitleAgent = {
     ...prev,
     enabled: true,
     targetLang,
-    status:
-      prev.status === "ready" && prev.targetLang === targetLang
+    status: keepSticky
+      ? "error"
+      : prev.status === "ready" && prev.targetLang === targetLang
         ? "ready"
         : "idle",
-    hint: null,
+    hint: keepSticky ? prev.hint : null,
     updatedAt: new Date().toISOString(),
   };
 
   const message = sessionStore.touchSubtitleAgent(session);
 
   // Fire-and-forget local job (does not block WS).
-  void runSubtitleJob(session.id, patch.itemId);
+  // force=true only when enabling from off (user toggle) — retries missing bins.
+  void runSubtitleJob(session.id, patch.itemId, { force: wasOff });
 
   return message;
 }
@@ -189,13 +218,31 @@ export function setSubtitleAgent(
 export function maybeRefreshSubtitleAgent(session: SessionRecord): void {
   const agent = session.live.subtitleAgent;
   if (!agent?.enabled) return;
-  void runSubtitleJob(session.id, session.live.currentItemId ?? undefined);
+  // Missing yt-dlp/ffmpeg: do not tight-loop; quiet re-check inside the job.
+  void runSubtitleJob(session.id, session.live.currentItemId ?? undefined, {
+    force: false,
+  });
 }
 
 async function runSubtitleJob(
   sessionId: string,
   preferredItemId?: string,
+  options?: { force?: boolean },
 ): Promise<void> {
+  const force = options?.force === true;
+  const sessionPeek = sessionStore.get(sessionId);
+  const agentPeek = sessionPeek?.live.subtitleAgent;
+  if (
+    !force &&
+    agentPeek &&
+    isStickyMissingBin(agentPeek) &&
+    agentPeek.hint &&
+    (await missingBinStillAbsent(agentPeek.hint))
+  ) {
+    // Still missing — fail once; wait for toggle-off/on or deps to appear.
+    return;
+  }
+
   const gen = bumpJob(sessionId);
   const session = sessionStore.get(sessionId);
   if (!session) return;
@@ -377,18 +424,22 @@ async function runSubtitleJob(
       assetId,
     });
   } catch (err) {
-    console.error(
-      "[subtitle] job failed:",
-      err instanceof Error ? err.message : err,
-    );
+    const raw = err instanceof Error ? err.message : "asr_failed";
+    const missingHint = missingBinHintFromError(err);
+    const hint = missingHint ?? raw.slice(0, 180);
+    // Log missing binaries once; sticky state prevents retry spam.
+    if (missingHint) {
+      console.error(`[subtitle] job failed: ${missingHint}`);
+    } else {
+      console.error("[subtitle] job failed:", raw);
+    }
     if (!isCurrent(sessionId, gen)) return;
     const live = sessionStore.get(sessionId);
     if (!live) return;
-    const msg = err instanceof Error ? err.message : "asr_failed";
     patchAndBroadcast(live, {
       status: "error",
       cues: [],
-      hint: msg.slice(0, 180),
+      hint,
       itemId: resolved.item.id,
       assetId: resolved.assetId,
     });

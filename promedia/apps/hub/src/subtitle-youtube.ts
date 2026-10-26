@@ -1,6 +1,11 @@
 import { access, readdir } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import {
+  ensureAugmentedPath,
+  missingBinHintFromError,
+  resolveYtDlpBin,
+} from "./subtitle-bins.js";
 import { ensureSubtitleDirs } from "./subtitle-paths.js";
 
 export type YoutubeAudioResult = {
@@ -11,16 +16,16 @@ export type YoutubeAudioResult = {
   videoId: string;
 };
 
-function ytDlpBin(): string {
-  return process.env.YT_DLP_PATH?.trim() || "yt-dlp";
-}
-
 function runCmd(
   bin: string,
   args: string[],
 ): Promise<{ code: number; stderr: string; stdout: string }> {
+  ensureAugmentedPath();
   return new Promise((resolve, reject) => {
-    const child = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(bin, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: process.env,
+    });
     let stderr = "";
     let stdout = "";
     child.stderr?.on("data", (chunk: Buffer) => {
@@ -38,7 +43,8 @@ function runCmd(
 
 export async function ytDlpAvailable(): Promise<boolean> {
   try {
-    const { code } = await runCmd(ytDlpBin(), ["--version"]);
+    const bin = resolveYtDlpBin();
+    const { code } = await runCmd(bin, ["--version"]);
     return code === 0;
   } catch {
     return false;
@@ -132,6 +138,7 @@ export async function ensureYoutubeAudio(options: {
     return { mediaPath: cached, assetId, videoId };
   }
 
+  const bin = resolveYtDlpBin();
   const available = await ytDlpAvailable();
   if (!available) {
     throw new Error("yt_dlp_missing");
@@ -144,7 +151,7 @@ export async function ensureYoutubeAudio(options: {
 
   let result: { code: number; stderr: string; stdout: string };
   try {
-    result = await runCmd(ytDlpBin(), [
+    result = await runCmd(bin, [
       "--no-playlist",
       "--no-warnings",
       "-f",
@@ -160,10 +167,10 @@ export async function ensureYoutubeAudio(options: {
       url,
     ]);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("ENOENT") || msg.toLowerCase().includes("not found")) {
+    if (missingBinHintFromError(err, "yt_dlp")) {
       throw new Error("yt_dlp_missing");
     }
+    const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`yt_dlp_spawn_failed: ${msg.slice(0, 120)}`);
   }
 
