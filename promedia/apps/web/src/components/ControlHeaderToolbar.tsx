@@ -64,7 +64,7 @@ export type ControlHeaderToolbarProps = {
   subtitleAgentEnabled?: boolean;
   /** Caption size SM–XL (session-persisted). */
   subtitleAgentFontSize?: SubtitleFontSize;
-  /** Cue anticipation vs mediaClock (1.5–3s). */
+  /** Signed cue offset vs mediaClock (−3s…0). */
   subtitleAgentLeadMs?: SubtitleLeadMs;
   /** Tooltip: help text, download progress, or ASR errors (incl. yt-dlp). */
   subtitleAgentTitle?: string;
@@ -155,10 +155,13 @@ export function ControlHeaderToolbar({
     xl: t("control.subtitleAgentFontSizeXl"),
   };
   const subtitleLeadLabel: Record<SubtitleLeadMs, string> = {
-    1500: t("control.subtitleAgentLead15"),
-    2000: t("control.subtitleAgentLead20"),
-    2500: t("control.subtitleAgentLead25"),
-    3000: t("control.subtitleAgentLead30"),
+    [-3000]: t("control.subtitleAgentLeadNeg30"),
+    [-2500]: t("control.subtitleAgentLeadNeg25"),
+    [-2000]: t("control.subtitleAgentLeadNeg20"),
+    [-1500]: t("control.subtitleAgentLeadNeg15"),
+    [-1000]: t("control.subtitleAgentLeadNeg10"),
+    [-500]: t("control.subtitleAgentLeadNeg05"),
+    [0]: t("control.subtitleAgentLead0"),
   };
 
   const sceneBtn = (

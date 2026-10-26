@@ -333,18 +333,28 @@ export function isSubtitleFontSize(value: unknown): value is SubtitleFontSize {
 }
 
 /**
- * How early timed cues appear vs mediaClock (ms). Shows the line before it is
- * sung so the congregation can read ahead. Applies only to agent ASR cues —
+ * Signed clock offset for timed cues vs mediaClock (ms).
+ * Negative = adelante (show early); 0 = sync. Discrete steps Julio requested:
+ * -3, -2.5, -2, -1.5, -1, -0.5, 0 seconds. Applies only to agent ASR cues —
  * Biblioteca songs advanced with ←/→ slides are manual and ignore lead.
  */
-export type SubtitleLeadMs = 1500 | 2000 | 2500 | 3000;
+export type SubtitleLeadMs =
+  | -3000
+  | -2500
+  | -2000
+  | -1500
+  | -1000
+  | -500
+  | 0;
 
 export const SUBTITLE_LEAD_MS_OPTIONS: readonly SubtitleLeadMs[] = [
-  1500, 2000, 2500, 3000,
+  -3000, -2500, -2000, -1500, -1000, -500, 0,
 ] as const;
 
-/** Default anticipation: 2 seconds early. */
-export const DEFAULT_SUBTITLE_LEAD_MS: SubtitleLeadMs = 2000;
+/**
+ * Default stays at 2s early (−2) — previous UX defaulted to a lead, not sync.
+ */
+export const DEFAULT_SUBTITLE_LEAD_MS: SubtitleLeadMs = -2000;
 
 export function isSubtitleLeadMs(value: unknown): value is SubtitleLeadMs {
   return (
@@ -353,13 +363,18 @@ export function isSubtitleLeadMs(value: unknown): value is SubtitleLeadMs {
   );
 }
 
-/** Coerce unknown / legacy values into a valid lead preset (default 2s). */
+/**
+ * Coerce unknown / legacy values into a valid lead preset.
+ * Legacy positive leadMs (how-early ms, e.g. 2000) maps to signed −2000.
+ */
 export function normalizeSubtitleLeadMs(value: unknown): SubtitleLeadMs {
   if (isSubtitleLeadMs(value)) {
     return value;
   }
   if (typeof value === "number" && Number.isFinite(value)) {
-    const clamped = Math.min(3000, Math.max(1500, value));
+    // Old sessions/clients stored positive “how early” ms (1500–3000).
+    const signed = value > 0 ? -value : value;
+    const clamped = Math.min(0, Math.max(-3000, signed));
     let best: SubtitleLeadMs = DEFAULT_SUBTITLE_LEAD_MS;
     let bestDist = Number.POSITIVE_INFINITY;
     for (const opt of SUBTITLE_LEAD_MS_OPTIONS) {
@@ -381,7 +396,7 @@ export type SubtitleAgentState = {
   /** Caption size (SM / MD / LG / XL). Persisted in session. */
   fontSize: SubtitleFontSize;
   /**
-   * Show timed cues this many ms early vs mediaClock (1.5–3s presets).
+   * Signed offset vs mediaClock (ms): −3s…0 presets. Negative = adelante.
    * Only affects agent ASR/YouTube cues — not manual song slides.
    */
   leadMs: SubtitleLeadMs;
@@ -450,19 +465,20 @@ export function cueAtPositionMs(
 }
 
 /**
- * Cue for display with anticipation: lookup at `positionMs + leadMs` so the
- * line is readable before the sung words (timed agent cues only).
+ * Cue for display with signed offset: lookup at `positionMs - leadMs`.
+ * Negative leadMs (adelante) advances the cue so the line is readable before
+ * the sung words (timed agent cues only).
  */
 export function cueAtPositionWithLeadMs(
   cues: readonly SubtitleCue[],
   positionMs: number,
   leadMs: number,
 ): SubtitleCue | null {
-  const lead =
+  const offset =
     typeof leadMs === "number" && Number.isFinite(leadMs)
-      ? Math.max(0, leadMs)
+      ? leadMs
       : DEFAULT_SUBTITLE_LEAD_MS;
-  return cueAtPositionMs(cues, positionMs + lead);
+  return cueAtPositionMs(cues, positionMs - offset);
 }
 
 /** Visual overlay on Output; does not clear live item (subtarea 7). */

@@ -24,7 +24,7 @@ export type SubtitleOverlayProps = {
 
 /**
  * Upper-stage projection captions (cancionero look via FittedTextStage).
- * Timing prefers hub mediaClock; `leadMs` shows the cue early so the line is
+ * Timing prefers hub mediaClock; negative `leadMs` (adelante) shows the cue early so the line is
  * readable before it is sung. Manual ←/→ song slides do not use this path.
  */
 export function SubtitleOverlay({
