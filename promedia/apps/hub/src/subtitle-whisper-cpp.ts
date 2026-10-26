@@ -453,16 +453,25 @@ export function parseWhisperCppJson(raw: string): SubtitleCue[] {
   return parseWhisperCppResult(raw).cues;
 }
 
-/** Parse WebVTT / SRT-ish timestamp files from whisper-cli. */
+/**
+ * Parse WebVTT / SRT timestamp files (whisper-cli, yt-dlp, sidecars).
+ * Accepts HH:MM:SS.mmm, H:MM:SS.mmm, and MM:SS.mmm (YouTube often omits hours
+ * or uses a single-digit hour). Trailing cue settings (`align:start` …) are
+ * ignored. Missing flexible clocks used to yield **zero cues** while the agent
+ * still reported ready / fell through to Whisper — blank Preview/Output.
+ */
 export function parseWhisperCppVttOrSrt(raw: string): SubtitleCue[] {
   const cues: SubtitleCue[] = [];
   let i = 0;
-  // Match "00:00:01.000 --> 00:00:02.500" or comma decimal (SRT)
-  const re =
-    /(\d{2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,.]\d{3})/g;
+  // Clock: optional hours, 1–2 digit hour, comma or dot millis (2–3 digits).
+  const clock = String.raw`(?:\d{1,2}:)?\d{1,2}:\d{2}[,.]\d{2,3}`;
+  const re = new RegExp(`(${clock})\\s*-->\\s*(${clock})`, "g");
   const lines = raw.replace(/\r\n/g, "\n").split("\n");
   for (let li = 0; li < lines.length; li++) {
-    const m = re.exec(lines[li] ?? "");
+    const line = lines[li] ?? "";
+    // Strip cue settings after the end clock so the match stays clean.
+    const timingLine = line.replace(/\s+(align|position|size|line):.+$/i, "");
+    const m = re.exec(timingLine);
     re.lastIndex = 0;
     if (!m) continue;
     const startMs = parseVttClock(m[1]!.replace(",", "."));
@@ -470,16 +479,16 @@ export function parseWhisperCppVttOrSrt(raw: string): SubtitleCue[] {
     if (startMs == null || endMs == null) continue;
     const textLines: string[] = [];
     for (let j = li + 1; j < lines.length; j++) {
-      const line = lines[j] ?? "";
-      if (!line.trim() || /^\d+$/.test(line.trim()) || re.test(line)) {
+      const textLine = lines[j] ?? "";
+      if (!textLine.trim() || /^\d+$/.test(textLine.trim()) || re.test(textLine)) {
         re.lastIndex = 0;
-        if (/^\d+$/.test(line.trim())) continue;
-        if (!line.trim()) break;
-        if (/-->/.test(line)) break;
+        if (/^\d+$/.test(textLine.trim())) continue;
+        if (!textLine.trim()) break;
+        if (/-->/.test(textLine)) break;
       }
       re.lastIndex = 0;
-      if (/^(WEBVTT|NOTE)\b/i.test(line)) continue;
-      textLines.push(line);
+      if (/^(WEBVTT|NOTE|STYLE|REGION)\b/i.test(textLine)) continue;
+      textLines.push(textLine);
     }
     const text = cleanCueText(textLines.join(" "));
     if (!text) continue;
@@ -495,14 +504,31 @@ export function parseWhisperCppVttOrSrt(raw: string): SubtitleCue[] {
   return cues;
 }
 
-function parseVttClock(clock: string): number | null {
-  const m = /^(\d{2}):(\d{2}):(\d{2})[.,](\d{3})$/.exec(clock.trim());
-  if (!m) return null;
-  const h = Number(m[1]);
-  const min = Number(m[2]);
-  const s = Number(m[3]);
-  const ms = Number(m[4]);
-  return ((h * 60 + min) * 60 + s) * 1000 + ms;
+/** @internal exported for smokes — ms from VTT/SRT clock strings. */
+export function parseVttClock(clock: string): number | null {
+  const t = clock.trim().replace(",", ".");
+  // HH:MM:SS.mmm or H:MM:SS.mm(m)
+  let m = /^(\d{1,2}):(\d{1,2}):(\d{2})\.(\d{2,3})$/.exec(t);
+  if (m) {
+    const h = Number(m[1]);
+    const min = Number(m[2]);
+    const s = Number(m[3]);
+    const frac = m[4]!;
+    const ms = Number(frac.length === 2 ? `${frac}0` : frac);
+    if (![h, min, s, ms].every((n) => Number.isFinite(n))) return null;
+    return ((h * 60 + min) * 60 + s) * 1000 + ms;
+  }
+  // MM:SS.mmm (no hours — common in YouTube WebVTT)
+  m = /^(\d{1,2}):(\d{2})\.(\d{2,3})$/.exec(t);
+  if (m) {
+    const min = Number(m[1]);
+    const s = Number(m[2]);
+    const frac = m[3]!;
+    const ms = Number(frac.length === 2 ? `${frac}0` : frac);
+    if (![min, s, ms].every((n) => Number.isFinite(n))) return null;
+    return (min * 60 + s) * 1000 + ms;
+  }
+  return null;
 }
 
 /**

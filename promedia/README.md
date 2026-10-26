@@ -243,18 +243,29 @@ brew install yt-dlp ffmpeg whisper-cpp
 
 Reiniciá el hub tras instalar. Overrides: `FFMPEG_PATH`, `YT_DLP_PATH`, `WHISPER_CPP_PATH`.
 
-En **macOS** (y en cualquier host) el hub usa **whisper.cpp exclusivamente** cuando `whisper-cli` está en el PATH. **No carga** Xenova/ONNX en el modo por defecto (`SUBTITLE_ASR_BACKEND=auto`). Sin `whisper-cli`, falla con `whisper_cpp_missing` y el hint `brew install whisper-cpp` — no cae en el `model_path_error` de transformers.js.
+En **macOS** (y en cualquier host) el hub usa **whisper.cpp exclusivamente** cuando `whisper-cli` está en el PATH. **No carga** Xenova/ONNX en el modo por defecto (`SUBTITLE_ASR_BACKEND=auto`). Sin `whisper-cli`, falla con `whisper_cpp_missing` — salvo que haya **pistas locales** (abajo) o captions de YouTube.
+
+#### Agente alternativo local (recomendado si Whisper falla en Mac)
+
+Sin depender de `whisper-cli` / ggml, Julio puede usar **pistas con tiempo** que ya existen:
+
+1. Copiá un archivo `.srt` o `.vtt` a `promedia/data/subtitles/sidecars/`
+2. Nombralo como el medio subido (p. ej. `MiCancion.mp4` → `MiCancion.srt` / `MiCancion.vtt`) **o** `{assetId}.vtt`
+3. Activá **Agente subtítulos** + **En vivo** — el hub carga la pista antes de Whisper
+4. También se leen **softsubs embebidos** del contenedor (ffmpeg/ffprobe) cuando existan
+
+YouTube con captions oficiales/auto sigue siendo el camino más fiable para canciones (sin Whisper).
 
 **Cómo usarlo**
 
 1. Arrancá ProMedia (`pnpm dev` / launcher) y abrí **Control**
-2. Añadí un **vídeo/audio local** o un **YouTube** público al Guion
+2. Añadí un **vídeo/audio local** (pestaña Audio del Guion incluida) o un **YouTube** público al Guion
 3. Pulsá **Agente subtítulos** en la barra (junto a **Proyectar** / **Idioma**; queda activo). El idioma de subtítulos **sigue el selector Idioma** de Control (ES / EN / PT / FR / ZH)
-4. Poné el ítem **En vivo** (o dejalo seleccionado en Vista previa). Prioridad **letra real**, no etiquetas de sonido:
+4. Poné el ítem **En vivo** (las cues se sincronizan con `mediaClock` en Vista previa / En vivo / Output). Prioridad **letra real**, no etiquetas de sonido:
    - YouTube: primero captions **manuales** (luego auto) con `yt-dlp`, preferiendo el idioma de Control; si no hay, bestaudio → Whisper
-   - Local: `ffmpeg` → WAV → **whisper.cpp** (`whisper-cli` + **ggml-base** ~142 MB; `-l auto`, `-sns` si el CLI lo soporta; si solo salen `[MUSIC]`/`[MÚSICA]`, reintento con `-tr` + MT)
-   - Se filtran etiquetas no-speech (`[MUSIC]`, `[MÚSICA]`, etc.) antes de mostrar; no se re-traduce texto ya en el idioma destino (evita Marian sobre español)
-5. Las captions aparecen **arriba del vídeo** (estilo cancionero / `FittedTextStage`), alineadas al mismo `mediaClock`, con anticipación configurable (1,5–3 s, default 2 s) para leer la letra antes de cantarla. Tamaño SM–XL y anticipación van junto al botón **Agente subtítulos**. Canciones de Biblioteca con diapositivas ←/→ siguen siendo manuales (la anticipación solo aplica a cues con tiempo del agente).
+   - Local: sidecar SRT/VTT o softsubs embebidos → si faltan, `ffmpeg` → WAV → **whisper.cpp** (`whisper-cli` + **ggml-base** ~142 MB; `-l auto`, `-sns` si el CLI lo soporta; si solo salen `[MUSIC]`/`[MÚSICA]`, reintento con `-tr` + MT)
+   - Se filtran etiquetas no-speech (`[MUSIC]`, `[MÚSICA]`, etc.) antes de mostrar; un job vacío ya **no** se marca como «listo» (hint `no_speech` / error claro)
+5. Las captions aparecen **arriba del vídeo** (estilo cancionero / `FittedTextStage`), alineadas al mismo `mediaClock`, con anticipación configurable (−3…0 s, default −2 s) para leer la letra antes de cantarla. Tamaño SM–XL y anticipación van junto al botón **Agente subtítulos**. Canciones de Biblioteca con diapositivas ←/→ siguen siendo manuales (la anticipación solo aplica a cues con tiempo del agente).
 
 **Primera ejecución (descarga de modelos)**
 
