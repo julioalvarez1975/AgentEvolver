@@ -40,6 +40,7 @@ export function OutputPage() {
     snapshot,
     sessionId,
     wsTicket,
+    setMediaClock,
   } = useSessionConnection("output");
   const stageRef = useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -267,6 +268,11 @@ export function OutputPage() {
                     slideIndex={liveSlideIndex}
                     assetSrc={assetSrc}
                     mediaClock={mediaClock}
+                    onMediaClockSet={
+                      liveItem.type === "video" || liveItem.type === "audio"
+                        ? (patch) => setMediaClock(patch)
+                        : undefined
+                    }
                   />
                 </div>
                 {/* Video plane only — never a stage sibling above captions. */}

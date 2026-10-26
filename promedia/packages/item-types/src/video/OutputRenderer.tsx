@@ -11,12 +11,14 @@ export type VideoOutputRendererProps = {
   slideIndex: number;
   assetSrc?: string;
   mediaClock?: MediaClock | null;
+  onMediaClockSet?: (patch: { playing: boolean; positionMs?: number }) => void;
 };
 
 export function VideoOutputRenderer({
   item,
   assetSrc,
   mediaClock,
+  onMediaClockSet,
 }: VideoOutputRendererProps) {
   if (item.type !== "video") {
     return null;
@@ -37,6 +39,7 @@ export function VideoOutputRenderer({
             muted={muted}
             loop={loop}
             fit={fit}
+            onMediaClockSet={onMediaClockSet}
           />
         ) : (
           <p className="output-waiting">…</p>
@@ -47,6 +50,7 @@ export function VideoOutputRenderer({
           mediaClock={mediaClock}
           muted={muted}
           loop={loop}
+          onMediaClockSet={onMediaClockSet}
         />
       )}
     </div>

@@ -64,6 +64,11 @@ export type MediaTypeModule = {
     slideIndex: number;
     assetSrc?: string;
     mediaClock?: MediaClock | null;
+    /** Video/audio Output: snap hub clock when audible start follows autoplay block. */
+    onMediaClockSet?: (patch: {
+      playing: boolean;
+      positionMs?: number;
+    }) => void;
   }>;
 };
 

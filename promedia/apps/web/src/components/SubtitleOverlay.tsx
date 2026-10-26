@@ -43,7 +43,9 @@ const SUBTITLE_FIT_BY_SIZE: Record<
  * Upper-stage projection captions (cancionero look via FittedTextStage).
  * Soft-wrap ≤5 lines, largest type that fits (no width overflow), theme shadow,
  * centered H+V inside the upper band. Timing prefers hub mediaClock; negative
- * `leadMs` (adelante) shows the cue early. Manual ←/→ song slides do not use this path.
+ * `leadMs` (adelante) shows the cue early; intro-hold keeps the first lyric on
+ * screen from media start through any musical lead-in. Manual ←/→ song slides
+ * do not use this path.
  */
 export function SubtitleOverlay({
   agent,

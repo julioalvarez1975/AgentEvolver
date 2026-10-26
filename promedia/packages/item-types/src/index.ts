@@ -38,8 +38,10 @@ export {
   VideoPreview,
   VideoLivePanel,
   VideoOutputRenderer,
+  MEDIA_CLOCK_COLD_START_MS,
   MEDIA_CLOCK_DRIFT_MS,
   shouldCorrectSeek,
+  shouldSnapMediaClockToStart,
 } from "./video/index.js";
 export {
   isAudioPayload,

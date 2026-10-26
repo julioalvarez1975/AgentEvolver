@@ -11,6 +11,7 @@ export type AudioOutputRendererProps = {
   slideIndex: number;
   assetSrc?: string;
   mediaClock?: MediaClock | null;
+  onMediaClockSet?: (patch: { playing: boolean; positionMs?: number }) => void;
 };
 
 /** Output window — title art + audio synced to mediaClock. */
@@ -18,6 +19,7 @@ export function AudioOutputRenderer({
   item,
   assetSrc,
   mediaClock,
+  onMediaClockSet,
 }: AudioOutputRendererProps) {
   if (item.type !== "audio") {
     return null;
@@ -30,7 +32,12 @@ export function AudioOutputRenderer({
       <div className="audio-file-wrap">
         <AudioStage title={audio.payload.title} />
         {assetSrc ? (
-          <FileAudio src={assetSrc} mediaClock={mediaClock} loop={loop} />
+          <FileAudio
+            src={assetSrc}
+            mediaClock={mediaClock}
+            loop={loop}
+            onMediaClockSet={onMediaClockSet}
+          />
         ) : (
           <p className="output-waiting">…</p>
         )}

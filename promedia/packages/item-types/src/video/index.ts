@@ -20,4 +20,9 @@ export {
   VideoStageTimeOverlay,
   type VideoStageTimeOverlayProps,
 } from "./VideoStageTimeOverlay.js";
-export { MEDIA_CLOCK_DRIFT_MS, shouldCorrectSeek } from "./clock.js";
+export {
+  MEDIA_CLOCK_COLD_START_MS,
+  MEDIA_CLOCK_DRIFT_MS,
+  shouldCorrectSeek,
+  shouldSnapMediaClockToStart,
+} from "./clock.js";
