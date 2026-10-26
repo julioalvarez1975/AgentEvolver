@@ -378,58 +378,103 @@ body {
   order: 0;
 }
 
-/* Subtitle agent + size/lead selects + optional missing-deps StatusTip. */
+/* Subtitle agent + SM–XL / lead segmented controls + optional StatusTip.
+   No max-width crush — size must stay readable on the first toolbar row. */
 .toolbar-subtitle-agent-wrap {
   display: inline-flex;
   flex-direction: row;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.35rem;
   flex-shrink: 0;
-  max-width: 12.5rem;
+  max-width: none;
 }
 
-.toolbar-subtitle-size,
-.toolbar-subtitle-lead {
+.toolbar-subtitle-seg {
   display: inline-flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   justify-content: center;
-  min-width: 2.6rem;
-  max-width: 3.4rem;
-  padding: 0.15rem 0.2rem;
+  gap: 0.1rem;
+  flex: 0 0 auto;
+  min-width: 7.5rem;
+}
+
+.toolbar-subtitle-lead-seg {
+  min-width: 9rem;
+}
+
+.toolbar-subtitle-seg-label {
+  display: block;
+  font-size: 0.55rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.toolbar-subtitle-seg-btns {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: stretch;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-elev);
-  cursor: pointer;
-  flex: 0 0 auto;
+  overflow: hidden;
 }
 
-.toolbar-subtitle-lead {
-  min-width: 3rem;
-  max-width: 3.6rem;
-}
-
-.toolbar-subtitle-size-select,
-.toolbar-subtitle-lead-select {
+.toolbar-subtitle-seg-btn {
   appearance: none;
+  margin: 0;
   border: none;
+  border-right: 1px solid var(--border);
   background: transparent;
-  color: var(--fg);
+  color: var(--muted);
   font: inherit;
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-align: center;
-  padding: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 0.38rem 0.42rem;
+  min-width: 1.85rem;
   cursor: pointer;
-  width: 100%;
   outline: none;
   box-shadow: none;
 }
 
-.toolbar-subtitle-size-select:disabled,
-.toolbar-subtitle-lead-select:disabled {
+.toolbar-subtitle-seg-btn:last-child {
+  border-right: none;
+}
+
+.toolbar-subtitle-lead-seg .toolbar-subtitle-seg-btn {
+  min-width: 2.15rem;
+  padding-inline: 0.32rem;
+  font-size: 0.66rem;
+}
+
+.toolbar-subtitle-seg-btn:not(:disabled):hover {
+  background: #182230;
+  color: var(--fg);
+}
+
+.toolbar-subtitle-seg-btn.active {
+  background: #1a2430;
+  color: var(--fg);
+}
+
+.toolbar-subtitle-seg-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.toolbar-subtitle-seg-btn:focus-visible {
+  outline: 2px solid var(--accent, #5b9fd4);
+  outline-offset: -2px;
+  z-index: 1;
 }
 
 /* Long “Agente subtítulos” label must stay readable — not icon-only / clipped. */
