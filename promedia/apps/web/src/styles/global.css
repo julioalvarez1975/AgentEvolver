@@ -2537,7 +2537,6 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
   min-height: 0;
 }
 
@@ -3142,7 +3141,6 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
 }
 
 .image-stage {
@@ -3401,7 +3399,12 @@ body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  min-height: 0;
+}
+
+/* Live monitor is content-only — stage fills the panel (no transport gap). */
+.video-live-panel > .video-stage {
+  flex: 1;
   min-height: 0;
 }
 

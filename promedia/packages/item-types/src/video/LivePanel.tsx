@@ -1,16 +1,9 @@
-import { useEffect, useState } from "react";
 import type {
   MediaClock,
   PlaylistItem,
   VideoPlaylistItem,
 } from "@promedia/shared";
-import { effectiveMediaClockPositionMs } from "@promedia/shared";
 import { FileVideo } from "./FileVideo.js";
-import {
-  VideoTransportBar,
-  formatMediaMs,
-} from "./VideoTransportBar.js";
-import { VideoStageTimeOverlay } from "./VideoStageTimeOverlay.js";
 import { YouTubeThumb } from "./YouTubeThumb.js";
 
 export type VideoLivePanelProps = {
@@ -25,15 +18,13 @@ export type VideoLivePanelProps = {
 };
 
 /**
- * Live monitor: file video mirrors mediaClock; YouTube is thumb-only
- * (Output owns the iframe). Transport drives hub mediaClock for both.
+ * Live monitor — content only (no transport / timers). Video transport stays
+ * on Vista previa; Output owns the YouTube iframe.
  */
 export function VideoLivePanel({
   item,
   assetSrc,
   mediaClock,
-  onMediaClockSet,
-  durationMsHint = 0,
   onDurationMs,
 }: VideoLivePanelProps) {
   if (item.type !== "video") {
@@ -43,40 +34,6 @@ export function VideoLivePanel({
   const muted = video.payload.muted === true;
   const loop = video.payload.loop === true;
   const fit = video.payload.fit ?? "contain";
-  const [scrubbing, setScrubbing] = useState(false);
-  const [scrubMs, setScrubMs] = useState(0);
-  const [fileDurationMs, setFileDurationMs] = useState(0);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    if (!mediaClock?.playing || scrubbing) {
-      return;
-    }
-    const id = window.setInterval(() => setTick((n) => n + 1), 250);
-    return () => window.clearInterval(id);
-  }, [mediaClock?.playing, mediaClock?.updatedAt, scrubbing]);
-
-  const pos = mediaClock
-    ? effectiveMediaClockPositionMs(mediaClock)
-    : 0;
-  void tick;
-  const playing = mediaClock?.playing ?? false;
-  const durationMs = Math.max(fileDurationMs, durationMsHint, 0);
-  const canControl = Boolean(onMediaClockSet && mediaClock);
-
-  const seekTo = (ms: number) => {
-    if (!onMediaClockSet) {
-      return;
-    }
-    const clamped =
-      durationMs > 0
-        ? Math.max(0, Math.min(ms, durationMs))
-        : Math.max(0, ms);
-    onMediaClockSet({ playing, positionMs: clamped });
-    setScrubMs(clamped);
-  };
-
-  const displayMs = scrubbing ? scrubMs : pos;
 
   return (
     <div className="video-live-panel">
@@ -89,10 +46,7 @@ export function VideoLivePanel({
               muted={muted}
               loop={loop}
               fit={fit}
-              onDurationMs={(ms) => {
-                setFileDurationMs(ms);
-                onDurationMs?.(ms);
-              }}
+              onDurationMs={onDurationMs}
             />
           ) : (
             <p className="video-missing">…</p>
@@ -101,66 +55,9 @@ export function VideoLivePanel({
           <YouTubeThumb
             videoId={video.payload.videoId}
             title={video.payload.title}
-            playing={playing}
-            playingLabel="Reproduciendo en Output"
-            caption={
-              playing
-                ? "Audio y vídeo en Output — aquí miniatura + transporte (un solo iframe)."
-                : "YouTube en Output — aquí solo miniatura + transporte (evita doble embed)."
-            }
           />
         )}
-        <VideoStageTimeOverlay
-          positionMs={displayMs}
-          durationMs={durationMs}
-        />
       </div>
-      <VideoTransportBar
-        playing={playing}
-        positionMs={pos}
-        durationMs={durationMs}
-        scrubbing={scrubbing}
-        scrubMs={scrubMs}
-        disabled={!canControl}
-        showMute={false}
-        labels={{
-          play: "Play",
-          pause: "Pause",
-          skipBack: "−10s",
-          skipForward: "+10s",
-          toStart: "Start",
-          toEnd: "End",
-          timeline: "Timeline",
-          toolbar: "En vivo transport",
-        }}
-        remainingLabel={
-          durationMs > 0
-            ? `−${formatMediaMs(Math.max(0, durationMs - displayMs))}`
-            : "−−:−−"
-        }
-        onTogglePlay={() =>
-          onMediaClockSet?.({
-            playing: !playing,
-            positionMs: displayMs,
-          })
-        }
-        onSkip={(delta) => {
-          seekTo(displayMs + delta);
-        }}
-        onSeekTo={seekTo}
-        onScrubStart={() => {
-          setScrubbing(true);
-          setScrubMs(pos);
-        }}
-        onScrubChange={(ms) => {
-          setScrubbing(true);
-          setScrubMs(ms);
-        }}
-        onScrubCommit={() => {
-          seekTo(scrubMs);
-          setScrubbing(false);
-        }}
-      />
     </div>
   );
 }

@@ -34,8 +34,6 @@ export function OutputPage() {
   const [params] = useSearchParams();
   const {
     hasSession,
-    code,
-    lastSeq,
     wsStatus,
     error,
     join,
@@ -297,7 +295,7 @@ export function OutputPage() {
           </>
         )}
 
-        {!isFullscreen ? (
+        {!isFullscreen && !hasSession ? (
           <div className="output-chrome">
             {showJoinForm ? (
               <form
@@ -339,14 +337,16 @@ export function OutputPage() {
             >
               {t(locale, "output.enterFullscreen")}
             </button>
-            {hasSession ? (
-              <p className="output-meta">
-                {code} · seq {lastSeq >= 0 ? lastSeq : "—"} ·{" "}
-                {wsStatus === "open" ? "WS" : wsStatus}
-                {sceneMode !== "normal" ? ` · ${sceneMode}` : ""}
-              </p>
-            ) : null}
           </div>
+        ) : !isFullscreen && hasSession ? (
+          /* Joined: live content only — no control bar / seq counters. */
+          <button
+            type="button"
+            className="output-exit-fs"
+            onClick={() => void enterFullscreen()}
+            title={t(locale, "output.enterFullscreen")}
+            aria-label={t(locale, "output.enterFullscreen")}
+          />
         ) : (
           <button
             type="button"

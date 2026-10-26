@@ -9,7 +9,8 @@ export type TextLivePanelProps = {
   onNext?: () => void;
 };
 
-export function TextLivePanel({ item, slideIndex, onPrev, onNext }: TextLivePanelProps) {
+/** Live monitor — projected text only (slide nav stays on Vista previa / shortcuts). */
+export function TextLivePanel({ item, slideIndex }: TextLivePanelProps) {
   const payload = item.payload as TextPayload;
   const slides = projectionTextSlides(payload.slides);
   const index = Math.min(Math.max(slideIndex, 0), Math.max(slides.length - 1, 0));
@@ -24,27 +25,6 @@ export function TextLivePanel({ item, slideIndex, onPrev, onNext }: TextLivePane
         className="text-stage"
         lineClassName="text-line"
       />
-      <div className="text-slide-nav">
-        <button
-          type="button"
-          className="btn"
-          disabled={index <= 0 || !onPrev}
-          onClick={onPrev}
-        >
-          ←
-        </button>
-        <span>
-          {index + 1} / {slides.length}
-        </span>
-        <button
-          type="button"
-          className="btn"
-          disabled={index >= slides.length - 1 || !onNext}
-          onClick={onNext}
-        >
-          →
-        </button>
-      </div>
     </div>
   );
 }
