@@ -6,6 +6,7 @@ import {
   parseYouTubeUrl,
 } from "@promedia/item-types";
 import type {
+  AudioPayload,
   BiblePayload,
   ImageFit,
   ImagePayload,
@@ -59,6 +60,7 @@ import {
   uploadSessionAsset,
 } from "../lib/assets";
 import {
+  AUDIO_MEDIA_ACCEPT,
   UNIFIED_MEDIA_ACCEPT,
   classifyMediaFile,
 } from "../lib/classifyMediaFile";
@@ -96,6 +98,9 @@ function assetSrcFor(
     return buildAssetUrl(sessionId, slide.assetId, wsTicket);
   }
   if (item.type === "video" && item.payload.sourceKind === "file") {
+    return buildAssetUrl(sessionId, item.payload.assetId, wsTicket);
+  }
+  if (item.type === "audio") {
     return buildAssetUrl(sessionId, item.payload.assetId, wsTicket);
   }
   return undefined;
@@ -146,6 +151,7 @@ export function ControlPage() {
     Record<string, number>
   >({});
   const unifiedInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
   /** Track item count for sequential multi-file order without stale closure. */
   const itemsLenRef = useRef(0);
 
@@ -410,6 +416,7 @@ export function ControlPage() {
       (selectedItem.type === "text" ||
         selectedItem.type === "image" ||
         selectedItem.type === "video" ||
+        selectedItem.type === "audio" ||
         selectedItem.type === "bible") &&
       canMutate,
   );
@@ -889,6 +896,26 @@ export function ControlPage() {
           hint: hints.length ? hints.join(" ") : undefined,
         };
       }
+      if (kind === "audio") {
+        const payload: AudioPayload = {
+          assetId: asset.id,
+          title: asset.originalName || file.name,
+          autoplay: true,
+          loop: false,
+        };
+        const item: PlaylistItem = {
+          id: cryptoRandomId(),
+          type: "audio",
+          order,
+          payload,
+        };
+        session.addItem(item);
+        return {
+          ok: true,
+          itemId: item.id,
+          hint: hints.length ? hints.join(" ") : undefined,
+        };
+      }
       const payload: VideoPayload = {
         sourceKind: "file",
         assetId: asset.id,
@@ -962,6 +989,9 @@ export function ControlPage() {
       if (unifiedInputRef.current) {
         unifiedInputRef.current.value = "";
       }
+      if (audioInputRef.current) {
+        audioInputRef.current.value = "";
+      }
     }
   };
 
@@ -972,6 +1002,15 @@ export function ControlPage() {
     setLinkDialogOpen(false);
     setBibleDialogOpen(false);
     unifiedInputRef.current?.click();
+  };
+
+  const onPickAudioFiles = () => {
+    setUploadHint(null);
+    setCreating(false);
+    setEditingId(null);
+    setLinkDialogOpen(false);
+    setBibleDialogOpen(false);
+    audioInputRef.current?.click();
   };
 
   const onFitChange = (fit: ImageFit) => {
@@ -1375,6 +1414,17 @@ export function ControlPage() {
           void ingestFiles(list);
         }}
       />
+      <input
+        ref={audioInputRef}
+        type="file"
+        multiple
+        accept={AUDIO_MEDIA_ACCEPT}
+        className="sr-only"
+        onChange={(e) => {
+          const list = e.target.files ? Array.from(e.target.files) : [];
+          void ingestFiles(list);
+        }}
+      />
 
       <LinkAddDialog
         open={linkDialogOpen}
@@ -1480,6 +1530,16 @@ export function ControlPage() {
               }
               openCreateSong();
             }}
+            onAddAudio={() => {
+              if (!sessionReady) {
+                return;
+              }
+              if (!wsReady) {
+                session.reconnect();
+                setUploadHint(t("control.wsDisconnectedHint"));
+              }
+              onPickAudioFiles();
+            }}
             onOpenLibrary={() => {
               if (!sessionReady) {
                 return;
@@ -1568,7 +1628,7 @@ export function ControlPage() {
                     durationMsHint={liveDurationMs}
                     onDurationMs={(ms) => rememberDuration(liveItem.id, ms)}
                     onMediaClockSet={
-                      liveItem.type === "video"
+                      liveItem.type === "video" || liveItem.type === "audio"
                         ? (patch) => session.setMediaClock(patch)
                         : undefined
                     }
@@ -1688,17 +1748,20 @@ export function ControlPage() {
                         : undefined
                     }
                     projecting={
-                      selectedItem.type === "video" &&
+                      (selectedItem.type === "video" ||
+                        selectedItem.type === "audio") &&
                       selectedItem.id === liveItemId
                     }
                     mediaClock={
-                      selectedItem.type === "video" &&
+                      (selectedItem.type === "video" ||
+                        selectedItem.type === "audio") &&
                       selectedItem.id === liveItemId
                         ? mediaClock
                         : undefined
                     }
                     onMediaClockSet={
-                      selectedItem.type === "video" &&
+                      (selectedItem.type === "video" ||
+                        selectedItem.type === "audio") &&
                       selectedItem.id === liveItemId
                         ? (patch) => session.setMediaClock(patch)
                         : undefined

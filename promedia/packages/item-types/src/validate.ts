@@ -3,6 +3,10 @@
  */
 import type { PlaylistItem } from "@promedia/shared";
 import {
+  isAudioPlaylistItem,
+  normalizeAudioPayload,
+} from "./audio/schema.js";
+import {
   isBiblePlaylistItem,
   normalizeBiblePayload,
 } from "./bible/schema.js";
@@ -24,6 +28,7 @@ const REGISTERED_TYPES = new Set([
   "text",
   "image",
   "video",
+  "audio",
   "bible",
   "presentation",
 ]);
@@ -71,6 +76,17 @@ export function validatePlaylistItem(value: unknown): PlaylistItem | null {
       type: "video",
       order: value.order,
       payload: normalizeVideoPayload(value.payload),
+    };
+  }
+  if (raw.type === "audio") {
+    if (!isAudioPlaylistItem(value)) {
+      return null;
+    }
+    return {
+      id: value.id,
+      type: "audio",
+      order: value.order,
+      payload: normalizeAudioPayload(value.payload),
     };
   }
   if (raw.type === "bible") {

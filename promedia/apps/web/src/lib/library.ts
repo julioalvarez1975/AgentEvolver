@@ -285,7 +285,7 @@ export function libraryOriginalUrl(itemId: string): string {
 }
 
 export const LIBRARY_UPLOAD_ACCEPT =
-  ".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.mov,.txt,.md,.xml,.xmm,.qsp,.pdf,.pptx,.ppt,.ppsx,.potx,.odp,image/*,video/*,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.presentationml.slideshow,application/vnd.oasis.opendocument.presentation";
+  ".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.mov,.mp3,.m4a,.aac,.wav,.flac,.ogg,.oga,.opus,.txt,.md,.xml,.xmm,.qsp,.pdf,.pptx,.ppt,.ppsx,.potx,.odp,image/*,video/*,audio/*,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.presentationml.slideshow,application/vnd.oasis.opendocument.presentation";
 
 export const LIBRARY_BIBLE_UPLOAD_ACCEPT = ".xml,.xmm,.pdf,application/pdf,text/xml,application/xml";
 

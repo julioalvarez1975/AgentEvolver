@@ -33,6 +33,8 @@ export type SchedulePanelProps = {
   onAddTextBlank: () => void;
   /** Create song (library + projectable text). */
   onCreateSong: () => void;
+  /** Tab action: upload music/audio files. */
+  onAddAudio: () => void;
   /** Open local media library (Biblioteca). */
   onOpenLibrary: () => void;
   onOpenLoad: () => void;
@@ -81,6 +83,7 @@ export function SchedulePanel({
   onAddBible,
   onAddTextBlank,
   onCreateSong,
+  onAddAudio,
   onOpenLibrary,
   onOpenLoad,
   onOpenSave,
@@ -229,6 +232,16 @@ export function SchedulePanel({
           >
             <ScheduleTypeIcon kind="text" />
             <span>{t("library.createSong")}</span>
+          </button>
+          <button
+            type="button"
+            className="schedule-add-tab"
+            disabled={addDisabled}
+            title={t("playlist.addAudioTip")}
+            onClick={onAddAudio}
+          >
+            <ScheduleTypeIcon kind="audio" />
+            <span>{t("playlist.addAudio")}</span>
           </button>
           <button
             type="button"

@@ -117,6 +117,9 @@ export function OutputPage() {
     if (liveItem.type === "video" && liveItem.payload.sourceKind === "file") {
       return buildAssetUrl(sessionId, liveItem.payload.assetId, wsTicket);
     }
+    if (liveItem.type === "audio") {
+      return buildAssetUrl(sessionId, liveItem.payload.assetId, wsTicket);
+    }
     return undefined;
   })();
 

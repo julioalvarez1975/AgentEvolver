@@ -1600,7 +1600,9 @@ body {
 .pm-stage-item-plane > .presentation-preview,
 .pm-stage-item-plane > .presentation-live-panel,
 .pm-stage-item-plane > .video-preview,
-.pm-stage-item-plane > .video-live-panel {
+.pm-stage-item-plane > .video-live-panel,
+.pm-stage-item-plane > .audio-preview,
+.pm-stage-item-plane > .audio-live-panel {
   position: relative;
   z-index: 0;
   width: 100%;
@@ -3575,6 +3577,75 @@ body {
 }
 
 .video-unblock {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+
+/* —— Audio type (Guion Audio tab) —— */
+.audio-preview,
+.audio-live-panel,
+.audio-output {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.audio-preview-scrub,
+.audio-file-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.audio-stage {
+  flex: 1;
+  min-height: 8rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: var(--fg);
+  text-align: center;
+  padding: 1rem;
+}
+
+.audio-stage-icon {
+  opacity: 0.9;
+}
+
+.audio-stage-title {
+  margin: 0;
+  max-width: 90%;
+  font-size: clamp(1rem, 2.4vw, 1.6rem);
+  font-weight: 600;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.audio-el {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.audio-caveat,
+.audio-missing {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.audio-unblock {
   position: absolute;
   left: 50%;
   top: 50%;

@@ -1,8 +1,10 @@
 import type { MediaAsset, MediaKind } from "@promedia/shared";
 import {
   createStorageAdapter,
+  isAllowedAudioMime,
   isAllowedImageMime,
   isAllowedVideoMime,
+  resolveUploadMime,
   type StorageAdapter,
 } from "@promedia/media";
 import { randomBytes } from "node:crypto";
@@ -90,18 +92,34 @@ export class AssetStore {
     return this.putKind(sessionId, "video", bytes, mime, originalName);
   }
 
-  /** Route by MIME: image or video. */
+  async putAudio(
+    sessionId: string,
+    bytes: Buffer,
+    mime: string,
+    originalName?: string,
+  ): Promise<MediaAsset | { error: string }> {
+    if (!isAllowedAudioMime(mime)) {
+      return { error: "unsupported_mime" };
+    }
+    return this.putKind(sessionId, "audio", bytes, mime, originalName);
+  }
+
+  /** Route by MIME: image, video, or audio (infer from filename when needed). */
   async putByMime(
     sessionId: string,
     bytes: Buffer,
     mime: string,
     originalName?: string,
   ): Promise<MediaAsset | { error: string }> {
-    if (isAllowedImageMime(mime)) {
-      return this.putImage(sessionId, bytes, mime, originalName);
+    const resolved = resolveUploadMime(mime, originalName);
+    if (isAllowedImageMime(resolved)) {
+      return this.putImage(sessionId, bytes, resolved, originalName);
     }
-    if (isAllowedVideoMime(mime)) {
-      return this.putVideo(sessionId, bytes, mime, originalName);
+    if (isAllowedVideoMime(resolved)) {
+      return this.putVideo(sessionId, bytes, resolved, originalName);
+    }
+    if (isAllowedAudioMime(resolved)) {
+      return this.putAudio(sessionId, bytes, resolved, originalName);
     }
     return { error: "unsupported_mime" };
   }
