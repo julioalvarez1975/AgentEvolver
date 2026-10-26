@@ -13,10 +13,10 @@ import type {
 import {
   isSceneMode,
   isSubtitleFontSize,
-  isSubtitleLeadMs,
   isSubtitleTargetLang,
   isThemeId,
   isTransitionEffect,
+  normalizeSubtitleLeadMs,
   normalizeThemeBackground,
   normalizeThemeOverrides,
 } from "@promedia/shared";
@@ -190,10 +190,11 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
         out.fontSize = p.fontSize;
       }
       if (p.leadMs !== undefined) {
-        if (!isSubtitleLeadMs(p.leadMs)) {
+        if (typeof p.leadMs !== "number" || !Number.isFinite(p.leadMs)) {
           return null;
         }
-        out.leadMs = p.leadMs;
+        // Accept signed presets and legacy positive “how early” ms.
+        out.leadMs = normalizeSubtitleLeadMs(p.leadMs);
       }
       if (p.itemId !== undefined) {
         if (typeof p.itemId !== "string") {

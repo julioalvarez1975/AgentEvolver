@@ -401,7 +401,7 @@ body {
 }
 
 .toolbar-subtitle-lead-seg {
-  min-width: 9rem;
+  min-width: 14.5rem;
 }
 
 .toolbar-subtitle-seg-label {
@@ -451,9 +451,9 @@ body {
 }
 
 .toolbar-subtitle-lead-seg .toolbar-subtitle-seg-btn {
-  min-width: 2.15rem;
-  padding-inline: 0.32rem;
-  font-size: 0.66rem;
+  min-width: 1.85rem;
+  padding-inline: 0.22rem;
+  font-size: 0.6rem;
 }
 
 .toolbar-subtitle-seg-btn:not(:disabled):hover {
