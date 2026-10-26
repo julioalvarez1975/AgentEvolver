@@ -32,6 +32,14 @@ export function whisperCppModelPath(modelsRoot?: string): string {
 export async function whisperCliAvailable(): Promise<boolean> {
   try {
     const bin = resolveWhisperCliBin();
+    // Absolute brew/override path that exists counts even if `-h` quirks.
+    if (bin.includes("/") || bin.includes("\\")) {
+      try {
+        await access(bin);
+      } catch {
+        return false;
+      }
+    }
     // Absolute path preferred; bare name only counts if spawn succeeds.
     const { code } = await runCmd(bin, ["-h"]);
     // whisper-cli prints usage and may exit 0 or 1 depending on version.

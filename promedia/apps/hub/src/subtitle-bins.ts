@@ -81,7 +81,7 @@ export function resolveFfmpegBin(): string {
 
 /**
  * brew `whisper-cpp` installs `whisper-cli` (preferred). Older builds may
- * expose `whisper-cpp`. Override: `WHISPER_CPP_PATH`.
+ * expose `whisper-cpp` or `whisper`. Override: `WHISPER_CPP_PATH`.
  */
 export function resolveWhisperCliBin(): string {
   ensureAugmentedPath();
@@ -94,12 +94,14 @@ export function resolveWhisperCliBin(): string {
   const pathDirs = (process.env.PATH || "")
     .split(path.delimiter)
     .filter(Boolean);
-  const searchDirs = [...pathDirs];
-  for (const d of COMMON_MAC_BIN_DIRS) {
+  // Prefer common Mac brew dirs first so GUI launchers without a shell PATH
+  // still find Homebrew whisper-cli before falling back to bare PATH lookup.
+  const searchDirs: string[] = [];
+  for (const d of [...COMMON_MAC_BIN_DIRS, ...pathDirs]) {
     if (!searchDirs.includes(d)) searchDirs.push(d);
   }
 
-  for (const name of ["whisper-cli", "whisper-cpp"] as const) {
+  for (const name of ["whisper-cli", "whisper-cpp", "whisper"] as const) {
     for (const dir of searchDirs) {
       const full = path.join(dir, name);
       if (isExecutable(full)) return full;
