@@ -206,8 +206,8 @@ export function ControlPage() {
         return t("control.subtitleAgentReady");
       }
       if (st === "error") {
-        if (hint === "yt_dlp_missing") {
-          return t("control.subtitleAgentYtDlpMissing");
+        if (hint === "yt_dlp_missing" || hint === "ffmpeg_missing") {
+          return t("control.subtitleAgentDepsMissing");
         }
         if (hint === "youtube_age_restricted") {
           return t("control.subtitleAgentYoutubeAge");
@@ -1146,6 +1146,14 @@ export function ControlPage() {
               onAbout={() => setAboutOpen(true)}
               subtitleAgentEnabled={subtitleAgent.enabled}
               subtitleAgentTitle={subtitleAgentTitle}
+              subtitleAgentErrorMessage={
+                subtitleAgent.enabled &&
+                subtitleAgent.status === "error" &&
+                (subtitleAgent.hint === "yt_dlp_missing" ||
+                  subtitleAgent.hint === "ffmpeg_missing")
+                  ? t("control.subtitleAgentDepsMissing")
+                  : null
+              }
               onToggleSubtitleAgent={() => {
                 const next = !subtitleAgent.enabled;
                 session.setSubtitleAgent({

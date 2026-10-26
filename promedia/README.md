@@ -40,6 +40,8 @@ Abrí siempre **`/control`**, no `/` (la Home es solo un enlace mínimo).
 
 ### Mac — doble clic (Finder)
 
+**Deps subtítulos (una vez):** `brew install yt-dlp ffmpeg` — luego reiniciá ProMedia (el hub también busca en `/opt/homebrew/bin` y `/usr/local/bin`).
+
 1. Finder → carpeta del repo → **`promedia`**
 2. Doble clic en **`start-mac.command`** o **`Abrir-ProMedia.command`** (mismo arranque; el segundo es atajo con nombre claro)
 3. Primera vez en macOS: clic derecho → **Abrir**

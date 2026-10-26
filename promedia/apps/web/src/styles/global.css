@@ -378,6 +378,15 @@ body {
   order: 0;
 }
 
+/* Subtitle agent + optional missing-deps StatusTip. */
+.toolbar-subtitle-agent-wrap {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
 /* Long “Agente subtítulos” label must stay readable — not icon-only / clipped. */
 .toolbar-subtitle-agent {
   min-width: 4.6rem;
@@ -393,6 +402,10 @@ body {
   word-break: break-word;
   font-size: 0.56rem;
   line-height: 1.15;
+}
+
+.toolbar-subtitle-agent-error {
+  flex: 0 0 auto;
 }
 
 /* Active: tone only — no blue outline/ring (Julio polish). */

@@ -12,6 +12,7 @@ import {
   ThemePanel,
   type ThemeBackgroundAssetOption,
 } from "./ThemePanel";
+import { StatusTip } from "./StatusTip";
 import {
   IconAbout,
   IconLanguage,
@@ -56,6 +57,11 @@ export type ControlHeaderToolbarProps = {
   subtitleAgentEnabled?: boolean;
   /** Tooltip: help text, download progress, or ASR errors (incl. yt-dlp). */
   subtitleAgentTitle?: string;
+  /**
+   * When set (missing yt-dlp/ffmpeg), show a StatusTip beside the
+   * Agente subtítulos button — not only the button title attribute.
+   */
+  subtitleAgentErrorMessage?: string | null;
   onToggleSubtitleAgent?: () => void;
 };
 
@@ -121,6 +127,7 @@ export function ControlHeaderToolbar({
   sessionFallback,
   subtitleAgentEnabled = false,
   subtitleAgentTitle,
+  subtitleAgentErrorMessage,
   onToggleSubtitleAgent,
 }: ControlHeaderToolbarProps) {
   const { t, locale, setLocale, locales } = useLocale();
@@ -145,6 +152,7 @@ export function ControlHeaderToolbar({
   const subtitleTitle =
     subtitleAgentTitle?.trim() ||
     t("control.subtitleAgentTitle");
+  const depsError = subtitleAgentErrorMessage?.trim() || "";
 
   return (
     <div
@@ -166,15 +174,25 @@ export function ControlHeaderToolbar({
         onClick={onProject}
       />
 
-      <ToolbarBtn
-        className="toolbar-primary-action toolbar-subtitle-agent"
-        active={subtitleAgentEnabled}
-        disabled={!canMutate || !onToggleSubtitleAgent}
-        title={subtitleTitle}
-        label={t("control.subtitleAgent")}
-        icon={<IconSubtitles />}
-        onClick={() => onToggleSubtitleAgent?.()}
-      />
+      <span className="toolbar-subtitle-agent-wrap toolbar-primary-action">
+        <ToolbarBtn
+          className="toolbar-subtitle-agent"
+          active={subtitleAgentEnabled}
+          disabled={!canMutate || !onToggleSubtitleAgent}
+          title={subtitleTitle}
+          label={t("control.subtitleAgent")}
+          icon={<IconSubtitles />}
+          onClick={() => onToggleSubtitleAgent?.()}
+        />
+        {depsError ? (
+          <StatusTip
+            className="toolbar-subtitle-agent-error"
+            tone="error"
+            label={t("control.subtitleAgentError")}
+            message={depsError}
+          />
+        ) : null}
+      </span>
 
       <label
         className="toolbar-lang toolbar-primary-action"

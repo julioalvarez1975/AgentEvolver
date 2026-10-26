@@ -4,6 +4,11 @@ import { access, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import wavefile from "wavefile";
 import type { SubtitleCue, SubtitleTargetLang } from "@promedia/shared";
+import {
+  ensureAugmentedPath,
+  missingBinHintFromError,
+  resolveFfmpegBin,
+} from "./subtitle-bins.js";
 import { ensureSubtitleDirs } from "./subtitle-paths.js";
 
 const { WaveFile } = wavefile as unknown as {
@@ -34,16 +39,16 @@ type CachedAsr = {
   createdAt: string;
 };
 
-function ffmpegBin(): string {
-  return process.env.FFMPEG_PATH?.trim() || "ffmpeg";
-}
-
 function runCmd(
   bin: string,
   args: string[],
 ): Promise<{ code: number; stderr: string }> {
+  ensureAugmentedPath();
   return new Promise((resolve, reject) => {
-    const child = spawn(bin, args, { stdio: ["ignore", "ignore", "pipe"] });
+    const child = spawn(bin, args, {
+      stdio: ["ignore", "ignore", "pipe"],
+      env: process.env,
+    });
     let stderr = "";
     child.stderr?.on("data", (chunk: Buffer) => {
       stderr += chunk.toString("utf8");
@@ -55,28 +60,50 @@ function runCmd(
   });
 }
 
+export async function ffmpegAvailable(): Promise<boolean> {
+  try {
+    const bin = resolveFfmpegBin();
+    const { code } = await runCmd(bin, ["-version"]);
+    return code === 0;
+  } catch {
+    return false;
+  }
+}
+
 /** Extract 16 kHz mono WAV for Whisper (local ffmpeg — no cloud). */
 export async function extractWav16k(
   mediaPath: string,
   outWavPath: string,
 ): Promise<void> {
-  const { code, stderr } = await runCmd(ffmpegBin(), [
-    "-y",
-    "-i",
-    mediaPath,
-    "-vn",
-    "-ac",
-    "1",
-    "-ar",
-    "16000",
-    "-f",
-    "wav",
-    outWavPath,
-  ]);
+  const bin = resolveFfmpegBin();
+  let code: number;
+  let stderr: string;
+  try {
+    ({ code, stderr } = await runCmd(bin, [
+      "-y",
+      "-i",
+      mediaPath,
+      "-vn",
+      "-ac",
+      "1",
+      "-ar",
+      "16000",
+      "-f",
+      "wav",
+      outWavPath,
+    ]));
+  } catch (err) {
+    if (missingBinHintFromError(err, "ffmpeg")) {
+      throw new Error("ffmpeg_missing");
+    }
+    throw err;
+  }
   if (code !== 0) {
-    throw new Error(
-      `ffmpeg_extract_failed: ${(stderr || "").split("\n").slice(-6).join(" ")}`,
-    );
+    const tail = (stderr || "").split("\n").slice(-6).join(" ");
+    if (/not found|no such file|cannot find/i.test(tail)) {
+      throw new Error("ffmpeg_missing");
+    }
+    throw new Error(`ffmpeg_extract_failed: ${tail}`);
   }
 }
 
