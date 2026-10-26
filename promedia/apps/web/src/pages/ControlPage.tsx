@@ -25,6 +25,7 @@ import {
   emptySubtitleAgentState,
   isSubtitleFontSize,
   isSubtitleTargetLang,
+  normalizeSubtitleLeadMs,
   itemHasSlides,
   itemProjectionSlideCount,
   normalizeThemeBackground,
@@ -1151,6 +1152,9 @@ export function ControlPage() {
                   ? subtitleAgent.fontSize
                   : "md"
               }
+              subtitleAgentLeadMs={normalizeSubtitleLeadMs(
+                subtitleAgent.leadMs,
+              )}
               subtitleAgentTitle={subtitleAgentTitle}
               subtitleAgentErrorMessage={
                 subtitleAgent.enabled &&
@@ -1171,6 +1175,9 @@ export function ControlPage() {
               }}
               onSubtitleFontSizeChange={(fontSize) => {
                 session.setSubtitleAgent({ fontSize });
+              }}
+              onSubtitleLeadMsChange={(leadMs) => {
+                session.setSubtitleAgent({ leadMs });
               }}
               sessionFallback={
                 <>

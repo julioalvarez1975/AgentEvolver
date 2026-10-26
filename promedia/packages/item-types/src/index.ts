@@ -14,6 +14,7 @@ export {
   isTextPayload,
   isTextPlaylistItem,
   normalizeTextPayload,
+  FittedTextStage,
   TextPreview,
   TextLivePanel,
   TextOutputRenderer,

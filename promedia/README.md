@@ -239,7 +239,7 @@ Reiniciá el hub tras instalar. Overrides: `FFMPEG_PATH`, `YT_DLP_PATH`.
 4. Poné el ítem **En vivo** (o dejalo seleccionado en Vista previa):
    - Local: `ffmpeg` → WAV → **Whisper tiny** (+ MT opcional)
    - YouTube: `yt-dlp` (bestaudio) → caché → mismo pipeline ASR
-5. Las captions aparecen abajo al centro en Vista previa y en la ventana **Output**, alineadas al mismo `mediaClock`
+5. Las captions aparecen **arriba del vídeo** (estilo cancionero / `FittedTextStage`), alineadas al mismo `mediaClock`, con anticipación configurable (1,5–3 s, default 2 s) para leer la letra antes de cantarla. Tamaño SM–XL y anticipación van junto al botón **Agente subtítulos**. Canciones de Biblioteca con diapositivas ←/→ siguen siendo manuales (la anticipación solo aplica a cues con tiempo del agente).
 
 **Primera ejecución (descarga de modelos)**
 

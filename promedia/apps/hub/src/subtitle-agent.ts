@@ -3,10 +3,15 @@ import type {
   PlaylistItem,
   SubtitleAgentState,
   SubtitleFontSize,
+  SubtitleLeadMs,
   SubtitleTargetLang,
   VideoPlaylistItem,
 } from "@promedia/shared";
-import { emptySubtitleAgentState } from "@promedia/shared";
+import {
+  DEFAULT_SUBTITLE_LEAD_MS,
+  emptySubtitleAgentState,
+  normalizeSubtitleLeadMs,
+} from "@promedia/shared";
 import { assetStore } from "./asset-store.js";
 import { broadcastSession } from "./broadcast.js";
 import {
@@ -222,6 +227,7 @@ export function setSubtitleAgent(
     enabled?: boolean;
     targetLang?: SubtitleTargetLang;
     fontSize?: SubtitleFontSize;
+    leadMs?: SubtitleLeadMs;
     itemId?: string;
   },
 ): HubMessage {
@@ -229,10 +235,15 @@ export function setSubtitleAgent(
   const enabled = patch.enabled ?? prev.enabled;
   const targetLang = patch.targetLang ?? prev.targetLang;
   const fontSize = patch.fontSize ?? prev.fontSize ?? "md";
+  const leadMs =
+    patch.leadMs !== undefined
+      ? normalizeSubtitleLeadMs(patch.leadMs)
+      : normalizeSubtitleLeadMs(prev.leadMs ?? DEFAULT_SUBTITLE_LEAD_MS);
   const wasOff = !prev.enabled;
   const stickyMissing = isStickyMissingBin(prev);
-  const fontOnly =
-    patch.fontSize !== undefined &&
+  // Size / lead-only: persist without restarting ASR.
+  const displayOnly =
+    (patch.fontSize !== undefined || patch.leadMs !== undefined) &&
     patch.enabled === undefined &&
     patch.targetLang === undefined &&
     patch.itemId === undefined;
@@ -245,17 +256,18 @@ export function setSubtitleAgent(
       enabled: false,
       status: "off",
       fontSize,
+      leadMs,
       updatedAt: new Date().toISOString(),
     };
     return sessionStore.touchSubtitleAgent(session);
   }
 
-  // Font-size-only patch: persist without restarting ASR.
-  if (fontOnly) {
+  if (displayOnly) {
     session.live.subtitleAgent = {
       ...prev,
       enabled: true,
       fontSize,
+      leadMs,
       updatedAt: new Date().toISOString(),
     };
     return sessionStore.touchSubtitleAgent(session);
@@ -274,6 +286,7 @@ export function setSubtitleAgent(
     enabled: true,
     targetLang,
     fontSize,
+    leadMs,
     status: keepSticky
       ? "error"
       : prev.status === "ready" && prev.targetLang === targetLang

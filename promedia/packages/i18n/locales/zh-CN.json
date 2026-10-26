@@ -286,5 +286,15 @@
   "control.subtitleAgentWorking": "正在集线器本地处理字幕…",
   "control.subtitleAgentReady": "字幕已就绪",
   "control.subtitleAgentSourceOnly": "语音识别完成；本地翻译不可用 — 显示源语言",
-  "control.subtitleAgentError": "字幕助手错误"
+  "control.subtitleAgentError": "字幕助手错误",
+  "control.subtitleAgentFontSize": "字幕大小",
+  "control.subtitleAgentFontSizeSm": "SM",
+  "control.subtitleAgentFontSizeMd": "MD",
+  "control.subtitleAgentFontSizeLg": "LG",
+  "control.subtitleAgentFontSizeXl": "XL",
+  "control.subtitleAgentLead": "提前显示歌词（在唱出之前）。仅适用于助手的定时字幕 — 不含手动 ←/→ 歌本幻灯片。",
+  "control.subtitleAgentLead15": "1.5秒",
+  "control.subtitleAgentLead20": "2秒",
+  "control.subtitleAgentLead25": "2.5秒",
+  "control.subtitleAgentLead30": "3秒"
 }

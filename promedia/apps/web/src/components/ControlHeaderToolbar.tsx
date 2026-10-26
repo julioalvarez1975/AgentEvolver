@@ -3,12 +3,17 @@ import type { Locale } from "@promedia/i18n";
 import type {
   SceneMode,
   SubtitleFontSize,
+  SubtitleLeadMs,
   ThemeBackground,
   ThemeId,
   ThemeOverrides,
   TransitionEffect,
 } from "@promedia/shared";
-import { SUBTITLE_FONT_SIZES } from "@promedia/shared";
+import {
+  DEFAULT_SUBTITLE_LEAD_MS,
+  SUBTITLE_FONT_SIZES,
+  SUBTITLE_LEAD_MS_OPTIONS,
+} from "@promedia/shared";
 import { LOCALE_SHORT, useLocale } from "../locale/LocaleContext";
 import {
   ThemePanel,
@@ -59,6 +64,8 @@ export type ControlHeaderToolbarProps = {
   subtitleAgentEnabled?: boolean;
   /** Caption size SM–XL (session-persisted). */
   subtitleAgentFontSize?: SubtitleFontSize;
+  /** Cue anticipation vs mediaClock (1.5–3s). */
+  subtitleAgentLeadMs?: SubtitleLeadMs;
   /** Tooltip: help text, download progress, or ASR errors (incl. yt-dlp). */
   subtitleAgentTitle?: string;
   /**
@@ -68,6 +75,7 @@ export type ControlHeaderToolbarProps = {
   subtitleAgentErrorMessage?: string | null;
   onToggleSubtitleAgent?: () => void;
   onSubtitleFontSizeChange?: (size: SubtitleFontSize) => void;
+  onSubtitleLeadMsChange?: (leadMs: SubtitleLeadMs) => void;
 };
 
 function ToolbarBtn({
@@ -132,10 +140,12 @@ export function ControlHeaderToolbar({
   sessionFallback,
   subtitleAgentEnabled = false,
   subtitleAgentFontSize = "md",
+  subtitleAgentLeadMs = DEFAULT_SUBTITLE_LEAD_MS,
   subtitleAgentTitle,
   subtitleAgentErrorMessage,
   onToggleSubtitleAgent,
   onSubtitleFontSizeChange,
+  onSubtitleLeadMsChange,
 }: ControlHeaderToolbarProps) {
   const { t, locale, setLocale, locales } = useLocale();
   const subtitleSizeLabel: Record<SubtitleFontSize, string> = {
@@ -143,6 +153,12 @@ export function ControlHeaderToolbar({
     md: t("control.subtitleAgentFontSizeMd"),
     lg: t("control.subtitleAgentFontSizeLg"),
     xl: t("control.subtitleAgentFontSizeXl"),
+  };
+  const subtitleLeadLabel: Record<SubtitleLeadMs, string> = {
+    1500: t("control.subtitleAgentLead15"),
+    2000: t("control.subtitleAgentLead20"),
+    2500: t("control.subtitleAgentLead25"),
+    3000: t("control.subtitleAgentLead30"),
   };
 
   const sceneBtn = (
@@ -216,6 +232,29 @@ export function ControlHeaderToolbar({
             {SUBTITLE_FONT_SIZES.map((size) => (
               <option key={size} value={size}>
                 {subtitleSizeLabel[size]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label
+          className="toolbar-subtitle-lead"
+          title={t("control.subtitleAgentLead")}
+        >
+          <select
+            className="toolbar-subtitle-lead-select"
+            value={subtitleAgentLeadMs}
+            disabled={!canMutate || !onSubtitleLeadMsChange}
+            aria-label={t("control.subtitleAgentLead")}
+            onChange={(e) => {
+              const next = Number(e.target.value) as SubtitleLeadMs;
+              if (SUBTITLE_LEAD_MS_OPTIONS.includes(next)) {
+                onSubtitleLeadMsChange?.(next);
+              }
+            }}
+          >
+            {SUBTITLE_LEAD_MS_OPTIONS.map((ms) => (
+              <option key={ms} value={ms}>
+                {subtitleLeadLabel[ms]}
               </option>
             ))}
           </select>

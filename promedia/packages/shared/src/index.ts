@@ -313,12 +313,59 @@ export function isSubtitleFontSize(value: unknown): value is SubtitleFontSize {
   return value === "sm" || value === "md" || value === "lg" || value === "xl";
 }
 
+/**
+ * How early timed cues appear vs mediaClock (ms). Shows the line before it is
+ * sung so the congregation can read ahead. Applies only to agent ASR cues —
+ * Biblioteca songs advanced with ←/→ slides are manual and ignore lead.
+ */
+export type SubtitleLeadMs = 1500 | 2000 | 2500 | 3000;
+
+export const SUBTITLE_LEAD_MS_OPTIONS: readonly SubtitleLeadMs[] = [
+  1500, 2000, 2500, 3000,
+] as const;
+
+/** Default anticipation: 2 seconds early. */
+export const DEFAULT_SUBTITLE_LEAD_MS: SubtitleLeadMs = 2000;
+
+export function isSubtitleLeadMs(value: unknown): value is SubtitleLeadMs {
+  return (
+    typeof value === "number" &&
+    (SUBTITLE_LEAD_MS_OPTIONS as readonly number[]).includes(value)
+  );
+}
+
+/** Coerce unknown / legacy values into a valid lead preset (default 2s). */
+export function normalizeSubtitleLeadMs(value: unknown): SubtitleLeadMs {
+  if (isSubtitleLeadMs(value)) {
+    return value;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const clamped = Math.min(3000, Math.max(1500, value));
+    let best: SubtitleLeadMs = DEFAULT_SUBTITLE_LEAD_MS;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (const opt of SUBTITLE_LEAD_MS_OPTIONS) {
+      const dist = Math.abs(opt - clamped);
+      if (dist < bestDist) {
+        best = opt;
+        bestDist = dist;
+      }
+    }
+    return best;
+  }
+  return DEFAULT_SUBTITLE_LEAD_MS;
+}
+
 export type SubtitleAgentState = {
   enabled: boolean;
   targetLang: SubtitleTargetLang;
   status: SubtitleAgentStatus;
   /** Caption size (SM / MD / LG / XL). Persisted in session. */
   fontSize: SubtitleFontSize;
+  /**
+   * Show timed cues this many ms early vs mediaClock (1.5–3s presets).
+   * Only affects agent ASR/YouTube cues — not manual song slides.
+   */
+  leadMs: SubtitleLeadMs;
   /** Playlist item the current cues belong to (if any). */
   itemId: string | null;
   /** Asset id used for ASR cache (`file` asset id, or `yt_<videoId>` for YouTube). */
@@ -341,6 +388,7 @@ export function emptySubtitleAgentState(
     targetLang,
     status: "off",
     fontSize: "md",
+    leadMs: DEFAULT_SUBTITLE_LEAD_MS,
     itemId: null,
     assetId: null,
     sourceLang: null,
@@ -351,7 +399,7 @@ export function emptySubtitleAgentState(
   };
 }
 
-/** Coerce legacy snapshots missing fontSize → MD. */
+/** Coerce legacy snapshots missing fontSize / leadMs. */
 export function normalizeSubtitleAgentState(
   raw: SubtitleAgentState | null | undefined,
 ): SubtitleAgentState {
@@ -359,6 +407,9 @@ export function normalizeSubtitleAgentState(
   return {
     ...base,
     fontSize: isSubtitleFontSize(base.fontSize) ? base.fontSize : "md",
+    leadMs: normalizeSubtitleLeadMs(
+      (base as { leadMs?: unknown }).leadMs,
+    ),
   };
 }
 
@@ -377,6 +428,22 @@ export function cueAtPositionMs(
     }
   }
   return null;
+}
+
+/**
+ * Cue for display with anticipation: lookup at `positionMs + leadMs` so the
+ * line is readable before the sung words (timed agent cues only).
+ */
+export function cueAtPositionWithLeadMs(
+  cues: readonly SubtitleCue[],
+  positionMs: number,
+  leadMs: number,
+): SubtitleCue | null {
+  const lead =
+    typeof leadMs === "number" && Number.isFinite(leadMs)
+      ? Math.max(0, leadMs)
+      : DEFAULT_SUBTITLE_LEAD_MS;
+  return cueAtPositionMs(cues, positionMs + lead);
 }
 
 /** Visual overlay on Output; does not clear live item (subtarea 7). */
@@ -574,6 +641,8 @@ export type LiveSubtitleAgentSetMessage = {
     targetLang?: SubtitleTargetLang;
     /** Caption size SM–XL (persisted on session). */
     fontSize?: SubtitleFontSize;
+    /** Show cues this many ms early (1.5–3s). Display-only; no ASR restart. */
+    leadMs?: SubtitleLeadMs;
     /** Optional: process this playlist item (defaults to live, else ignored). */
     itemId?: string;
   };
