@@ -155,7 +155,7 @@ Si el popup está bloqueado, aparece un aviso con enlace **Abrir salida**. El at
 2. **Barra de herramientas** debajo (peers planos; sin grupos fijos):
    - **Proyectar** — abre Output + fullscreen (busy: «Iniciando…»)
    - **Biblioteca** — mediateca local (canciones, biblias, textos, presentaciones, imágenes, vídeos)
-   - **Agente subtítulos** — ASR local offline (fase 1); con el agente activo aparece un selector de idioma de subtítulos (ES/EN/PT/FR/ZH)
+   - **Agente subtítulos** — ASR local offline (archivos o YouTube vía yt-dlp); el idioma de subtítulos sigue el selector Idioma
    - **Idioma** — UI ES / EN / PT / FR / ZH
    - **Acerca de** — diálogo con crédito **`@2026 JulioAlvarez75`**
    - Escenas + **Tema** — presets, fondos, efectos de transición
@@ -217,16 +217,26 @@ También: `node scripts/import-bibles.mjs` (crea `bibles/import` si falta y llam
 - Transporte de vídeo: play/pausa, ±10 s, inicio/fin, scrubber (tiempos en overlay); mute opcional en preview
 - Con **Agente subtítulos** activo, las cues sincronizadas con `mediaClock` se ven en **Vista previa**, **En vivo** y **Output**
 
-### Agente de subtítulos (IA local, fase 1)
+### Agente de subtítulos (IA local)
 
-Subtítulos automáticos **100 % locales** (sin API keys ni STT/MT en la nube).
+Subtítulos automáticos **100 % locales** (sin API keys ni STT/MT en la nube). YouTube: el hub descarga **solo audio** con `yt-dlp` y luego corre el mismo Whisper local (el iframe de YouTube sigue solo en Output).
+
+**Dependencias en el PATH (Mac)**
+
+```bash
+brew install yt-dlp ffmpeg
+```
+
+Reiniciá el hub tras instalar. Overrides: `FFMPEG_PATH`, `YT_DLP_PATH`.
 
 **Cómo usarlo**
 
 1. Arrancá ProMedia (`pnpm dev` / launcher) y abrí **Control**
-2. Añadí un **vídeo o audio de archivo local** al Guion (subida / Biblioteca → Vídeos). **YouTube no** en fase 1
+2. Añadí un **vídeo/audio local** o un **YouTube** público al Guion
 3. Pulsá **Agente subtítulos** en la barra (junto a **Proyectar** / **Idioma**; queda activo). El idioma de subtítulos **sigue el selector Idioma** de Control (ES / EN / PT / FR / ZH)
-4. Poné el ítem **En vivo** (o dejalo seleccionado en Vista previa): el hub extrae audio con `ffmpeg`, corre **Whisper tiny** local y opcionalmente traduce con modelos Marian/OPUS locales
+4. Poné el ítem **En vivo** (o dejalo seleccionado en Vista previa):
+   - Local: `ffmpeg` → WAV → **Whisper tiny** (+ MT opcional)
+   - YouTube: `yt-dlp` (bestaudio) → caché → mismo pipeline ASR
 5. Las captions aparecen abajo al centro en Vista previa y en la ventana **Output**, alineadas al mismo `mediaClock`
 
 **Primera ejecución (descarga de modelos)**
@@ -234,7 +244,8 @@ Subtítulos automáticos **100 % locales** (sin API keys ni STT/MT en la nube).
 - Los pesos ONNX de Whisper (y de traducción, si aplica) se descargan **una vez** a `promedia/data/models/` (gitignore; no van al repo)
 - Caché de cues por asset: `promedia/data/subtitles/cache/`
 - WAV temporal: `promedia/data/subtitles/wav/`
-- Requiere **`ffmpeg`** en el PATH (o `FFMPEG_PATH`)
+- Audio YouTube cacheado: `promedia/data/subtitles/youtube-cache/` (gitignore; no commitear)
+- Requiere **`ffmpeg`** en el PATH (o `FFMPEG_PATH`); YouTube también **`yt-dlp`** (o `YT_DLP_PATH`)
 - Modelo ASR por defecto: `Xenova/whisper-tiny` (override: `SUBTITLE_WHISPER_MODEL`)
 
 **Traducción (enfoque por etapas)**
@@ -243,13 +254,14 @@ Subtítulos automáticos **100 % locales** (sin API keys ni STT/MT en la nube).
 - **(B)** Si hay modelo Marian local para el par (o vía inglés), el hub traduce a `targetLang`
 - Si no hay modelo para el par: se muestran las cues de origen y un aviso `mt_source_only` (sin inventar traducción)
 
-**Límites fase 1**
+**Límites**
 
-- Solo **archivos locales** servidos por el hub (`sourceKind: file`). YouTube / URLs remotas: tooltip «solo archivos locales en fase 1» — no se simula
+- Archivos locales (`sourceKind: file`) y YouTube público (`sourceKind: youtube`)
+- Vídeos con restricción de edad / privados / bloqueados: error claro en el tooltip (sin cloud STT)
 - Canciones de Biblioteca **solo texto** (sin pista de audio): el agente no hace STT (aviso)
-- Primera transcripción puede tardar (descarga + CPU); las siguientes del mismo archivo usan caché
+- Primera transcripción puede tardar (descarga + CPU); las siguientes del mismo archivo / videoId usan caché
 
-Env útiles: `SUBTITLE_MODELS_ROOT`, `SUBTITLE_DATA_ROOT`, `SUBTITLE_WHISPER_MODEL`, `FFMPEG_PATH`, `TRANSFORMERS_CACHE`
+Env útiles: `SUBTITLE_MODELS_ROOT`, `SUBTITLE_DATA_ROOT`, `SUBTITLE_WHISPER_MODEL`, `FFMPEG_PATH`, `YT_DLP_PATH`, `TRANSFORMERS_CACHE`
 
 ### Tema (zona TEMA)
 
@@ -319,6 +331,7 @@ Ver `.env.example`. Las más relevantes:
 | `SUBTITLE_MODELS_ROOT` / `SUBTITLE_DATA_ROOT` | Modelos Whisper/MT y caché de cues (default `data/models`, `data/subtitles`) |
 | `SUBTITLE_WHISPER_MODEL` | Modelo ASR local (default `Xenova/whisper-tiny`) |
 | `FFMPEG_PATH` | Binario ffmpeg para extraer audio (default `ffmpeg`) |
+| `YT_DLP_PATH` | Binario yt-dlp para audio de YouTube (default `yt-dlp`) |
 
 Tamaños GAM del header: 970×90, 728×90, 320×50, 320×100 (+ fluid).
 
@@ -350,7 +363,7 @@ cd promedia
 - Guion multi-tipo con drag, multi-select, guardar/cargar
 - Texto: import PDF (hub), XML, `.txt`/`.md` → slides
 - Preview ≠ live; transporte vídeo + `mediaClock`
-- **Agente subtítulos** local (Whisper tiny + MT opcional; solo archivos)
+- **Agente subtítulos** local (Whisper tiny + MT opcional; archivos o YouTube vía yt-dlp)
 - Escenas, temas, transiciones 0,5 s en Output
 - i18n ES · EN · PT · FR · ZH
 - Banner GAM opcional en Control
@@ -369,7 +382,7 @@ Ver `scripts/qa-church-event.md`.
 
 ## Límites conocidos
 
-- **Subtítulos fase 1:** solo archivos locales; YouTube/remoto deshabilitado a propósito; primera corrida descarga modelos a `data/models/` (CPU, puede tardar)
+- **Subtítulos:** archivos locales + YouTube público (audio local con `yt-dlp`); privados/edad restringida fallan con aviso; primera corrida descarga modelos a `data/models/` (CPU, puede tardar)
 - Assets de archivo son **por sesión**; al cargar un guion guardado, ítems de archivo sin asset se omiten (texto/YouTube sí)
 - Adapter S3 = stub (escribe en disco hasta cablear SDK completo)
 - Multi-monitor / fullscreen depende del navegador (Chrome Window Management; Safari/Firefox suelen exigir arrastrar + clic)

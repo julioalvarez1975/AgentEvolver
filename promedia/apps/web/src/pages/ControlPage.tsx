@@ -184,6 +184,56 @@ export function ControlPage() {
 
   const subtitleFocusItem = liveItem ?? selectedItem;
   const subtitleAgentTitle = useMemo(() => {
+    if (subtitleAgent.enabled) {
+      const st = subtitleAgent.status;
+      const hint = subtitleAgent.hint ?? "";
+      if (st === "downloading" && hint === "youtube_audio") {
+        return t("control.subtitleAgentDownloadingAudio");
+      }
+      if (
+        st === "downloading" ||
+        st === "extracting" ||
+        st === "transcribing" ||
+        st === "translating" ||
+        st === "idle"
+      ) {
+        return t("control.subtitleAgentWorking");
+      }
+      if (st === "ready") {
+        if (hint === "mt_source_only") {
+          return t("control.subtitleAgentSourceOnly");
+        }
+        return t("control.subtitleAgentReady");
+      }
+      if (st === "error") {
+        if (hint === "yt_dlp_missing") {
+          return t("control.subtitleAgentYtDlpMissing");
+        }
+        if (hint === "youtube_age_restricted") {
+          return t("control.subtitleAgentYoutubeAge");
+        }
+        if (hint === "youtube_private") {
+          return t("control.subtitleAgentYoutubePrivate");
+        }
+        if (hint === "youtube_blocked" || hint === "youtube_unavailable") {
+          return t("control.subtitleAgentYoutubeFailed");
+        }
+        if (hint.startsWith("youtube_")) {
+          return t("control.subtitleAgentYoutubeFailed");
+        }
+        return hint
+          ? `${t("control.subtitleAgentError")}: ${hint}`
+          : t("control.subtitleAgentError");
+      }
+      if (st === "unsupported") {
+        if (hint === "text_only_no_audio") {
+          return t("control.subtitleAgentTextOnly");
+        }
+        if (hint === "no_item") {
+          return t("control.subtitleAgentNoItem");
+        }
+      }
+    }
     if (!subtitleFocusItem) {
       return t("control.subtitleAgentNoItem");
     }
@@ -200,7 +250,13 @@ export function ControlPage() {
       return t("control.subtitleAgentTextOnly");
     }
     return t("control.subtitleAgentTitle");
-  }, [subtitleFocusItem, t]);
+  }, [
+    subtitleFocusItem,
+    subtitleAgent.enabled,
+    subtitleAgent.status,
+    subtitleAgent.hint,
+    t,
+  ]);
 
   const themeBgAssetSrc =
     themeBackground.mode === "media" &&
