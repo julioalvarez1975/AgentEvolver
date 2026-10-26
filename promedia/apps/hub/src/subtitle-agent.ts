@@ -24,7 +24,12 @@ import {
 import { isMissingBinHint, missingBinHintFromError } from "./subtitle-bins.js";
 import { ensureSubtitleDirs } from "./subtitle-paths.js";
 import { translateCuesLocal } from "./subtitle-translate.js";
-import { ensureYoutubeAudio, ytDlpAvailable } from "./subtitle-youtube.js";
+import { filterSpeechCues } from "./subtitle-cue-text.js";
+import {
+  ensureYoutubeAudio,
+  tryYoutubeCaptions,
+  ytDlpAvailable,
+} from "./subtitle-youtube.js";
 import type { SessionRecord } from "./session-store.js";
 import { sessionStore } from "./session-store.js";
 
@@ -402,6 +407,75 @@ async function runSubtitleJob(
         status: "downloading",
         itemId: resolved.item.id,
         assetId,
+        hint: "youtube_captions",
+        cues: [],
+        translated: false,
+        sourceLang: null,
+      });
+
+      // Prefer YouTube manual/auto captions (real lyrics) over Whisper tiny,
+      // which often emits only `[MUSIC]` / `[MÚSICA]` for songs.
+      const preferLangs = [targetLang, "en"].filter(
+        (v, i, a) => a.indexOf(v) === i,
+      );
+      const caps = await tryYoutubeCaptions({
+        videoId: resolved.youtube.videoId,
+        sourceUrl: resolved.youtube.sourceUrl,
+        preferLangs,
+      });
+      if (!isCurrent(sessionId, gen)) return;
+
+      if (caps && caps.cues.length > 0) {
+        let cues = filterSpeechCues(caps.cues);
+        let translated = false;
+        let hint: string | null = null;
+        let sourceLang = caps.sourceLang;
+
+        if (cues.length > 0) {
+          patchAndBroadcast(session, { status: "translating" });
+          const mt = await translateCuesLocal({
+            cues,
+            sourceLang,
+            targetLang,
+            alreadyEnglish: sourceLang === "en",
+          });
+          cues = filterSpeechCues(mt.cues);
+          translated = mt.translated || translated;
+          if (mt.note && !mt.translated) {
+            hint = mt.note.startsWith("mt_unavailable")
+              ? "mt_source_only"
+              : mt.note;
+          }
+
+          if (!isCurrent(sessionId, gen)) return;
+          const liveCaps = sessionStore.get(sessionId);
+          if (!liveCaps?.live.subtitleAgent?.enabled) return;
+
+          if (cues.length > 0) {
+            clearYtHardFail(sessionId);
+            patchAndBroadcast(liveCaps, {
+              status: "ready",
+              cues,
+              sourceLang,
+              translated,
+              hint,
+              itemId: resolved.item.id,
+              assetId: caps.assetId,
+            });
+            return;
+          }
+        }
+        console.warn(
+          "[subtitle] YouTube captions had no speech/lyric cues — falling back to Whisper ASR",
+        );
+      }
+
+      patchAndBroadcast(session, {
+        enabled: true,
+        targetLang,
+        status: "downloading",
+        itemId: resolved.item.id,
+        assetId,
         hint: "youtube_audio",
         cues: [],
         translated: false,
@@ -478,7 +552,7 @@ async function runSubtitleJob(
     const liveAfterAsr = sessionStore.get(sessionId);
     if (!liveAfterAsr?.live.subtitleAgent?.enabled) return;
 
-    let cues = asr.cues;
+    let cues = filterSpeechCues(asr.cues);
     let translated = asr.whisperTranslatedToEn && targetLang === "en";
     let hint: string | null = null;
     let sourceLang = asr.sourceLang;
@@ -491,7 +565,8 @@ async function runSubtitleJob(
         targetLang,
         alreadyEnglish: asr.whisperTranslatedToEn,
       });
-      cues = mt.cues;
+      // Filter again — Marian can turn residual `[MUSIC]` into `[MÚSICA]`.
+      cues = filterSpeechCues(mt.cues);
       translated = mt.translated || translated;
       if (mt.note && !mt.translated) {
         hint = mt.note.startsWith("mt_unavailable")

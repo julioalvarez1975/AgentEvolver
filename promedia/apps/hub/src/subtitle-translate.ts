@@ -1,4 +1,5 @@
 import type { SubtitleCue, SubtitleTargetLang } from "@promedia/shared";
+import { filterSpeechCues, isNonSpeechCueText } from "./subtitle-cue-text.js";
 import {
   applyTransformersCacheEnv,
   ensureSubtitleDirs,
@@ -168,21 +169,30 @@ export async function translateCuesLocal(options: {
   }
 
   onStatus?.();
-  const texts = cues.map((c) => c.text);
+  // Skip MT for sound labels — Marian turns `[MUSIC]` into `[MÚSICA]` which
+  // looks like a Spanish lyric line but is not. Prefer dropping them.
+  const speechCues = filterSpeechCues(cues);
+  if (!speechCues.length) {
+    return { cues: [], translated: false, note: null };
+  }
+  const texts = speechCues.map((c) => c.text);
   try {
     const translated = await translateViaPair(texts, src, tgt);
     if (!translated) {
       return {
-        cues,
+        cues: speechCues,
         translated: false,
         note: `mt_unavailable:${src}->${tgt}`,
       };
     }
     return {
-      cues: cues.map((c, i) => ({
-        ...c,
-        text: translated[i] ?? c.text,
-      })),
+      cues: speechCues.map((c, i) => {
+        const next = (translated[i] ?? c.text).trim();
+        // If MT somehow reintroduced a music bracket label, keep source words.
+        const text =
+          next && !isNonSpeechCueText(next) ? next : c.text;
+        return { ...c, text };
+      }),
       translated: true,
       note: null,
     };
@@ -192,7 +202,7 @@ export async function translateCuesLocal(options: {
       err instanceof Error ? err.message : err,
     );
     return {
-      cues,
+      cues: speechCues,
       translated: false,
       note: "mt_failed",
     };

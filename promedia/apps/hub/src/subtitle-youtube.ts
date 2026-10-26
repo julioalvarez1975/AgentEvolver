@@ -1,14 +1,17 @@
-import { mkdir, readdir, rm, stat } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import type { SubtitleCue } from "@promedia/shared";
 import {
   ensureAugmentedPath,
   missingBinHintFromError,
   resolveFfmpegBin,
   resolveYtDlpBin,
 } from "./subtitle-bins.js";
+import { filterSpeechCues } from "./subtitle-cue-text.js";
 import { ensureSubtitleDirs } from "./subtitle-paths.js";
 import { extractWav16k } from "./subtitle-asr.js";
+import { parseWhisperCppVttOrSrt } from "./subtitle-whisper-cpp.js";
 
 export type YoutubeAudioResult = {
   /** Absolute path to cached audio file (wav preferred; else raw bestaudio). */
@@ -16,6 +19,16 @@ export type YoutubeAudioResult = {
   /** Synthetic asset id used for ASR cue cache (`yt_<videoId>`). */
   assetId: string;
   videoId: string;
+};
+
+export type YoutubeCaptionResult = {
+  cues: SubtitleCue[];
+  /** Language tag from the chosen caption file (e.g. `en`, `es`). */
+  sourceLang: string | null;
+  assetId: string;
+  videoId: string;
+  /** Manual vs auto-generated YouTube track. */
+  trackKind: "manual" | "auto" | "unknown";
 };
 
 /** YouTube ids are 11 chars of [A-Za-z0-9_-]; reject anything else for path safety. */
@@ -412,4 +425,225 @@ export async function ensureYoutubeAudio(options: {
   }
 
   throw new Error(lastHint);
+}
+
+/** Caption sidecar extensions we accept after yt-dlp `--convert-subs vtt`. */
+const CAPTION_EXTS = new Set([".vtt", ".srt"]);
+
+type CaptionCandidate = {
+  filePath: string;
+  lang: string;
+  /** Lower rank = better (manual preferred, then language preference). */
+  rank: number;
+};
+
+/**
+ * Parse `videoId.<lang>.vtt` (and `.en-orig`, `.es-US`, …) into a BCP-47-ish tag.
+ * Returns null for the audio file itself (`videoId.wav` / `.m4a`).
+ */
+export function youtubeCaptionLangFromName(
+  videoId: string,
+  fileName: string,
+): string | null {
+  if (!fileName.startsWith(`${videoId}.`)) return null;
+  const rest = fileName.slice(videoId.length + 1);
+  const ext = path.extname(rest).toLowerCase();
+  if (!CAPTION_EXTS.has(ext)) return null;
+  const langPart = rest.slice(0, rest.length - ext.length).trim();
+  if (!langPart) return null;
+  // Skip obvious non-lang leftovers.
+  if (/^(f\d+|temp|part)$/i.test(langPart)) return null;
+  return langPart.toLowerCase();
+}
+
+function captionLangBase(lang: string): string {
+  return lang.split(/[-_.]/)[0] || lang;
+}
+
+/**
+ * Rank caption files: prefer preferred language list, then shorter tags, then
+ * path for stability. Auto tracks (`…-orig` / longer tags) still usable.
+ */
+export function rankYoutubeCaptionLang(
+  lang: string,
+  preferLangs: string[],
+): number {
+  const base = captionLangBase(lang);
+  const prefs = preferLangs.map((l) => captionLangBase(l.toLowerCase()));
+  const prefIdx = prefs.findIndex((p) => p === base || lang.startsWith(`${p}-`));
+  const prefScore = prefIdx >= 0 ? prefIdx : 100;
+  // Prefer plain `en` / `es` over `en-orig` / regional when tied.
+  const specificity = lang.includes("-") || lang.includes(".") ? 1 : 0;
+  return prefScore * 10 + specificity;
+}
+
+export async function findYoutubeCaptionFiles(
+  cacheDir: string,
+  videoId: string,
+  preferLangs: string[],
+): Promise<CaptionCandidate[]> {
+  let names: string[];
+  try {
+    names = await readdir(cacheDir);
+  } catch {
+    return [];
+  }
+  const out: CaptionCandidate[] = [];
+  for (const name of names) {
+    const lang = youtubeCaptionLangFromName(videoId, name);
+    if (!lang) continue;
+    const filePath = path.join(cacheDir, name);
+    try {
+      const st = await stat(filePath);
+      if (!st.isFile() || st.size < 16) continue;
+    } catch {
+      continue;
+    }
+    out.push({
+      filePath,
+      lang,
+      rank: rankYoutubeCaptionLang(lang, preferLangs),
+    });
+  }
+  out.sort((a, b) => a.rank - b.rank || a.filePath.localeCompare(b.filePath));
+  return out;
+}
+
+async function invokeYtDlpCaptions(options: {
+  bin: string;
+  cacheDir: string;
+  url: string;
+  preferLangs: string[];
+}): Promise<{ code: number; stderr: string; stdout: string }> {
+  const { bin, cacheDir, url, preferLangs } = options;
+  await mkdir(cacheDir, { recursive: true });
+  // Prefer UI language, then English (lyrics often uploaded in EN), then any.
+  const langs = [
+    ...preferLangs.map((l) => `${captionLangBase(l)}.*`),
+    ...preferLangs.map((l) => captionLangBase(l)),
+    "en.*",
+    "en",
+  ];
+  const uniqueLangs = [...new Set(langs.filter(Boolean))];
+  return runCmd(bin, [
+    "--no-playlist",
+    "--no-warnings",
+    "--skip-download",
+    "--write-subs",
+    "--write-auto-subs",
+    "--sub-langs",
+    uniqueLangs.join(","),
+    "--sub-format",
+    "vtt/srt/best",
+    "--convert-subs",
+    "vtt",
+    ...youtubeYtDlpOutputArgs(cacheDir),
+    "--",
+    url,
+  ]);
+}
+
+/**
+ * Prefer official / auto YouTube captions over Whisper-on-audio for music
+ * videos — Whisper tiny often emits only `[MUSIC]` / `[MÚSICA]` for songs.
+ * Returns null when no usable speech/lyric cues are available (caller falls
+ * through to audio ASR). Never throws for "no captions"; hard yt-dlp failures
+ * are swallowed so the Whisper path can still run.
+ */
+export async function tryYoutubeCaptions(options: {
+  videoId: string;
+  sourceUrl: string;
+  /** Preferred language codes (e.g. targetLang then `en`). */
+  preferLangs: string[];
+}): Promise<YoutubeCaptionResult | null> {
+  const { videoId, sourceUrl, preferLangs } = options;
+  assertSafeVideoId(videoId);
+  const assetId = `yt_${videoId}`;
+  const dirs = await ensureSubtitleDirs();
+  const cacheDir = path.resolve(dirs.youtubeCache);
+  await mkdir(cacheDir, { recursive: true });
+
+  // Reuse previously downloaded caption sidecars when present.
+  let candidates = await findYoutubeCaptionFiles(
+    cacheDir,
+    videoId,
+    preferLangs,
+  );
+
+  if (!candidates.length) {
+    if (!(await ytDlpAvailable())) {
+      return null;
+    }
+    const bin = resolveYtDlpBin();
+    // convert-subs may need ffmpeg; missing ffmpeg → skip captions, keep ASR.
+    try {
+      await ensureFfmpegForExtract();
+    } catch {
+      return null;
+    }
+    const url =
+      sourceUrl?.trim() || `https://www.youtube.com/watch?v=${videoId}`;
+    try {
+      const result = await invokeYtDlpCaptions({
+        bin,
+        cacheDir,
+        url,
+        preferLangs,
+      });
+      if (result.code !== 0) {
+        const hint = classifyYoutubeError(result.stderr || result.stdout);
+        console.warn(
+          `[subtitle] YouTube captions unavailable (${hint}) — falling back to Whisper ASR`,
+        );
+        return null;
+      }
+    } catch (err) {
+      console.warn(
+        "[subtitle] YouTube captions fetch failed:",
+        err instanceof Error ? err.message : err,
+      );
+      return null;
+    }
+    candidates = await findYoutubeCaptionFiles(cacheDir, videoId, preferLangs);
+  }
+
+  for (const cand of candidates) {
+    let raw: string;
+    try {
+      raw = await readFile(cand.filePath, "utf8");
+    } catch {
+      continue;
+    }
+    const parsed = filterSpeechCues(parseWhisperCppVttOrSrt(raw));
+    if (parsed.length < 1) continue;
+    const sourceLang = captionLangBase(cand.lang);
+    console.log(
+      `[subtitle] YouTube captions used lang=${cand.lang} cues=${parsed.length} → ${cand.filePath}`,
+    );
+    // Persist a tiny marker so Control/debug can see caption source was used.
+    void writeFile(
+      path.join(cacheDir, `${videoId}.captions-meta.json`),
+      JSON.stringify(
+        {
+          lang: cand.lang,
+          sourceLang,
+          cues: parsed.length,
+          file: path.basename(cand.filePath),
+          at: new Date().toISOString(),
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    ).catch(() => undefined);
+    return {
+      cues: parsed,
+      sourceLang,
+      assetId,
+      videoId,
+      trackKind: /orig|auto/i.test(cand.lang) ? "auto" : "unknown",
+    };
+  }
+
+  return null;
 }
