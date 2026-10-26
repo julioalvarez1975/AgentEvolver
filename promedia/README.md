@@ -174,11 +174,22 @@ Mediateca **local** del hub (no nube en esta fase). Datos en `promedia/data/libr
 | Categoría | Contenido |
 |-----------|-----------|
 | Canciones | Editor de título / artista / estrofas → texto proyectable (chunks de 5 líneas) |
-| Biblias / Textos | Guardados en biblioteca para reutilizar |
+| Biblias | Traducciones importadas (XML/XMM/PDF) → solo en disco local; se eligen en Guion → Biblia |
+| Textos | Guardados en biblioteca para reutilizar |
 | Presentaciones | Import `.pptx` `.ppt` `.ppsx` `.potx` `.odp` `.pdf` → diapositivas para ←/→. **Sin** macros (`.pptm`/`.ppsm`). Sin edición nativa |
 | Imágenes / Vídeos | Subida y reuso en el Guion |
 
-API hub: `/api/v1/library/*` (listar, subir, canciones, añadir al Guion de la sesión).
+API hub: `/api/v1/library/*` (listar, subir, canciones, importar Biblias, añadir al Guion de la sesión).
+
+#### Importar Biblias (local, no Git)
+
+Las traducciones con **copyright** (RV1960, NVI, NTV, TLA, LBLA, DHH, …) **no se commitean** al repo. El operador las coloca en su máquina:
+
+1. Copiá los `.xml` / `.xmm` / PDF a `promedia/data/library/bibles/import/` **o** subilos en **Biblioteca → Biblias**
+2. Reiniciá el hub (o pulsá **Importar carpeta local** en Biblioteca)
+3. En **Guion → Biblia**, elegí la versión (etiqueta `[local]`) y buscá el pasaje
+
+También: `node scripts/import-bibles.mjs` (llama a `POST /api/v1/library/bibles/import-folder`). El texto canónico queda en `data/library/files/*/canon.json` (gitignore).
 
 ### Vista previa + En vivo
 
@@ -197,16 +208,17 @@ Las transiciones aplican al cambiar el ítem **en vivo** en Output.
 
 ### Biblia
 
-Botón **Biblia** en el Guion: libro/capítulo/rango o referencia (`Juan 3:16-17`) + versión.
+Botón **Biblia** en el Guion: libro/capítulo/rango o referencia (`Juan 3:16-17`) + versión. Proyección en slides de texto (máx. **5 líneas**).
 
 | Id | Nombre | Idioma | Fuente | Licencia |
 |----|--------|--------|--------|----------|
 | `rvr1909` | Reina-Valera 1909 | ES (por defecto) | [Midvash](https://api.midvash.com) | Dominio público |
-| `pdt` | Palabra de Dios para ti | ES | Midvash | CC BY 4.0 |
+| `pdt` | Palabra de Dios para ti / Todos | ES | Midvash **o** import local | CC BY 4.0 / licencia del archivo |
 | `kjv` | King James Version | EN | [bible-api.com](https://bible-api.com) | Public domain |
 | `asv` | American Standard Version | EN | bible-api.com | Public domain |
+| `rv1960`, `nvi`, `ntv`, `tla`, `lbla`, `blh`, `nbh`, `bls`, `dhh`, … | Import local | ES | Biblioteca / carpeta `bibles/import/` | Copyright del editor — solo uso local |
 
-**RVR1960 no está incluida** (copyright). Fallback local mínimo si falla la API (no es canon offline completo).
+**RVR1960 / NVI / etc. no vienen en el repo** (copyright). Importalas localmente (arriba). Fallback mínimo offline si falla la API remota (no es canon completo).
 
 ### Atajos (fuera de inputs)
 

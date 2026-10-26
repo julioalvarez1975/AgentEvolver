@@ -176,7 +176,10 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
               >
                 {versions.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.label} ({v.shortLabel})
+                    {v.shortLabel} — {v.label}
+                    {v.source === "local"
+                      ? ` [${t("bible.localBadge")}]`
+                      : ""}
                   </option>
                 ))}
               </select>

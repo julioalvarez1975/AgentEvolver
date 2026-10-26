@@ -2,9 +2,13 @@ export type BibleVersionInfo = {
   id: string;
   label: string;
   shortLabel: string;
-  language: "es" | "en";
+  language: "es" | "en" | string;
   license: string;
   default?: boolean;
+  source?: "local" | "remote";
+  note?: string;
+  verseCount?: number;
+  bookCount?: number;
 };
 
 export type BibleBookInfo = {

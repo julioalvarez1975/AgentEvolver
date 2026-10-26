@@ -1,5 +1,6 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
 import type {
   BiblePayload,
@@ -10,6 +11,17 @@ import type {
 } from "@promedia/shared";
 import { LIBRARY_CATEGORIES, songToTextPayload } from "@promedia/shared";
 import { assetStore } from "./asset-store.js";
+import {
+  importBibleFile,
+  looksLikeBibleFile,
+} from "./bible-import.js";
+import {
+  canonToDiskJson,
+  clearLocalCanonCache,
+  libraryItemToLocalVersion,
+  metaFromCanon,
+  type LocalBibleVersion,
+} from "./bible/local-canon.js";
 import {
   importPresentationFile,
   isMacroPresentationName,
@@ -24,11 +36,20 @@ function newId(): string {
   return randomBytes(10).toString("hex");
 }
 
+/**
+ * Prefer monorepo `promedia/data/library` (gitignored) so imports work the same
+ * whether the hub is started from repo root or `apps/hub` via pnpm filter.
+ */
 function libraryRoot(): string {
-  return (
-    process.env.LIBRARY_ROOT ??
-    path.join(process.cwd(), "data", "library")
+  if (process.env.LIBRARY_ROOT?.trim()) {
+    return process.env.LIBRARY_ROOT.trim();
+  }
+  // src|dist → apps/hub → apps → promedia
+  const promediaRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../..",
   );
+  return path.join(promediaRoot, "data", "library");
 }
 
 function indexPath(): string {
@@ -69,12 +90,14 @@ function mimeFromName(name: string): string {
     return "application/vnd.oasis.opendocument.presentation";
   }
   if (lower.endsWith(".ppt")) return "application/vnd.ms-powerpoint";
+  if (lower.endsWith(".xml") || lower.endsWith(".xmm")) return "application/xml";
   return "application/octet-stream";
 }
 
 function classifyUpload(
   fileName: string,
   mime: string,
+  opts?: { preferBiblias?: boolean; bytes?: Buffer },
 ): LibraryCategory | { error: string; message: string } {
   const lower = fileName.toLowerCase();
   if (isMacroPresentationName(fileName)) {
@@ -83,6 +106,13 @@ function classifyUpload(
       message:
         "No se admiten presentaciones con macros (.pptm / .ppsm) por seguridad. Guardá una copia sin macros (.pptx / .ppsx) o exportá a PDF e importá de nuevo.",
     };
+  }
+  const bibleLikely =
+    opts?.preferBiblias ||
+    looksLikeBibleFile(fileName, opts?.bytes) ||
+    lower.endsWith(".xmm");
+  if (bibleLikely && (lower.endsWith(".xml") || lower.endsWith(".xmm") || lower.endsWith(".pdf"))) {
+    return "biblias";
   }
   if (
     lower.endsWith(".pptx") ||
@@ -108,14 +138,26 @@ function classifyUpload(
   ) {
     return "videos";
   }
-  if (/\.(txt|md|xml)$/i.test(lower) || mime.startsWith("text/")) {
+  if (/\.(txt|md)$/i.test(lower) || mime.startsWith("text/")) {
+    return "textos";
+  }
+  if (/\.xml$/i.test(lower)) {
+    // Generic XML without Bible markers → textos (legacy)
     return "textos";
   }
   return {
     error: "unsupported_type",
     message:
-      "Tipo no soportado para la biblioteca. Subí imagen, vídeo, texto o presentación (.pptx/.pdf/…).",
+      "Tipo no soportado para la biblioteca. Subí imagen, vídeo, texto, Biblia (.xml/.xmm/.pdf) o presentación (.pptx/.pdf/…).",
   };
+}
+
+/** Default folder Julio (and operators) can drop Bible files into — gitignored under data/. */
+export function bibleImportFolder(): string {
+  return (
+    process.env.BIBLE_IMPORT_DIR ??
+    path.join(libraryRoot(), "bibles", "import")
+  );
 }
 
 /**
@@ -191,6 +233,9 @@ export class LibraryStore {
           i.song?.title,
           i.original?.originalName,
           i.bible?.reference,
+          i.bibleVersion?.versionId,
+          i.bibleVersion?.shortLabel,
+          i.bibleVersion?.label,
         ]
           .filter(Boolean)
           .join(" ")
@@ -341,20 +386,128 @@ export class LibraryStore {
     return out;
   }
 
+  async listLocalBibleVersions(): Promise<LocalBibleVersion[]> {
+    await this.ensureLoaded();
+    const out: LocalBibleVersion[] = [];
+    for (const item of this.items.values()) {
+      if (item.category !== "biblias" || !item.bibleVersion) {
+        continue;
+      }
+      const local = libraryItemToLocalVersion(item, (rel) =>
+        this.resolveUnderLibrary(rel),
+      );
+      if (local) {
+        out.push(local);
+      }
+    }
+    return out.sort((a, b) => a.shortLabel.localeCompare(b.shortLabel, "es"));
+  }
+
+  async getLocalBibleVersion(
+    versionId: string,
+  ): Promise<LocalBibleVersion | undefined> {
+    const key = versionId.trim().toLowerCase();
+    const all = await this.listLocalBibleVersions();
+    return all.find((v) => v.versionId.toLowerCase() === key);
+  }
+
+  private async persistBibleImport(opts: {
+    bytes: Buffer;
+    originalName: string;
+    mime: string;
+    title?: string;
+  }): Promise<LibraryItem | { error: string; message: string }> {
+    const imported = await importBibleFile({
+      bytes: opts.bytes,
+      originalName: opts.originalName,
+      mime: opts.mime,
+    });
+    if (!imported.ok) {
+      return { error: imported.error, message: imported.message };
+    }
+    const canon = imported.canon;
+
+    // Replace any previous library entry for the same versionId.
+    for (const existing of [...this.items.values()]) {
+      if (
+        existing.category === "biblias" &&
+        existing.bibleVersion?.versionId.toLowerCase() ===
+          canon.versionId.toLowerCase()
+      ) {
+        this.items.delete(existing.id);
+        await rm(path.join(libraryRoot(), "files", existing.id), {
+          recursive: true,
+          force: true,
+        }).catch(() => undefined);
+      }
+    }
+    clearLocalCanonCache(canon.versionId);
+
+    const id = newId();
+    const ext = path.extname(opts.originalName) || "";
+    const originalRel = path
+      .join("files", id, `original${ext}`)
+      .split(path.sep)
+      .join("/");
+    const canonRel = path
+      .join("files", id, "canon.json")
+      .split(path.sep)
+      .join("/");
+    const absOriginal = this.resolveUnderLibrary(originalRel);
+    const absCanon = this.resolveUnderLibrary(canonRel);
+    await mkdir(path.dirname(absOriginal), { recursive: true });
+    await writeFile(absOriginal, opts.bytes);
+    await writeFile(absCanon, canonToDiskJson(canon), "utf8");
+
+    const ts = nowIso();
+    const item: LibraryItem = {
+      id,
+      category: "biblias",
+      title: opts.title?.trim() || `${canon.shortLabel} — ${canon.label}`,
+      createdAt: ts,
+      updatedAt: ts,
+      bibleVersion: metaFromCanon(canon, canonRel),
+      original: {
+        relativePath: originalRel,
+        mime: opts.mime,
+        originalName: opts.originalName,
+        size: opts.bytes.byteLength,
+      },
+    };
+    this.items.set(id, item);
+    await this.persist();
+    return item;
+  }
+
   async uploadFile(opts: {
     bytes: Buffer;
     originalName: string;
     mime?: string;
     title?: string;
+    /** Force Bible import path (Biblioteca → Biblias). */
+    preferBiblias?: boolean;
   }): Promise<LibraryItem | { error: string; message: string }> {
     await this.ensureLoaded();
     const originalName = opts.originalName || "archivo";
     const mime = opts.mime || mimeFromName(originalName);
-    const classified = classifyUpload(originalName, mime);
+    const classified = classifyUpload(originalName, mime, {
+      preferBiblias: opts.preferBiblias,
+      bytes: opts.bytes,
+    });
     if (typeof classified !== "string") {
       return classified;
     }
     const category = classified;
+
+    if (category === "biblias") {
+      return this.persistBibleImport({
+        bytes: opts.bytes,
+        originalName,
+        mime,
+        title: opts.title,
+      });
+    }
+
     const id = newId();
     const ext = path.extname(originalName) || "";
     const originalRel = path
@@ -408,6 +561,75 @@ export class LibraryStore {
     return item;
   }
 
+  /**
+   * Import every .xml / .xmm / Bible-like .pdf from a local folder
+   * (default: data/library/bibles/import/). Skips broken files with Spanish errors.
+   */
+  async importBiblesFromFolder(opts?: {
+    folder?: string;
+  }): Promise<{
+    folder: string;
+    imported: LibraryItem[];
+    skipped: Array<{ file: string; error: string; message: string }>;
+  }> {
+    await this.ensureLoaded();
+    const folder = opts?.folder?.trim() || bibleImportFolder();
+    await mkdir(folder, { recursive: true });
+    let entries: string[] = [];
+    try {
+      entries = await readdir(folder);
+    } catch {
+      return { folder, imported: [], skipped: [] };
+    }
+    const imported: LibraryItem[] = [];
+    const skipped: Array<{ file: string; error: string; message: string }> = [];
+    for (const name of entries.sort()) {
+      const lower = name.toLowerCase();
+      if (
+        !lower.endsWith(".xml") &&
+        !lower.endsWith(".xmm") &&
+        !lower.endsWith(".pdf")
+      ) {
+        continue;
+      }
+      const abs = path.join(folder, name);
+      let bytes: Buffer;
+      try {
+        bytes = await readFile(abs);
+      } catch (err) {
+        skipped.push({
+          file: name,
+          error: "read_failed",
+          message: err instanceof Error ? err.message : String(err),
+        });
+        continue;
+      }
+      if (!looksLikeBibleFile(name, bytes) && !lower.endsWith(".xmm")) {
+        skipped.push({
+          file: name,
+          error: "not_bible",
+          message: "No parece un archivo de Biblia; se omitió.",
+        });
+        continue;
+      }
+      const result = await this.persistBibleImport({
+        bytes,
+        originalName: name,
+        mime: mimeFromName(name),
+      });
+      if ("error" in result) {
+        skipped.push({
+          file: name,
+          error: result.error,
+          message: result.message,
+        });
+        continue;
+      }
+      imported.push(result);
+    }
+    return { folder, imported, skipped };
+  }
+
   async remove(
     id: string,
   ): Promise<boolean | { error: string; message: string }> {
@@ -416,7 +638,11 @@ export class LibraryStore {
     if (!this.items.has(id)) {
       return false;
     }
+      const removed = this.items.get(id);
     this.items.delete(id);
+    if (removed?.bibleVersion?.versionId) {
+      clearLocalCanonCache(removed.bibleVersion.versionId);
+    }
     await this.persist();
     await rm(path.join(libraryRoot(), "files", id), {
       recursive: true,
@@ -503,6 +729,14 @@ export class LibraryStore {
           order: opts.order,
           payload: lib.bible,
         },
+      };
+    }
+
+    if (lib.category === "biblias" && lib.bibleVersion) {
+      return {
+        error: "bible_version_not_playlist",
+        message:
+          `La traducción «${lib.bibleVersion.shortLabel}» quedó en la biblioteca local. Abrí Biblia en el Guion, elegí esa versión y buscá el pasaje para proyectarlo.`,
       };
     }
 

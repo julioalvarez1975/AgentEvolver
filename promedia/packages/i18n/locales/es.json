@@ -241,5 +241,14 @@
   "library.stanza": "Estrofa",
   "library.stanzaPlaceholder": "Una línea por renglón…",
   "library.addStanza": "+ Estrofa",
-  "library.removeStanza": "Quitar"
+  "library.removeStanza": "Quitar",
+  "library.uploadBible": "Subir Biblia (XML/XMM/PDF)",
+  "library.importBibleFolder": "Importar carpeta local",
+  "library.importingFolder": "Importando…",
+  "library.bibleHint": "Las Biblias con copyright se guardan solo en este equipo (data/library/). No se suben a Git. Tras importar, elegí la versión en Guion → Biblia.",
+  "library.bibleImportOk": "Biblia importada a la biblioteca local.",
+  "library.bibleFolderResult": "Importadas {n} traducción(es){skipped}.",
+  "library.bibleVerseCount": "{v} versículos · {b} libros",
+  "library.bibleUseInControl": "Usar en Guion → Biblia",
+  "bible.localBadge": "local"
 }

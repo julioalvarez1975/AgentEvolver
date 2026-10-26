@@ -15,7 +15,9 @@ export type ParseDocumentResult = {
  */
 export async function parsePdfBuffer(
   bytes: Buffer,
+  opts?: { maxPages?: number },
 ): Promise<ParseDocumentResult> {
+  const maxPages = opts?.maxPages ?? TEXT_IMPORT_MAX_PAGES;
   const parser = new PDFParse({ data: bytes });
   try {
     const info = await parser.getInfo().catch(() => null);
@@ -24,8 +26,8 @@ export async function parsePdfBuffer(
       typeof p?.text === "string" ? p.text : "",
     );
 
-    const truncated = pagesRaw.length > TEXT_IMPORT_MAX_PAGES;
-    const pages = (truncated ? pagesRaw.slice(0, TEXT_IMPORT_MAX_PAGES) : pagesRaw)
+    const truncated = pagesRaw.length > maxPages;
+    const pages = (truncated ? pagesRaw.slice(0, maxPages) : pagesRaw)
       .map((p) => p.replace(/\r\n/g, "\n").trim())
       .filter(Boolean);
 

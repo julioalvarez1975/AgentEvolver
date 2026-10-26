@@ -6,18 +6,22 @@
  * by the free APIs we use (Midvash / bible-api.com). Prefer RV1909 (public domain).
  */
 
-export type BibleVersionProvider = "midvash" | "bible-api";
+export type BibleVersionProvider = "midvash" | "bible-api" | "local";
 
 export type BibleVersion = {
   id: string;
   label: string;
   shortLabel: string;
-  language: "es" | "en";
+  language: "es" | "en" | string;
   provider: BibleVersionProvider;
-  /** Midvash slug or bible-api.com translation id. */
+  /** Midvash slug or bible-api.com translation id (unused for local). */
   apiId: string;
   license: string;
   default?: boolean;
+  /** Present when provider === "local". */
+  source?: "local" | "remote";
+  libraryItemId?: string;
+  note?: string;
 };
 
 export const BIBLE_VERSIONS: readonly BibleVersion[] = [

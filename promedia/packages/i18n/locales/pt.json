@@ -241,5 +241,14 @@
   "library.stanza": "Estrofe",
   "library.stanzaPlaceholder": "One line per row…",
   "library.addStanza": "+ Estrofe",
-  "library.removeStanza": "Remover"
+  "library.removeStanza": "Remover",
+  "library.uploadBible": "Enviar Bíblia (XML/XMM/PDF)",
+  "library.importBibleFolder": "Importar pasta local",
+  "library.importingFolder": "Importando…",
+  "library.bibleHint": "Bíblias com copyright ficam só neste computador (data/library/). Não vão para o Git. Depois de importar, escolha a versão em Roteiro → Bíblia.",
+  "library.bibleImportOk": "Bíblia importada para a biblioteca local.",
+  "library.bibleFolderResult": "Importada(s) {n} tradução(ões){skipped}.",
+  "library.bibleVerseCount": "{v} versículos · {b} livros",
+  "library.bibleUseInControl": "Usar em Roteiro → Bíblia",
+  "bible.localBadge": "local"
 }

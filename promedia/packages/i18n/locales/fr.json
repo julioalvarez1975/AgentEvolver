@@ -241,5 +241,14 @@
   "library.stanza": "Strophe",
   "library.stanzaPlaceholder": "One line per row…",
   "library.addStanza": "+ Strophe",
-  "library.removeStanza": "Retirer"
+  "library.removeStanza": "Retirer",
+  "library.uploadBible": "Importer Bible (XML/XMM/PDF)",
+  "library.importBibleFolder": "Importer le dossier local",
+  "library.importingFolder": "Importation…",
+  "library.bibleHint": "Les Bibles sous copyright restent sur cet appareil (data/library/). Pas dans Git. Après import, choisissez la version dans Scénario → Bible.",
+  "library.bibleImportOk": "Bible importée dans la bibliothèque locale.",
+  "library.bibleFolderResult": "{n} traduction(s) importée(s){skipped}.",
+  "library.bibleVerseCount": "{v} versets · {b} livres",
+  "library.bibleUseInControl": "Utiliser dans Scénario → Bible",
+  "bible.localBadge": "locale"
 }

@@ -241,5 +241,14 @@
   "library.stanza": "Stanza",
   "library.stanzaPlaceholder": "One line per row…",
   "library.addStanza": "+ Stanza",
-  "library.removeStanza": "Remove"
+  "library.removeStanza": "Remove",
+  "library.uploadBible": "Upload Bible (XML/XMM/PDF)",
+  "library.importBibleFolder": "Import local folder",
+  "library.importingFolder": "Importing…",
+  "library.bibleHint": "Copyrighted Bibles stay on this machine (data/library/). Not committed to Git. After import, pick the version in Schedule → Bible.",
+  "library.bibleImportOk": "Bible imported into the local library.",
+  "library.bibleFolderResult": "Imported {n} translation(s){skipped}.",
+  "library.bibleVerseCount": "{v} verses · {b} books",
+  "library.bibleUseInControl": "Use in Schedule → Bible",
+  "bible.localBadge": "local"
 }
