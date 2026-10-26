@@ -261,5 +261,11 @@
   "library.bibleFolderResult": "{n} traduction(s) importée(s){skipped}.",
   "library.bibleVerseCount": "{v} versets · {b} livres",
   "library.bibleUseInControl": "Utiliser dans Scénario → Bible",
+  "library.importQsp": "Importer QSP",
+  "library.importingQsp": "Import QSP…",
+  "library.importSongFolder": "Importer le dossier local",
+  "library.songHint": "Les packs Quelea (.qsp) et XML restent sur cet appareil (data/library/). Pas dans Git. Après import, ajoutez-les au scénario comme texte.",
+  "library.songImportResult": "{n} chant(s) importé(s){updated}{skipped}.",
+  "library.songFolderResult": "{n} chant(s) importé(s){updated}{skipped}.",
   "bible.localBadge": "locale"
 }

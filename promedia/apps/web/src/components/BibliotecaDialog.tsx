@@ -8,11 +8,14 @@ import { LIBRARY_CATEGORIES } from "@promedia/shared";
 import { useLocale } from "../locale/LocaleContext";
 import {
   LIBRARY_BIBLE_UPLOAD_ACCEPT,
+  LIBRARY_SONG_UPLOAD_ACCEPT,
   LIBRARY_UPLOAD_ACCEPT,
   addLibraryItemToSession,
   createLibrarySong,
   deleteLibraryItem,
   importBiblesFromFolder,
+  importQueleaSongsFile,
+  importSongsFromFolder,
   libraryOriginalUrl,
   listLibraryItems,
   uploadLibraryFile,
@@ -50,6 +53,7 @@ export function BibliotecaDialog({
 }: BibliotecaDialogProps) {
   const { t } = useLocale();
   const fileRef = useRef<HTMLInputElement>(null);
+  const qspRef = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState<LibraryCategory | "all">("all");
   const [q, setQ] = useState("");
   const [items, setItems] = useState<LibraryItem[]>([]);
@@ -57,6 +61,7 @@ export function BibliotecaDialog({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [importingFolder, setImportingFolder] = useState(false);
+  const [importingQsp, setImportingQsp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [songOpen, setSongOpen] = useState(false);
@@ -133,27 +138,91 @@ export function BibliotecaDialog({
     setError(null);
     setInfo(null);
     try {
-      const result = await importBiblesFromFolder();
-      const skippedHint =
-        result.skippedCount > 0
-          ? ` · ${result.skippedCount} omitido(s)`
-          : "";
-      setInfo(
-        t("library.bibleFolderResult")
-          .replace("{n}", String(result.importedCount))
-          .replace("{skipped}", skippedHint),
-      );
-      if (result.skipped[0]) {
-        setError(
-          `${result.skipped[0].file}: ${result.skipped[0].message}`,
+      if (category === "canciones") {
+        const result = await importSongsFromFolder();
+        const skippedHint =
+          result.skippedCount > 0
+            ? ` · ${result.skippedCount} omitido(s)`
+            : "";
+        const updatedHint =
+          result.updatedCount > 0
+            ? ` · ${result.updatedCount} actualizada(s)`
+            : "";
+        setInfo(
+          t("library.songFolderResult")
+            .replace("{n}", String(result.importedCount))
+            .replace("{updated}", updatedHint)
+            .replace("{skipped}", skippedHint),
         );
+        if (result.skipped[0]) {
+          setError(
+            `${result.skipped[0].file}: ${result.skipped[0].message}`,
+          );
+        }
+        setCategory("canciones");
+      } else {
+        const result = await importBiblesFromFolder();
+        const skippedHint =
+          result.skippedCount > 0
+            ? ` · ${result.skippedCount} omitido(s)`
+            : "";
+        setInfo(
+          t("library.bibleFolderResult")
+            .replace("{n}", String(result.importedCount))
+            .replace("{skipped}", skippedHint),
+        );
+        if (result.skipped[0]) {
+          setError(
+            `${result.skipped[0].file}: ${result.skipped[0].message}`,
+          );
+        }
+        setCategory("biblias");
       }
-      setCategory("biblias");
       await reload();
     } catch (err) {
       setError(String(err));
     } finally {
       setImportingFolder(false);
+    }
+  };
+
+  const onImportQsp = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+    setImportingQsp(true);
+    setError(null);
+    setInfo(null);
+    try {
+      const result = await importQueleaSongsFile(file);
+      const skippedHint =
+        result.skippedCount > 0
+          ? ` · ${result.skippedCount} omitido(s)`
+          : "";
+      const updatedHint =
+        result.updatedCount > 0
+          ? ` · ${result.updatedCount} actualizada(s)`
+          : "";
+      setInfo(
+        t("library.songImportResult")
+          .replace("{n}", String(result.importedCount))
+          .replace("{updated}", updatedHint)
+          .replace("{skipped}", skippedHint),
+      );
+      if (result.skipped[0] && result.importedCount + result.updatedCount === 0) {
+        setError(
+          `${result.skipped[0].file}: ${result.skipped[0].message}`,
+        );
+      }
+      setCategory("canciones");
+      await reload();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setImportingQsp(false);
+      if (qspRef.current) {
+        qspRef.current.value = "";
+      }
     }
   };
 
@@ -285,6 +354,9 @@ export function BibliotecaDialog({
           {category === "biblias" ? (
             <p className="promedia-dialog-hint">{t("library.bibleHint")}</p>
           ) : null}
+          {category === "canciones" ? (
+            <p className="promedia-dialog-hint">{t("library.songHint")}</p>
+          ) : null}
 
           <div className="biblioteca-actions">
             <button
@@ -298,10 +370,22 @@ export function BibliotecaDialog({
             >
               {t("library.createSong")}
             </button>
+            {category === "canciones" || category === "all" ? (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={uploading || importingFolder || importingQsp}
+                onClick={() => qspRef.current?.click()}
+              >
+                {importingQsp
+                  ? t("library.importingQsp")
+                  : t("library.importQsp")}
+              </button>
+            ) : null}
             <button
               type="button"
               className="btn btn-ghost"
-              disabled={uploading || importingFolder}
+              disabled={uploading || importingFolder || importingQsp}
               onClick={() => fileRef.current?.click()}
             >
               {uploading
@@ -310,16 +394,20 @@ export function BibliotecaDialog({
                   ? t("library.uploadBible")
                   : t("library.upload")}
             </button>
-            {category === "biblias" || category === "all" ? (
+            {category === "biblias" ||
+            category === "canciones" ||
+            category === "all" ? (
               <button
                 type="button"
                 className="btn btn-ghost"
-                disabled={uploading || importingFolder}
+                disabled={uploading || importingFolder || importingQsp}
                 onClick={() => void onImportFolder()}
               >
                 {importingFolder
                   ? t("library.importingFolder")
-                  : t("library.importBibleFolder")}
+                  : category === "canciones"
+                    ? t("library.importSongFolder")
+                    : t("library.importBibleFolder")}
               </button>
             ) : null}
             <input
@@ -329,9 +417,18 @@ export function BibliotecaDialog({
               accept={
                 category === "biblias"
                   ? LIBRARY_BIBLE_UPLOAD_ACCEPT
-                  : LIBRARY_UPLOAD_ACCEPT
+                  : category === "canciones"
+                    ? LIBRARY_SONG_UPLOAD_ACCEPT
+                    : LIBRARY_UPLOAD_ACCEPT
               }
               onChange={(e) => void onUpload(e.target.files?.[0])}
+            />
+            <input
+              ref={qspRef}
+              type="file"
+              className="sr-only"
+              accept={LIBRARY_SONG_UPLOAD_ACCEPT}
+              onChange={(e) => void onImportQsp(e.target.files?.[0])}
             />
           </div>
 

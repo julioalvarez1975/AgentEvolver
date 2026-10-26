@@ -176,13 +176,25 @@ Mediateca **local** del hub (no nube en esta fase). Datos en `promedia/data/libr
 
 | Categoría | Contenido |
 |-----------|-----------|
-| Canciones | Editor de título / artista / estrofas → texto proyectable (chunks de 5 líneas) |
+| Canciones | Editor de título / artista / estrofas → texto proyectable (chunks de 5 líneas). También import Quelea `.qsp` / `.xml` |
 | Biblias | Traducciones importadas (XML/XMM/PDF) → solo en disco local; se eligen en Guion → Biblia |
 | Textos | Guardados en biblioteca para reutilizar |
 | Presentaciones | Import `.pptx` `.ppt` `.ppsx` `.potx` `.odp` `.pdf` → diapositivas para ←/→. **Sin** macros (`.pptm`/`.ppsm`). Sin edición nativa |
 | Imágenes / Vídeos | Subida y reuso en el Guion |
 
-API hub: `/api/v1/library/*` (listar, subir, canciones, importar Biblias, añadir al Guion de la sesión).
+API hub: `/api/v1/library/*` (listar, subir, canciones, importar Biblias / QSP, añadir al Guion de la sesión).
+
+#### Importar cancionero Quelea (.qsp) (local, no Git)
+
+Los packs Quelea (`.qsp` = ZIP de XML de canciones) y canciones con **copyright** **no se commitean** al repo. Quedan en `promedia/data/library/` (gitignore).
+
+Tras el **primer arranque** del hub se crean `promedia/data/library/songs/import/` (y `files/`, `bibles/import/`).
+
+1. Abrí **Biblioteca → Canciones**
+2. Pulsá **Importar QSP** y elegí el `.qsp` (p. ej. `CancioneroFeb2026.qsp`) **o** copiá `.qsp` / `.xml` a `promedia/data/library/songs/import/` y usá **Importar carpeta local**
+3. Las canciones aparecen en la lista; **Añadir al Guion** las proyecta como texto (estrofas → slides)
+
+Reimportar el mismo pack actualiza por título+autor (no duplica). API: `POST /api/v1/library/songs/import` (multipart) y `POST /api/v1/library/songs/import-folder`.
 
 #### Importar Biblias (local, no Git)
 

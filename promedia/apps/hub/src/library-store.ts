@@ -27,6 +27,12 @@ import {
   isMacroPresentationName,
   type RenderedSlide,
 } from "./presentation-import.js";
+import {
+  looksLikeQueleaSongXml,
+  parseQueleaQsp,
+  parseQueleaSongFile,
+  songIdentityKey,
+} from "./quelea-import.js";
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -90,6 +96,7 @@ function mimeFromName(name: string): string {
     return "application/vnd.oasis.opendocument.presentation";
   }
   if (lower.endsWith(".ppt")) return "application/vnd.ms-powerpoint";
+  if (lower.endsWith(".qsp")) return "application/zip";
   if (lower.endsWith(".xml") || lower.endsWith(".xmm")) return "application/xml";
   return "application/octet-stream";
 }
@@ -106,6 +113,9 @@ function classifyUpload(
       message:
         "No se admiten presentaciones con macros (.pptm / .ppsm) por seguridad. Guardá una copia sin macros (.pptx / .ppsx) o exportá a PDF e importá de nuevo.",
     };
+  }
+  if (lower.endsWith(".qsp") || looksLikeQueleaSongXml(fileName, opts?.bytes)) {
+    return "canciones";
   }
   const bibleLikely =
     opts?.preferBiblias ||
@@ -148,7 +158,7 @@ function classifyUpload(
   return {
     error: "unsupported_type",
     message:
-      "Tipo no soportado para la biblioteca. Subí imagen, vídeo, texto, Biblia (.xml/.xmm/.pdf) o presentación (.pptx/.pdf/…).",
+      "Tipo no soportado para la biblioteca. Subí imagen, vídeo, texto, Biblia (.xml/.xmm/.pdf), cancionero Quelea (.qsp/.xml) o presentación (.pptx/.pdf/…).",
   };
 }
 
@@ -160,6 +170,14 @@ export function bibleImportFolder(): string {
   );
 }
 
+/** Drop folder for Quelea .qsp packs / .xml songs — gitignored under data/. */
+export function songImportFolder(): string {
+  return (
+    process.env.SONG_IMPORT_DIR?.trim() ||
+    path.join(libraryRoot(), "songs", "import")
+  );
+}
+
 /**
  * Create the on-disk library tree so Finder shows drop folders after first hub
  * launch — no manual `mkdir`. Content stays gitignored; we only create empty dirs.
@@ -167,18 +185,23 @@ export function bibleImportFolder(): string {
  * Layout under `data/library/`:
  * - `files/` — stored library items (songs, presentations, media, texts, …)
  * - `bibles/import/` — operator drop folder for Bible XML/XMM/PDF
+ * - `songs/import/` — operator drop folder for Quelea .qsp / song .xml
  */
 export async function ensureLibraryLayout(): Promise<{
   root: string;
   bibleImport: string;
+  songImport: string;
 }> {
   const root = libraryRoot();
   const bibleImport = bibleImportFolder();
+  const songImport = songImportFolder();
   await mkdir(root, { recursive: true });
   await mkdir(path.join(root, "files"), { recursive: true });
   await mkdir(path.join(root, "bibles"), { recursive: true });
   await mkdir(bibleImport, { recursive: true });
-  return { root, bibleImport };
+  await mkdir(path.join(root, "songs"), { recursive: true });
+  await mkdir(songImport, { recursive: true });
+  return { root, bibleImport, songImport };
 }
 
 /**
@@ -510,6 +533,191 @@ export class LibraryStore {
     return item;
   }
 
+  /**
+   * Upsert a song by title+author (case-insensitive). Used by Quelea import so
+   * re-importing the same pack updates lyrics instead of duplicating.
+   */
+  async upsertSongByIdentity(
+    song: LibrarySongPayload,
+  ): Promise<
+    | { item: LibraryItem; action: "created" | "updated" }
+    | { error: string; message: string }
+  > {
+    await this.ensureLoaded();
+    const title = song.title.trim();
+    if (!title) {
+      return { error: "missing_title", message: "La canción necesita un título." };
+    }
+    const key = songIdentityKey(title, song.artist);
+    for (const existing of this.items.values()) {
+      if (existing.category !== "canciones" || !existing.song) {
+        continue;
+      }
+      if (
+        songIdentityKey(existing.song.title, existing.song.artist) === key
+      ) {
+        const updated = await this.updateSong(existing.id, song);
+        if ("error" in updated) {
+          return updated;
+        }
+        return { item: updated, action: "updated" };
+      }
+    }
+    const created = await this.createSong(song);
+    if ("error" in created) {
+      return created;
+    }
+    return { item: created, action: "created" };
+  }
+
+  async importQueleaUpload(opts: {
+    bytes: Buffer;
+    originalName: string;
+  }): Promise<{
+    imported: LibraryItem[];
+    updated: LibraryItem[];
+    skipped: Array<{ file: string; error: string; message: string }>;
+  }> {
+    await this.ensureLoaded();
+    const originalName = opts.originalName || "canciones.qsp";
+    const lower = originalName.toLowerCase();
+    const imported: LibraryItem[] = [];
+    const updated: LibraryItem[] = [];
+    const skipped: Array<{ file: string; error: string; message: string }> = [];
+
+    if (lower.endsWith(".qsp")) {
+      const pack = await parseQueleaQsp({
+        bytes: opts.bytes,
+        originalName,
+      });
+      if (!pack.ok) {
+        return {
+          imported,
+          updated,
+          skipped: [
+            {
+              file: originalName,
+              error: pack.error,
+              message: pack.message,
+            },
+          ],
+        };
+      }
+      skipped.push(...pack.skipped);
+      for (const entry of pack.songs) {
+        const result = await this.upsertSongByIdentity(entry.song);
+        if ("error" in result) {
+          skipped.push({
+            file: entry.sourceName || entry.song.title,
+            error: result.error,
+            message: result.message,
+          });
+          continue;
+        }
+        if (result.action === "updated") {
+          updated.push(result.item);
+        } else {
+          imported.push(result.item);
+        }
+      }
+      return { imported, updated, skipped };
+    }
+
+    const parsed = await parseQueleaSongFile({
+      bytes: opts.bytes,
+      originalName,
+    });
+    if (!parsed.ok) {
+      return {
+        imported,
+        updated,
+        skipped: [
+          {
+            file: originalName,
+            error: parsed.error,
+            message: parsed.message,
+          },
+        ],
+      };
+    }
+    const result = await this.upsertSongByIdentity(parsed.song);
+    if ("error" in result) {
+      skipped.push({
+        file: originalName,
+        error: result.error,
+        message: result.message,
+      });
+    } else if (result.action === "updated") {
+      updated.push(result.item);
+    } else {
+      imported.push(result.item);
+    }
+    return { imported, updated, skipped };
+  }
+
+  /**
+   * Import Quelea .qsp / .xml from the operator folder
+   * (default: data/library/songs/import/).
+   */
+  async importSongsFromFolder(opts?: {
+    folder?: string;
+  }): Promise<{
+    folder: string;
+    imported: LibraryItem[];
+    updated: LibraryItem[];
+    skipped: Array<{ file: string; error: string; message: string }>;
+  }> {
+    await this.ensureLoaded();
+    const folder = opts?.folder?.trim() || songImportFolder();
+    await mkdir(folder, { recursive: true });
+    let entries: string[] = [];
+    try {
+      entries = await readdir(folder);
+    } catch {
+      return { folder, imported: [], updated: [], skipped: [] };
+    }
+    const imported: LibraryItem[] = [];
+    const updated: LibraryItem[] = [];
+    const skipped: Array<{ file: string; error: string; message: string }> = [];
+    for (const name of entries.sort()) {
+      const lower = name.toLowerCase();
+      if (!lower.endsWith(".qsp") && !lower.endsWith(".xml")) {
+        continue;
+      }
+      const abs = path.join(folder, name);
+      let bytes: Buffer;
+      try {
+        bytes = await readFile(abs);
+      } catch (err) {
+        skipped.push({
+          file: name,
+          error: "read_failed",
+          message: err instanceof Error ? err.message : String(err),
+        });
+        continue;
+      }
+      if (
+        lower.endsWith(".xml") &&
+        !looksLikeQueleaSongXml(name, bytes)
+      ) {
+        skipped.push({
+          file: name,
+          error: "not_quelea_song",
+          message: "No parece una canción Quelea; se omitió.",
+        });
+        continue;
+      }
+      const result = await this.importQueleaUpload({
+        bytes,
+        originalName: name,
+      });
+      imported.push(...result.imported);
+      updated.push(...result.updated);
+      skipped.push(...result.skipped);
+    }
+    return { folder, imported, updated, skipped };
+  }
+
   async uploadFile(opts: {
     bytes: Buffer;
     originalName: string;
@@ -537,6 +745,26 @@ export class LibraryStore {
         mime,
         title: opts.title,
       });
+    }
+
+    if (category === "canciones") {
+      const bulk = await this.importQueleaUpload({
+        bytes: opts.bytes,
+        originalName,
+      });
+      const first = bulk.imported[0] ?? bulk.updated[0];
+      if (!first) {
+        const skip = bulk.skipped[0];
+        return {
+          error: skip?.error || "import_failed",
+          message:
+            skip?.message ||
+            "No se pudo importar la canción o el pack Quelea.",
+        };
+      }
+      // Multipart upload historically returns one item; for .qsp packs the
+      // dedicated /library/songs/import endpoint returns the full summary.
+      return first;
     }
 
     const id = newId();
