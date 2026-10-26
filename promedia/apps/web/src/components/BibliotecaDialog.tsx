@@ -7,10 +7,12 @@ import type {
 import { LIBRARY_CATEGORIES } from "@promedia/shared";
 import { useLocale } from "../locale/LocaleContext";
 import {
+  LIBRARY_BIBLE_UPLOAD_ACCEPT,
   LIBRARY_UPLOAD_ACCEPT,
   addLibraryItemToSession,
   createLibrarySong,
   deleteLibraryItem,
+  importBiblesFromFolder,
   libraryOriginalUrl,
   listLibraryItems,
   uploadLibraryFile,
@@ -54,7 +56,9 @@ export function BibliotecaDialog({
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [importingFolder, setImportingFolder] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [songOpen, setSongOpen] = useState(false);
   const [songBusy, setSongBusy] = useState(false);
   const [songError, setSongError] = useState<string | null>(null);
@@ -103,8 +107,16 @@ export function BibliotecaDialog({
     }
     setUploading(true);
     setError(null);
+    setInfo(null);
     try {
-      await uploadLibraryFile(file);
+      await uploadLibraryFile(
+        file,
+        undefined,
+        category === "biblias" ? { category: "biblias" } : undefined,
+      );
+      if (category === "biblias" || category === "all") {
+        setInfo(t("library.bibleImportOk"));
+      }
       await reload();
     } catch (err) {
       setError(String(err));
@@ -113,6 +125,35 @@ export function BibliotecaDialog({
       if (fileRef.current) {
         fileRef.current.value = "";
       }
+    }
+  };
+
+  const onImportFolder = async () => {
+    setImportingFolder(true);
+    setError(null);
+    setInfo(null);
+    try {
+      const result = await importBiblesFromFolder();
+      const skippedHint =
+        result.skippedCount > 0
+          ? ` · ${result.skippedCount} omitido(s)`
+          : "";
+      setInfo(
+        t("library.bibleFolderResult")
+          .replace("{n}", String(result.importedCount))
+          .replace("{skipped}", skippedHint),
+      );
+      if (result.skipped[0]) {
+        setError(
+          `${result.skipped[0].file}: ${result.skipped[0].message}`,
+        );
+      }
+      setCategory("biblias");
+      await reload();
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setImportingFolder(false);
     }
   };
 
@@ -241,6 +282,10 @@ export function BibliotecaDialog({
             ))}
           </div>
 
+          {category === "biblias" ? (
+            <p className="promedia-dialog-hint">{t("library.bibleHint")}</p>
+          ) : null}
+
           <div className="biblioteca-actions">
             <button
               type="button"
@@ -256,21 +301,42 @@ export function BibliotecaDialog({
             <button
               type="button"
               className="btn btn-ghost"
-              disabled={uploading}
+              disabled={uploading || importingFolder}
               onClick={() => fileRef.current?.click()}
             >
-              {uploading ? t("library.uploading") : t("library.upload")}
+              {uploading
+                ? t("library.uploading")
+                : category === "biblias"
+                  ? t("library.uploadBible")
+                  : t("library.upload")}
             </button>
+            {category === "biblias" || category === "all" ? (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={uploading || importingFolder}
+                onClick={() => void onImportFolder()}
+              >
+                {importingFolder
+                  ? t("library.importingFolder")
+                  : t("library.importBibleFolder")}
+              </button>
+            ) : null}
             <input
               ref={fileRef}
               type="file"
               className="sr-only"
-              accept={LIBRARY_UPLOAD_ACCEPT}
+              accept={
+                category === "biblias"
+                  ? LIBRARY_BIBLE_UPLOAD_ACCEPT
+                  : LIBRARY_UPLOAD_ACCEPT
+              }
               onChange={(e) => void onUpload(e.target.files?.[0])}
             />
           </div>
 
           {error ? <p className="promedia-dialog-error">{error}</p> : null}
+          {info ? <p className="promedia-dialog-hint">{info}</p> : null}
 
           <div className="biblioteca-list">
             {filteredHint ? (
@@ -297,16 +363,38 @@ export function BibliotecaDialog({
                           )}
                         </span>
                       ) : null}
+                      {item.bibleVersion ? (
+                        <span className="biblioteca-item-meta">
+                          {t("library.bibleVerseCount")
+                            .replace(
+                              "{v}",
+                              String(item.bibleVersion.verseCount),
+                            )
+                            .replace(
+                              "{b}",
+                              String(item.bibleVersion.bookCount),
+                            )}
+                          {item.bibleVersion.note
+                            ? ` · ${item.bibleVersion.note}`
+                            : ""}
+                        </span>
+                      ) : null}
                     </div>
                     <div className="biblioteca-item-actions">
-                      <button
-                        type="button"
-                        className="btn"
-                        disabled={!canMutate || busyId === item.id}
-                        onClick={() => void onAdd(item)}
-                      >
-                        {t("library.addToGuion")}
-                      </button>
+                      {item.bibleVersion && !item.bible ? (
+                        <span className="biblioteca-item-meta">
+                          {t("library.bibleUseInControl")}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn"
+                          disabled={!canMutate || busyId === item.id}
+                          onClick={() => void onAdd(item)}
+                        >
+                          {t("library.addToGuion")}
+                        </button>
+                      )}
                       {item.original ? (
                         <a
                           className="btn btn-ghost"

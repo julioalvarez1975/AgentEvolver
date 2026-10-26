@@ -183,6 +183,24 @@ export type LibrarySlideRef = {
   mime: string;
 };
 
+/** Full local Bible translation imported into the hub library (not committed to git). */
+export type LibraryBibleVersionMeta = {
+  /** Stable slug used by Guion Biblia picker / lookup (e.g. rv1960, nvi, lbla). */
+  versionId: string;
+  label: string;
+  shortLabel: string;
+  language: "es" | "en" | string;
+  copyright?: string;
+  bookCount: number;
+  verseCount: number;
+  /** Source parse format. */
+  format: "bible-bcv" | "bible-numbered" | "pdf-nt";
+  /** Path under library root to canon JSON (book→chapter→verse). */
+  canonRelativePath: string;
+  /** Optional operator note (e.g. solo NT). */
+  note?: string;
+};
+
 export type LibraryItem = {
   id: string;
   category: LibraryCategory;
@@ -195,6 +213,8 @@ export type LibraryItem = {
   text?: TextPayload;
   /** Bible passage snapshot. */
   bible?: BiblePayload;
+  /** Full imported translation (lookup via Guion Biblia; not a playlist dump). */
+  bibleVersion?: LibraryBibleVersionMeta;
   /** Original uploaded file (presentations, images, videos, optional for others). */
   original?: LibraryFileRef;
   /** Rendered pages/slides for projection (presentations). */

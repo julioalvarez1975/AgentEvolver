@@ -113,11 +113,15 @@ export async function saveLibraryBible(
 export async function uploadLibraryFile(
   file: File,
   title?: string,
+  opts?: { category?: string },
 ): Promise<LibraryItem> {
   const form = new FormData();
   form.append("file", file);
   if (title?.trim()) {
     form.append("title", title.trim());
+  }
+  if (opts?.category?.trim()) {
+    form.append("category", opts.category.trim());
   }
   const res = await fetch(`${hubHttpBase()}/api/v1/library/upload`, {
     method: "POST",
@@ -134,6 +138,43 @@ export async function uploadLibraryFile(
     );
   }
   return body.item;
+}
+
+export type BibleFolderImportResult = {
+  folder: string;
+  importedCount: number;
+  skippedCount: number;
+  imported: Array<{
+    id: string;
+    title: string;
+    versionId?: string;
+    shortLabel?: string;
+    verseCount?: number;
+    bookCount?: number;
+  }>;
+  skipped: Array<{ file: string; error: string; message: string }>;
+};
+
+/** Import Bibles from hub data/library/bibles/import/ (operator local files). */
+export async function importBiblesFromFolder(): Promise<BibleFolderImportResult> {
+  const res = await fetch(
+    `${hubHttpBase()}/api/v1/library/bibles/import-folder`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    },
+  );
+  const body = (await res.json().catch(() => ({}))) as BibleFolderImportResult & {
+    error?: string;
+    message?: string;
+  };
+  if (!res.ok) {
+    throw new Error(
+      body.message || body.error || `bible_import_folder_${res.status}`,
+    );
+  }
+  return body;
 }
 
 export async function deleteLibraryItem(id: string): Promise<void> {
@@ -180,4 +221,6 @@ export function libraryOriginalUrl(itemId: string): string {
 }
 
 export const LIBRARY_UPLOAD_ACCEPT =
-  ".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.mov,.txt,.md,.xml,.pdf,.pptx,.ppt,.ppsx,.potx,.odp,image/*,video/*,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.presentationml.slideshow,application/vnd.oasis.opendocument.presentation";
+  ".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.mov,.txt,.md,.xml,.xmm,.pdf,.pptx,.ppt,.ppsx,.potx,.odp,image/*,video/*,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.presentationml.slideshow,application/vnd.oasis.opendocument.presentation";
+
+export const LIBRARY_BIBLE_UPLOAD_ACCEPT = ".xml,.xmm,.pdf,application/pdf,text/xml,application/xml";

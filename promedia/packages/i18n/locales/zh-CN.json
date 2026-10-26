@@ -241,5 +241,14 @@
   "library.stanza": "诗节",
   "library.stanzaPlaceholder": "One line per row…",
   "library.addStanza": "+ 诗节",
-  "library.removeStanza": "移除"
+  "library.removeStanza": "移除",
+  "library.uploadBible": "上传圣经（XML/XMM/PDF）",
+  "library.importBibleFolder": "从本地文件夹导入",
+  "library.importingFolder": "正在导入…",
+  "library.bibleHint": "受版权保护的圣经仅保存在本机（data/library/），不会提交到 Git。导入后请在脚本 → 圣经中选择译本。",
+  "library.bibleImportOk": "圣经已导入本地书库。",
+  "library.bibleFolderResult": "已导入 {n} 个译本{skipped}。",
+  "library.bibleVerseCount": "{v} 节 · {b} 卷",
+  "library.bibleUseInControl": "在脚本 → 圣经中使用",
+  "bible.localBadge": "本地"
 }

@@ -2,12 +2,14 @@ import { randomBytes } from "node:crypto";
 import { projectionTextSlides } from "@promedia/shared";
 import { getBookById, type BibleBook } from "./books.js";
 import { lookupFallback } from "./fallback.js";
+import { lookupLocalVerses } from "./local-canon.js";
 import { formatReferenceEs } from "./parse.js";
 import {
   defaultVersionId,
   getVersion,
   type BibleVersion,
 } from "./versions.js";
+import { libraryStore } from "../library-store.js";
 
 export type BibleVerseResult = {
   verse: number;
@@ -186,6 +188,28 @@ function fromFallback(
   };
 }
 
+async function resolveVersion(
+  versionId: string | undefined,
+): Promise<BibleVersion | undefined> {
+  const id = (versionId ?? defaultVersionId()).trim().toLowerCase();
+  const local = await libraryStore.getLocalBibleVersion(id);
+  if (local) {
+    return {
+      id: local.versionId,
+      label: local.label,
+      shortLabel: local.shortLabel,
+      language: local.language,
+      provider: "local",
+      apiId: local.versionId,
+      license: local.license,
+      source: "local",
+      libraryItemId: local.libraryItemId,
+      note: local.note,
+    };
+  }
+  return getVersion(id);
+}
+
 export async function lookupPassage(opts: {
   versionId?: string;
   bookId: string;
@@ -194,9 +218,9 @@ export async function lookupPassage(opts: {
   verseEnd: number;
 }): Promise<
   | { ok: true; result: BiblePassageResult }
-  | { ok: false; error: string; detail?: string }
+  | { ok: false; error: string; detail?: string; message?: string }
 > {
-  const version = getVersion(opts.versionId ?? defaultVersionId());
+  const version = await resolveVersion(opts.versionId);
   if (!version) {
     return { ok: false, error: "unknown_version" };
   }
@@ -222,6 +246,52 @@ export async function lookupPassage(opts: {
   const cached = cache.get(key);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
     return { ok: true, result: cached.result };
+  }
+
+  if (version.provider === "local") {
+    const local = await libraryStore.getLocalBibleVersion(version.id);
+    if (!local) {
+      return {
+        ok: false,
+        error: "local_missing",
+        message: "La versión local ya no está en la biblioteca.",
+      };
+    }
+    const verses = await lookupLocalVerses({
+      canonAbsolutePath: local.canonAbsolutePath,
+      versionId: version.id,
+      bookId: book.id,
+      chapter,
+      verseStart,
+      verseEnd,
+    });
+    if (!verses) {
+      return {
+        ok: false,
+        error: "passage_not_found",
+        message:
+          "Ese pasaje no está en la Biblia local (libro/capítulo incompleto o vacío).",
+      };
+    }
+    const result: BiblePassageResult = {
+      versionId: version.id,
+      versionLabel: version.shortLabel,
+      bookId: book.id,
+      bookName: book.nameEs,
+      chapter,
+      verseStart: verses[0]!.verse,
+      verseEnd: verses[verses.length - 1]!.verse,
+      reference: formatReferenceEs(
+        book,
+        chapter,
+        verses[0]!.verse,
+        verses[verses.length - 1]!.verse,
+      ),
+      copyright: version.license,
+      verses,
+    };
+    cache.set(key, { at: Date.now(), result });
+    return { ok: true, result };
   }
 
   try {

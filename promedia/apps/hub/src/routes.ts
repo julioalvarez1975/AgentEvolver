@@ -337,21 +337,46 @@ export function createApiRoutes(): Hono {
     return c.json({ ok: true });
   });
 
-  /** Bible versions (Spanish-first free / public-domain set). */
-  api.get("/bible/versions", (c) =>
-    c.json({
-      defaultVersionId: defaultVersionId(),
-      versions: BIBLE_VERSIONS.map((v) => ({
-        id: v.id,
-        label: v.label,
-        shortLabel: v.shortLabel,
-        language: v.language,
-        license: v.license,
-        default: Boolean(v.default),
-      })),
-      note: "RVR1960 no está incluida: sigue bajo copyright. Usá RV1909 (dominio público).",
-    }),
-  );
+  /**
+   * Bible versions: built-in public-domain remotes + local library imports.
+   * Local translations with the same id override remotes (e.g. PDT offline).
+   */
+  api.get("/bible/versions", async (c) => {
+    const local = await libraryStore.listLocalBibleVersions();
+    const localIds = new Set(local.map((v) => v.versionId.toLowerCase()));
+    const remote = BIBLE_VERSIONS.filter(
+      (v) => !localIds.has(v.id.toLowerCase()),
+    ).map((v) => ({
+      id: v.id,
+      label: v.label,
+      shortLabel: v.shortLabel,
+      language: v.language,
+      license: v.license,
+      default: Boolean(v.default),
+      source: "remote" as const,
+    }));
+    const localMapped = local.map((v) => ({
+      id: v.versionId,
+      label: v.label,
+      shortLabel: v.shortLabel,
+      language: v.language,
+      license: v.license,
+      default: false,
+      source: "local" as const,
+      note: v.note,
+      verseCount: v.verseCount,
+      bookCount: v.bookCount,
+    }));
+    const defaultId = localIds.has(defaultVersionId())
+      ? defaultVersionId()
+      : defaultVersionId();
+    return c.json({
+      defaultVersionId: defaultId,
+      versions: [...localMapped, ...remote],
+      note:
+        "Traducciones con copyright (RV1960, NVI, NTV, …) no van en el repo: importalas a data/library (Biblioteca → Biblias o carpeta bibles/import/). Remotas de dominio público: RV1909 / PDT / KJV / ASV.",
+    });
+  });
 
   api.get("/bible/books", (c) =>
     c.json({
@@ -409,21 +434,20 @@ export function createApiRoutes(): Hono {
       verseEnd,
     });
     if (!looked.ok) {
-      const status =
-        looked.error === "api_failed"
-          ? 502
-          : looked.error === "unknown_version" ||
-              looked.error === "unknown_book"
-            ? 400
-            : 400;
+      const status = looked.error === "api_failed" ? 502 : 400;
+      const message =
+        "message" in looked && looked.message
+          ? looked.message
+          : looked.error === "api_failed"
+            ? "No se pudo obtener el pasaje (API o red). Probá otra versión o más tarde."
+            : looked.error === "passage_not_found"
+              ? "Ese pasaje no está en la Biblia local."
+              : undefined;
       return c.json(
         {
           error: looked.error,
           detail: looked.detail,
-          message:
-            looked.error === "api_failed"
-              ? "No se pudo obtener el pasaje (API o red). Probá otra versión o más tarde."
-              : undefined,
+          message,
         },
         status,
       );
@@ -528,7 +552,7 @@ export function createApiRoutes(): Hono {
     return c.json({ item: result }, 201);
   });
 
-  /** Upload image / video / presentation / text file into the local library. */
+  /** Upload image / video / presentation / text / Bible file into the local library. */
   api.post("/library/upload", async (c) => {
     let body: Record<string, string | File>;
     try {
@@ -545,12 +569,15 @@ export function createApiRoutes(): Hono {
     }
     const title =
       typeof body.title === "string" ? body.title : undefined;
+    const categoryHint =
+      typeof body.category === "string" ? body.category.trim() : "";
     const bytes = Buffer.from(await file.arrayBuffer());
     const result = await libraryStore.uploadFile({
       bytes,
       originalName: file.name,
       mime: file.type || undefined,
       title,
+      preferBiblias: categoryHint === "biblias",
     });
     if ("error" in result) {
       return c.json(
@@ -559,6 +586,37 @@ export function createApiRoutes(): Hono {
       );
     }
     return c.json({ item: result }, 201);
+  });
+
+  /**
+   * Import Bible XML/XMM/PDF from the operator folder
+   * (default: data/library/bibles/import/). Does not commit texts to git.
+   */
+  api.post("/library/bibles/import-folder", async (c) => {
+    let folder: string | undefined;
+    try {
+      const body = (await c.req.json().catch(() => null)) as {
+        folder?: string;
+      } | null;
+      folder = body?.folder?.trim() || undefined;
+    } catch {
+      folder = undefined;
+    }
+    const result = await libraryStore.importBiblesFromFolder({ folder });
+    return c.json({
+      folder: result.folder,
+      imported: result.imported.map((i) => ({
+        id: i.id,
+        title: i.title,
+        versionId: i.bibleVersion?.versionId,
+        shortLabel: i.bibleVersion?.shortLabel,
+        verseCount: i.bibleVersion?.verseCount,
+        bookCount: i.bibleVersion?.bookCount,
+      })),
+      skipped: result.skipped,
+      importedCount: result.imported.length,
+      skippedCount: result.skipped.length,
+    });
   });
 
   api.delete("/library/items/:id", async (c) => {
