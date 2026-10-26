@@ -1,5 +1,6 @@
 import type { PlaylistItem, TextPayload } from "@promedia/shared";
 import { projectionTextSlides } from "@promedia/shared";
+import { FittedTextStage } from "./FittedTextStage.js";
 
 export type TextLivePanelProps = {
   item: PlaylistItem;
@@ -17,13 +18,12 @@ export function TextLivePanel({ item, slideIndex, onPrev, onNext }: TextLivePane
 
   return (
     <div className="text-live-panel">
-      <div className="text-stage" data-line-count={lines.length}>
-        {lines.map((line, i) => (
-          <p key={`${slide?.id ?? "s"}-${i}`} className="text-line">
-            {line || "\u00a0"}
-          </p>
-        ))}
-      </div>
+      <FittedTextStage
+        lines={lines}
+        lineKey={slide?.id ?? `live-${index}`}
+        className="text-stage"
+        lineClassName="text-line"
+      />
       <div className="text-slide-nav">
         <button
           type="button"
