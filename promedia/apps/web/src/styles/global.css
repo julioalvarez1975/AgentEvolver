@@ -2851,13 +2851,50 @@ body {
 
 .bible-dialog-grid {
   display: grid;
-  grid-template-columns: 1.4fr 0.7fr 0.7fr 0.7fr;
+  grid-template-columns: minmax(0, 1fr) max-content max-content max-content;
   gap: 0.5rem;
+  align-items: end;
+}
+
+.bible-dialog-book {
+  min-width: 0;
+}
+
+.bible-dialog-book select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.bible-dialog-num {
+  min-width: 0;
+}
+
+.bible-dialog-num input {
+  width: 3.5ch;
+  min-width: 0;
+  max-width: 4ch;
+  box-sizing: content-box;
+  padding-inline: 0.35rem;
+  text-align: center;
+  /* Compact: hide spinners so ~3 digits fit without overflow */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.bible-dialog-num input::-webkit-outer-spin-button,
+.bible-dialog-num input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 @media (max-width: 560px) {
   .bible-dialog-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: max-content max-content max-content;
+  }
+
+  .bible-dialog-book {
+    grid-column: 1 / -1;
   }
 }
 

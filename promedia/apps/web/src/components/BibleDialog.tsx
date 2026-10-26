@@ -218,7 +218,7 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
             <p className="bible-dialog-or">{t("bible.orPick")}</p>
 
             <div className="bible-dialog-grid">
-              <label className="promedia-dialog-field">
+              <label className="promedia-dialog-field bible-dialog-book">
                 {t("bible.book")}
                 <select
                   value={bookId}
@@ -237,27 +237,39 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                   ))}
                 </select>
               </label>
-              <label className="promedia-dialog-field">
+              <label className="promedia-dialog-field bible-dialog-num">
                 {t("bible.chapter")}
                 <input
                   type="number"
+                  inputMode="numeric"
+                  maxLength={3}
                   min={1}
                   max={maxChapter}
                   value={chapter}
                   onChange={(e) => {
-                    setChapter(Math.max(1, Number(e.target.value) || 1));
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 3);
+                    setChapter(
+                      Math.min(
+                        maxChapter,
+                        Math.max(1, Number(digits) || 1),
+                      ),
+                    );
                     setPreview(null);
                   }}
                 />
               </label>
-              <label className="promedia-dialog-field">
+              <label className="promedia-dialog-field bible-dialog-num">
                 {t("bible.verseFrom")}
                 <input
                   type="number"
+                  inputMode="numeric"
+                  maxLength={3}
                   min={1}
+                  max={999}
                   value={verseStart}
                   onChange={(e) => {
-                    const n = Math.max(1, Number(e.target.value) || 1);
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 3);
+                    const n = Math.min(999, Math.max(1, Number(digits) || 1));
                     setVerseStart(n);
                     if (verseEnd < n) {
                       setVerseEnd(n);
@@ -266,15 +278,25 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                   }}
                 />
               </label>
-              <label className="promedia-dialog-field">
+              <label className="promedia-dialog-field bible-dialog-num">
                 {t("bible.verseTo")}
                 <input
                   type="number"
+                  inputMode="numeric"
+                  maxLength={3}
                   min={verseStart}
+                  max={999}
                   value={verseEnd}
                   onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 3);
                     setVerseEnd(
-                      Math.max(verseStart, Number(e.target.value) || verseStart),
+                      Math.min(
+                        999,
+                        Math.max(
+                          verseStart,
+                          Number(digits) || verseStart,
+                        ),
+                      ),
                     );
                     setPreview(null);
                   }}
