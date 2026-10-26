@@ -13,6 +13,7 @@ import type {
 import {
   isSceneMode,
   isSubtitleFontSize,
+  isSubtitleLeadMs,
   isSubtitleTargetLang,
   isThemeId,
   isTransitionEffect,
@@ -157,6 +158,7 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
         enabled?: unknown;
         targetLang?: unknown;
         fontSize?: unknown;
+        leadMs?: unknown;
         itemId?: unknown;
       } | undefined;
       if (!p) {
@@ -166,6 +168,7 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
         enabled?: boolean;
         targetLang?: import("@promedia/shared").SubtitleTargetLang;
         fontSize?: import("@promedia/shared").SubtitleFontSize;
+        leadMs?: import("@promedia/shared").SubtitleLeadMs;
         itemId?: string;
       } = {};
       if (p.enabled !== undefined) {
@@ -186,6 +189,12 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
         }
         out.fontSize = p.fontSize;
       }
+      if (p.leadMs !== undefined) {
+        if (!isSubtitleLeadMs(p.leadMs)) {
+          return null;
+        }
+        out.leadMs = p.leadMs;
+      }
       if (p.itemId !== undefined) {
         if (typeof p.itemId !== "string") {
           return null;
@@ -196,6 +205,7 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
         out.enabled === undefined &&
         out.targetLang === undefined &&
         out.fontSize === undefined &&
+        out.leadMs === undefined &&
         out.itemId === undefined
       ) {
         return null;

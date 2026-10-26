@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { FittedTextStage } from "@promedia/item-types";
 import type { MediaClock, SubtitleAgentState } from "@promedia/shared";
 import {
-  cueAtPositionMs,
+  cueAtPositionWithLeadMs,
   effectiveMediaClockPositionMs,
   emptySubtitleAgentState,
   isSubtitleFontSize,
+  normalizeSubtitleLeadMs,
 } from "@promedia/shared";
 
 export type SubtitleOverlayProps = {
@@ -21,8 +23,9 @@ export type SubtitleOverlayProps = {
 };
 
 /**
- * Bottom-centered captions for Vista previa + Output.
- * Timing prefers hub mediaClock so both surfaces show the same cue.
+ * Upper-stage projection captions (cancionero look via FittedTextStage).
+ * Timing prefers hub mediaClock; `leadMs` shows the cue early so the line is
+ * readable before it is sung. Manual ←/→ song slides do not use this path.
  */
 export function SubtitleOverlay({
   agent,
@@ -32,6 +35,7 @@ export function SubtitleOverlay({
 }: SubtitleOverlayProps) {
   const state = agent ?? emptySubtitleAgentState();
   const fontSize = isSubtitleFontSize(state.fontSize) ? state.fontSize : "md";
+  const leadMs = normalizeSubtitleLeadMs(state.leadMs);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -46,33 +50,53 @@ export function SubtitleOverlay({
     return undefined;
   }, [state.enabled, state.status, state.cues.length, mediaClock?.playing, mediaClock?.updatedAt]);
 
-  if (!state.enabled) {
-    return null;
-  }
+  const cue = useMemo(() => {
+    if (!state.enabled) {
+      return null;
+    }
+    if (itemId && state.itemId && state.itemId !== itemId) {
+      return null;
+    }
+    if (state.status !== "ready" || !state.cues.length) {
+      return null;
+    }
 
-  if (itemId && state.itemId && state.itemId !== itemId) {
-    return null;
-  }
+    let positionMs: number;
+    if (mediaClock && (!itemId || mediaClock.itemId === itemId)) {
+      positionMs = effectiveMediaClockPositionMs(mediaClock, nowMs);
+    } else if (
+      typeof localPositionMs === "number" &&
+      Number.isFinite(localPositionMs)
+    ) {
+      positionMs = localPositionMs;
+    } else if (mediaClock) {
+      positionMs = effectiveMediaClockPositionMs(mediaClock, nowMs);
+    } else {
+      return null;
+    }
 
-  if (state.status !== "ready" || !state.cues.length) {
-    return null;
-  }
+    return cueAtPositionWithLeadMs(state.cues, positionMs, leadMs);
+  }, [
+    state.enabled,
+    state.itemId,
+    state.status,
+    state.cues,
+    itemId,
+    mediaClock,
+    localPositionMs,
+    nowMs,
+    leadMs,
+  ]);
 
-  let positionMs: number;
-  if (mediaClock && (!itemId || mediaClock.itemId === itemId)) {
-    positionMs = effectiveMediaClockPositionMs(mediaClock, nowMs);
-  } else if (typeof localPositionMs === "number" && Number.isFinite(localPositionMs)) {
-    positionMs = localPositionMs;
-  } else if (mediaClock) {
-    positionMs = effectiveMediaClockPositionMs(mediaClock, nowMs);
-  } else {
-    return null;
-  }
-
-  const cue = cueAtPositionMs(state.cues, positionMs);
   if (!cue?.text) {
     return null;
   }
+
+  const lines = cue.text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const displayLines = lines.length > 0 ? lines : [cue.text];
 
   return (
     <div
@@ -80,7 +104,12 @@ export function SubtitleOverlay({
       data-size={fontSize}
       aria-live="polite"
     >
-      <p className="subtitle-overlay-line">{cue.text}</p>
+      <FittedTextStage
+        lines={displayLines}
+        lineKey={`${cue.id}-${cue.startMs}`}
+        className="subtitle-overlay-fit text-output"
+        lineClassName="text-output-line"
+      />
     </div>
   );
 }

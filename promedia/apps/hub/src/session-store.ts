@@ -24,6 +24,7 @@ import {
   emptyPlaylist,
   emptySubtitleAgentState,
   isSubtitleFontSize,
+  normalizeSubtitleLeadMs,
   isSceneMode,
   isThemeId,
   isTransitionEffect,
@@ -179,11 +180,20 @@ export class SessionStore {
   private ensureSubtitleAgent(session: SessionRecord): SubtitleAgentState {
     if (!session.live.subtitleAgent) {
       session.live.subtitleAgent = emptySubtitleAgentState();
-    } else if (!isSubtitleFontSize(session.live.subtitleAgent.fontSize)) {
-      session.live.subtitleAgent = {
-        ...session.live.subtitleAgent,
-        fontSize: "md",
-      };
+    } else {
+      const agent = session.live.subtitleAgent;
+      const fontOk = isSubtitleFontSize(agent.fontSize);
+      const leadOk =
+        typeof agent.leadMs === "number" &&
+        Number.isFinite(agent.leadMs) &&
+        agent.leadMs === normalizeSubtitleLeadMs(agent.leadMs);
+      if (!fontOk || !leadOk) {
+        session.live.subtitleAgent = {
+          ...agent,
+          fontSize: fontOk ? agent.fontSize : "md",
+          leadMs: normalizeSubtitleLeadMs(agent.leadMs),
+        };
+      }
     }
     return session.live.subtitleAgent;
   }

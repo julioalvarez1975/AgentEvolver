@@ -291,5 +291,10 @@
   "control.subtitleAgentFontSizeSm": "SM",
   "control.subtitleAgentFontSizeMd": "MD",
   "control.subtitleAgentFontSizeLg": "LG",
-  "control.subtitleAgentFontSizeXl": "XL"
+  "control.subtitleAgentFontSizeXl": "XL",
+  "control.subtitleAgentLead": "Show lyrics early (before sung words). Timed agent cues only — not manual song ←/→ slides.",
+  "control.subtitleAgentLead15": "1.5s",
+  "control.subtitleAgentLead20": "2s",
+  "control.subtitleAgentLead25": "2.5s",
+  "control.subtitleAgentLead30": "3s"
 }
