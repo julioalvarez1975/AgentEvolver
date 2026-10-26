@@ -1,8 +1,14 @@
+import { useRef } from "react";
 import {
+  DEFAULT_THEME_BACKGROUND,
   DEFAULT_THEME_ID,
   DEFAULT_TRANSITION_EFFECT,
+  THEME_BACKGROUND_PACK_IDS,
   THEME_PRESETS,
   TRANSITION_EFFECTS,
+  normalizeThemeBackground,
+  type ThemeBackground,
+  type ThemeBackgroundPackId,
   type ThemeFontFamily,
   type ThemeFontSize,
   type ThemeId,
@@ -17,6 +23,7 @@ import { IconTheme } from "./UiIcons";
 export type ThemePanelProps = {
   themeId: ThemeId;
   themeOverrides: ThemeOverrides | null;
+  themeBackground?: ThemeBackground | null;
   transitionEffect?: TransitionEffect;
   disabled?: boolean;
   /** Compact header strip (presets + editor in one dense block). */
@@ -25,9 +32,13 @@ export type ThemePanelProps = {
   toolbar?: boolean;
   /** When true, omit the inline TEMA label (parent zone already shows it). */
   hideTitle?: boolean;
+  /** Upload background video/image (session asset). */
+  onUploadBackground?: (file: File) => void | Promise<void>;
+  uploadingBackground?: boolean;
   onChange: (patch: {
     themeId?: ThemeId;
     themeOverrides?: ThemeOverrides | null;
+    themeBackground?: ThemeBackground | null;
     transitionEffect?: TransitionEffect;
   }) => void;
 };
@@ -37,6 +48,13 @@ const TRANSITION_LABEL_KEYS: Record<TransitionEffect, string> = {
   fade: "theme.transitionFade",
   blur: "theme.transitionBlur",
   pixelate: "theme.transitionPixelate",
+};
+
+const PACK_LABEL_KEYS: Record<ThemeBackgroundPackId, string> = {
+  aurora: "theme.bgPackAurora",
+  embers: "theme.bgPackEmbers",
+  ocean: "theme.bgPackOcean",
+  softgrid: "theme.bgPackSoftgrid",
 };
 
 function merged(
@@ -60,20 +78,55 @@ function merged(
 export function ThemePanel({
   themeId,
   themeOverrides,
+  themeBackground,
   transitionEffect = DEFAULT_TRANSITION_EFFECT,
   disabled,
   compact,
   toolbar,
   hideTitle,
+  onUploadBackground,
+  uploadingBackground,
   onChange,
 }: ThemePanelProps) {
   const { t } = useLocale();
+  const fileRef = useRef<HTMLInputElement>(null);
   const values = merged(themeId || DEFAULT_THEME_ID, themeOverrides);
   const effect = transitionEffect || DEFAULT_TRANSITION_EFFECT;
+  const bg = normalizeThemeBackground(
+    themeBackground ?? DEFAULT_THEME_BACKGROUND,
+  );
+  const isMedia = bg.mode === "media";
 
   const patchOverride = (partial: ThemeOverrides) => {
     onChange({
       themeOverrides: { ...(themeOverrides ?? {}), ...partial },
+    });
+  };
+
+  const patchBackground = (partial: Partial<ThemeBackground>) => {
+    onChange({
+      themeBackground: normalizeThemeBackground({ ...bg, ...partial }),
+    });
+  };
+
+  const setSolid = () => {
+    onChange({
+      themeBackground: normalizeThemeBackground({
+        mode: "solid",
+        dotsOverlay: bg.dotsOverlay,
+      }),
+    });
+  };
+
+  const setPack = (packId: ThemeBackgroundPackId) => {
+    onChange({
+      themeBackground: normalizeThemeBackground({
+        mode: "media",
+        packId,
+        assetId: null,
+        mediaKind: null,
+        dotsOverlay: bg.dotsOverlay,
+      }),
     });
   };
 
@@ -172,18 +225,128 @@ export function ThemePanel({
     </div>
   );
 
+  const backgroundControls = (
+    <div
+      className={
+        toolbar
+          ? "theme-bg-controls theme-bg-controls-toolbar"
+          : "theme-bg-controls"
+      }
+      role="group"
+      aria-label={t("theme.bgMode")}
+    >
+      <div className="theme-bg-mode" role="group" aria-label={t("theme.bgMode")}>
+        <button
+          type="button"
+          className={`btn btn-scene${bg.mode === "solid" ? " active" : ""}`}
+          disabled={disabled}
+          aria-pressed={bg.mode === "solid"}
+          title={t("theme.bgSolid")}
+          onClick={setSolid}
+        >
+          {t("theme.bgSolid")}
+        </button>
+        <button
+          type="button"
+          className={`btn btn-scene${isMedia ? " active" : ""}`}
+          disabled={disabled}
+          aria-pressed={isMedia}
+          title={t("theme.bgMedia")}
+          onClick={() => {
+            if (!isMedia) {
+              setPack("aurora");
+            }
+          }}
+        >
+          {t("theme.bgMedia")}
+        </button>
+      </div>
+
+      {bg.mode === "solid" ? (
+        <label title={t("theme.bg")} className="theme-bg-color">
+          {!toolbar ? t("theme.bg") : null}
+          <input
+            type="color"
+            value={/^#[0-9a-fA-F]{6}$/.test(values.bg) ? values.bg : "#0a0e14"}
+            disabled={disabled}
+            aria-label={t("theme.bg")}
+            onChange={(e) => patchOverride({ bg: e.target.value })}
+          />
+        </label>
+      ) : (
+        <div
+          className="theme-bg-packs"
+          role="group"
+          aria-label={t("theme.bgPack")}
+        >
+          {THEME_BACKGROUND_PACK_IDS.map((id) => (
+            <button
+              key={id}
+              type="button"
+              className={`btn btn-scene theme-bg-pack-btn${
+                bg.packId === id && !bg.assetId ? " active" : ""
+              }`}
+              disabled={disabled}
+              aria-pressed={bg.packId === id && !bg.assetId}
+              title={`${t(PACK_LABEL_KEYS[id])} · ${t("theme.bgPackHint")}`}
+              onClick={() => setPack(id)}
+            >
+              <span
+                className={`theme-bg-pack-swatch pm-stage-bg-${id}`}
+                aria-hidden
+              />
+              <span className="theme-bg-pack-label">
+                {t(PACK_LABEL_KEYS[id])}
+              </span>
+            </button>
+          ))}
+          {bg.assetId ? (
+            <span className="theme-bg-upload-active" title={t("theme.bgUploadActive")}>
+              {t("theme.bgUploadActive")}
+            </span>
+          ) : null}
+        </div>
+      )}
+
+      <div className="theme-bg-actions">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="video/mp4,video/webm,video/quicktime,image/jpeg,image/png,image/webp,image/gif"
+          hidden
+          disabled={disabled || !onUploadBackground}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file && onUploadBackground) {
+              void onUploadBackground(file);
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={disabled || !onUploadBackground || uploadingBackground}
+          title={t("theme.bgUpload")}
+          onClick={() => fileRef.current?.click()}
+        >
+          {uploadingBackground ? t("theme.bgUploading") : t("theme.bgUpload")}
+        </button>
+        <label className="theme-bg-dots-toggle" title={t("theme.bgDotsHint")}>
+          <input
+            type="checkbox"
+            checked={bg.dotsOverlay === true}
+            disabled={disabled}
+            onChange={(e) => patchBackground({ dotsOverlay: e.target.checked })}
+          />
+          <span>{t("theme.bgDots")}</span>
+        </label>
+      </div>
+    </div>
+  );
+
   const editor = (
     <div className={toolbar ? "theme-editor theme-editor-toolbar" : "theme-editor"}>
-      <label title={t("theme.bg")}>
-        {!toolbar ? t("theme.bg") : null}
-        <input
-          type="color"
-          value={/^#[0-9a-fA-F]{6}$/.test(values.bg) ? values.bg : "#0a0e14"}
-          disabled={disabled}
-          aria-label={t("theme.bg")}
-          onChange={(e) => patchOverride({ bg: e.target.value })}
-        />
-      </label>
       <label title={t("theme.fg")}>
         {!toolbar ? t("theme.fg") : null}
         <input
@@ -284,6 +447,7 @@ export function ThemePanel({
         ) : null}
         {presets}
         {editor}
+        {backgroundControls}
       </div>
     );
   }
@@ -291,6 +455,7 @@ export function ThemePanel({
   return (
     <div className={compact ? "theme-panel theme-panel-compact" : "theme-panel"}>
       {presets}
+      {backgroundControls}
       {editor}
       {transitionSelect}
       {!compact ? (

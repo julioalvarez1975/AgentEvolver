@@ -17,10 +17,12 @@ import type {
   VideoPayload,
 } from "@promedia/shared";
 import {
+  DEFAULT_THEME_BACKGROUND,
   DEFAULT_THEME_ID,
   DEFAULT_TRANSITION_EFFECT,
   itemHasSlides,
   itemProjectionSlideCount,
+  normalizeThemeBackground,
 } from "@promedia/shared";
 import { AboutDialog } from "../components/AboutDialog";
 import { BibleDialog } from "../components/BibleDialog";
@@ -29,6 +31,7 @@ import { ControlHeaderToolbar } from "../components/ControlHeaderToolbar";
 import { LinkAddDialog } from "../components/LinkAddDialog";
 import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { SchedulePanel } from "../components/SchedulePanel";
+import { StageBackground } from "../components/StageBackground";
 import { StatusTip } from "../components/StatusTip";
 import { TextItemEditor } from "../components/TextItemEditor";
 import { IconGoLive, IconNext, IconPrev } from "../components/UiIcons";
@@ -95,6 +98,7 @@ export function ControlPage() {
   /** Soft hints retained for setters (upload / playlist); message log panel removed. */
   const [, setUploadHint] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadingBackground, setUploadingBackground] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   /** Remember video durations (preview metadata) for remaining-time / scrub max. */
   const [durationByItemId, setDurationByItemId] = useState<
@@ -134,9 +138,56 @@ export function ControlPage() {
   const themeId: ThemeId =
     session.snapshot?.live.themeId ?? DEFAULT_THEME_ID;
   const themeOverrides = session.snapshot?.live.themeOverrides ?? null;
+  const themeBackground = normalizeThemeBackground(
+    session.snapshot?.live.themeBackground ?? DEFAULT_THEME_BACKGROUND,
+  );
   const transitionEffect: TransitionEffect =
     session.snapshot?.live.transitionEffect ?? DEFAULT_TRANSITION_EFFECT;
   const themeStyle = themeSurfaceStyle(themeId, themeOverrides);
+
+  const themeBgAssetSrc =
+    themeBackground.mode === "media" &&
+    themeBackground.assetId &&
+    session.sessionId &&
+    session.wsTicket
+      ? buildAssetUrl(
+          session.sessionId,
+          themeBackground.assetId,
+          session.wsTicket,
+        )
+      : undefined;
+
+  const onUploadThemeBackground = async (file: File) => {
+    if (!session.sessionId || !session.wsTicket) {
+      return;
+    }
+    setUploadingBackground(true);
+    try {
+      const asset = await uploadSessionAsset(
+        session.sessionId,
+        session.wsTicket,
+        file,
+      );
+      const mediaKind = asset.mime.startsWith("image/")
+        ? ("image" as const)
+        : ("video" as const);
+      session.setTheme({
+        themeBackground: normalizeThemeBackground({
+          mode: "media",
+          packId: null,
+          assetId: asset.id,
+          mediaKind,
+          dotsOverlay: themeBackground.dotsOverlay,
+        }),
+      });
+    } catch (err) {
+      setUploadHint(
+        err instanceof Error ? err.message : t("theme.bgUploadFailed"),
+      );
+    } finally {
+      setUploadingBackground(false);
+    }
+  };
 
   const toggleSceneMode = (mode: SceneMode) => {
     if (session.wsStatus !== "open") {
@@ -851,11 +902,14 @@ export function ControlPage() {
               sceneMode={sceneMode}
               themeId={themeId}
               themeOverrides={themeOverrides}
+              themeBackground={themeBackground}
               transitionEffect={transitionEffect}
+              uploadingBackground={uploadingBackground}
               onProject={onStartProjection}
               onSceneNormal={() => session.setSceneMode("normal")}
               onToggleScene={(mode) => toggleSceneMode(mode)}
               onThemeChange={(patch) => session.setTheme(patch)}
+              onUploadBackground={onUploadThemeBackground}
               onAbout={() => setAboutOpen(true)}
               sessionFallback={
                 <>
@@ -1153,6 +1207,10 @@ export function ControlPage() {
             aria-label={t("control.live")}
           >
             <div className="zone-body zone-stage pm-theme" style={themeStyle}>
+              <StageBackground
+                background={themeBackground}
+                assetSrc={themeBgAssetSrc}
+              />
               <span className="stage-overlay-label" aria-hidden="true">
                 {t("control.live")}
               </span>
@@ -1258,6 +1316,10 @@ export function ControlPage() {
               />
             </div>
             <div className="zone-body zone-stage pm-theme" style={themeStyle}>
+              <StageBackground
+                background={themeBackground}
+                assetSrc={themeBgAssetSrc}
+              />
               <span className="stage-overlay-label" aria-hidden="true">
                 {t("control.preview")}
               </span>

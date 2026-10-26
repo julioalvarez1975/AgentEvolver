@@ -452,10 +452,11 @@ body {
 
 .theme-panel-toolbar {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0.15rem 0.25rem;
   padding: 0;
+  max-width: min(100%, 52rem);
 }
 
 .toolbar-theme-title {
@@ -1370,8 +1371,15 @@ body {
 .output-item-layer {
   position: absolute;
   inset: 0;
+  z-index: 1;
   width: 100%;
   height: 100%;
+}
+
+/* Isolation so stage bg z-index:-1 stays inside the stage, not under the page. */
+.zone-stage.pm-theme,
+.output-stage.pm-theme {
+  isolation: isolate;
 }
 
 .output-item-transition-inner {
@@ -1578,6 +1586,7 @@ body {
 .output-chrome {
   position: absolute;
   inset: auto 0 0 0;
+  z-index: 6;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2272,6 +2281,10 @@ body {
   text-align: center;
   white-space: pre-wrap;
   word-break: break-word;
+  /* Soft black shadow when fill ≈ background / busy video. */
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.85),
+    0 0 0.55em rgba(0, 0, 0, 0.55);
 }
 
 .text-slide-nav {
@@ -2316,6 +2329,9 @@ body {
   word-break: break-word;
   color: inherit;
   text-align: center;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.85),
+    0 0 0.55em rgba(0, 0, 0, 0.55);
 }
 
 /* —— Themes (subtarea 8) —— */
@@ -2323,6 +2339,153 @@ body {
   background: var(--pm-bg, #0a0e14);
   color: var(--pm-fg, #f2f5f8);
   font-family: var(--pm-font-family, system-ui, sans-serif);
+}
+
+/* Stage background layer (solid uses --pm-bg; media/pack/dots sit here).
+   z-index -1 keeps it above the stage fill but below in-flow content/overlays. */
+.pm-stage-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pm-stage-bg-pack,
+.pm-stage-bg-media {
+  position: absolute;
+  inset: 0;
+}
+
+.pm-stage-bg-media-el {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pm-stage-bg-layer {
+  position: absolute;
+  inset: -20%;
+  opacity: 0.85;
+}
+
+.pm-stage-bg-aurora {
+  background: #061018;
+}
+.pm-stage-bg-aurora .pm-stage-bg-layer-a {
+  background: radial-gradient(
+    ellipse 70% 55% at 20% 40%,
+    rgba(34, 180, 160, 0.55),
+    transparent 70%
+  );
+  animation: pm-bg-drift-a 18s ease-in-out infinite alternate;
+}
+.pm-stage-bg-aurora .pm-stage-bg-layer-b {
+  background: radial-gradient(
+    ellipse 60% 50% at 75% 60%,
+    rgba(56, 120, 200, 0.45),
+    transparent 65%
+  );
+  animation: pm-bg-drift-b 22s ease-in-out infinite alternate;
+}
+
+.pm-stage-bg-embers {
+  background: #140a06;
+}
+.pm-stage-bg-embers .pm-stage-bg-layer-a {
+  background: radial-gradient(
+    ellipse 55% 45% at 30% 70%,
+    rgba(220, 90, 30, 0.5),
+    transparent 70%
+  );
+  animation: pm-bg-drift-a 16s ease-in-out infinite alternate;
+}
+.pm-stage-bg-embers .pm-stage-bg-layer-b {
+  background: radial-gradient(
+    ellipse 50% 40% at 70% 35%,
+    rgba(180, 40, 20, 0.4),
+    transparent 65%
+  );
+  animation: pm-bg-drift-b 20s ease-in-out infinite alternate;
+}
+
+.pm-stage-bg-ocean {
+  background: #050c16;
+}
+.pm-stage-bg-ocean .pm-stage-bg-layer-a {
+  background: radial-gradient(
+    ellipse 80% 50% at 40% 80%,
+    rgba(20, 90, 160, 0.55),
+    transparent 70%
+  );
+  animation: pm-bg-drift-a 24s ease-in-out infinite alternate;
+}
+.pm-stage-bg-ocean .pm-stage-bg-layer-b {
+  background: radial-gradient(
+    ellipse 55% 45% at 65% 30%,
+    rgba(40, 160, 180, 0.35),
+    transparent 65%
+  );
+  animation: pm-bg-drift-b 19s ease-in-out infinite alternate;
+}
+
+.pm-stage-bg-softgrid {
+  background: #0a0e14;
+}
+.pm-stage-bg-softgrid .pm-stage-bg-layer-a {
+  background-image:
+    linear-gradient(rgba(120, 150, 180, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 150, 180, 0.12) 1px, transparent 1px);
+  background-size: 48px 48px;
+  animation: pm-bg-grid 28s linear infinite;
+  opacity: 0.7;
+}
+.pm-stage-bg-softgrid .pm-stage-bg-layer-b {
+  background: radial-gradient(
+    ellipse 60% 50% at 50% 50%,
+    rgba(80, 130, 180, 0.2),
+    transparent 70%
+  );
+  animation: pm-bg-drift-b 21s ease-in-out infinite alternate;
+}
+
+@keyframes pm-bg-drift-a {
+  from {
+    transform: translate(-4%, -3%) scale(1);
+  }
+  to {
+    transform: translate(5%, 4%) scale(1.08);
+  }
+}
+@keyframes pm-bg-drift-b {
+  from {
+    transform: translate(3%, 2%) scale(1.05);
+  }
+  to {
+    transform: translate(-5%, -4%) scale(1);
+  }
+}
+@keyframes pm-bg-grid {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 48px 48px, 48px 48px;
+  }
+}
+
+/* Black dots pattern — darkens busy/video backgrounds for light text. */
+.pm-stage-bg-dots {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-image: radial-gradient(
+    rgba(0, 0, 0, 0.55) 1.1px,
+    transparent 1.35px
+  );
+  background-size: 7px 7px;
+  background-color: rgba(0, 0, 0, 0.22);
 }
 
 .pm-theme[data-theme="acento"] {
@@ -2355,6 +2518,112 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+.theme-bg-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.55rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.theme-bg-controls-toolbar {
+  flex: 1 1 100%;
+  gap: 0.25rem 0.4rem;
+  padding-top: 0.15rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.1rem;
+}
+
+.theme-bg-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.theme-bg-mode .btn-scene {
+  padding: 0.18rem 0.45rem;
+  font-size: 0.7rem;
+}
+
+.theme-bg-packs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.theme-bg-pack-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.15rem 0.4rem;
+  font-size: 0.68rem;
+}
+
+.theme-bg-pack-swatch {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.theme-bg-pack-swatch.pm-stage-bg-aurora {
+  background: linear-gradient(135deg, #0a2a28, #1a4a6a);
+}
+.theme-bg-pack-swatch.pm-stage-bg-embers {
+  background: linear-gradient(135deg, #2a1008, #8a3018);
+}
+.theme-bg-pack-swatch.pm-stage-bg-ocean {
+  background: linear-gradient(135deg, #061428, #1a5a8a);
+}
+.theme-bg-pack-swatch.pm-stage-bg-softgrid {
+  background:
+    linear-gradient(rgba(120, 150, 180, 0.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 150, 180, 0.35) 1px, transparent 1px),
+    #0a0e14;
+  background-size: 6px 6px, 6px 6px, auto;
+}
+
+.theme-bg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+}
+
+.theme-bg-dots-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.72rem;
+  color: var(--fg);
+}
+
+.theme-bg-dots-toggle input {
+  margin: 0;
+}
+
+.theme-bg-upload-active {
+  font-size: 0.68rem;
+  color: var(--accent, #3d8bfd);
+}
+
+.theme-bg-color input[type="color"] {
+  width: 2rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
 }
 
 .theme-panel-compact .theme-presets {

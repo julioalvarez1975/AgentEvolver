@@ -663,6 +663,29 @@ async function main() {
   );
   console.log("theme switch clears overrides ok");
 
+  out1.inbox.length = 0;
+  control.ws.send(
+    JSON.stringify({
+      type: "live.setTheme",
+      payload: {
+        themeBackground: {
+          mode: "media",
+          packId: "aurora",
+          dotsOverlay: true,
+        },
+      },
+    }),
+  );
+  await waitFor(
+    out1.inbox,
+    (m) =>
+      m.type === "session.updated" &&
+      m.payload.live?.themeBackground?.mode === "media" &&
+      m.payload.live?.themeBackground?.packId === "aurora" &&
+      m.payload.live?.themeBackground?.dotsOverlay === true,
+  );
+  console.log("theme background pack + dots ok");
+
   out2.inbox.length = 0;
   out2.ws.send(JSON.stringify({ type: "client.hello", payload: {} }));
   const snapTheme = await waitFor(
@@ -671,6 +694,11 @@ async function main() {
   );
   if (snapTheme.payload.live?.themeId !== "acento") {
     throw new Error(`resync theme ${snapTheme.payload.live?.themeId}`);
+  }
+  if (snapTheme.payload.live?.themeBackground?.packId !== "aurora") {
+    throw new Error(
+      `resync themeBackground ${JSON.stringify(snapTheme.payload.live?.themeBackground)}`,
+    );
   }
   console.log("output2 resync theme ok");
 

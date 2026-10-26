@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Locale } from "@promedia/i18n";
 import type {
   SceneMode,
+  ThemeBackground,
   ThemeId,
   ThemeOverrides,
   TransitionEffect,
@@ -26,15 +27,19 @@ export type ControlHeaderToolbarProps = {
   sceneMode: SceneMode;
   themeId: ThemeId;
   themeOverrides: ThemeOverrides | null;
+  themeBackground: ThemeBackground;
   transitionEffect: TransitionEffect;
+  uploadingBackground?: boolean;
   onProject: () => void;
   onSceneNormal: () => void;
   onToggleScene: (mode: Exclude<SceneMode, "normal">) => void;
   onThemeChange: (patch: {
     themeId?: ThemeId;
     themeOverrides?: ThemeOverrides | null;
+    themeBackground?: ThemeBackground | null;
     transitionEffect?: TransitionEffect;
   }) => void;
+  onUploadBackground?: (file: File) => void | Promise<void>;
   onAbout: () => void;
   /** Manual create/join when no session yet (rare after auto-session). */
   sessionFallback?: ReactNode;
@@ -85,11 +90,14 @@ export function ControlHeaderToolbar({
   sceneMode,
   themeId,
   themeOverrides,
+  themeBackground,
   transitionEffect,
+  uploadingBackground,
   onProject,
   onSceneNormal,
   onToggleScene,
   onThemeChange,
+  onUploadBackground,
   onAbout,
   sessionFallback,
 }: ControlHeaderToolbarProps) {
@@ -203,8 +211,11 @@ export function ControlHeaderToolbar({
           hideTitle
           themeId={themeId}
           themeOverrides={themeOverrides}
+          themeBackground={themeBackground}
           transitionEffect={transitionEffect}
           disabled={!canMutate}
+          uploadingBackground={uploadingBackground}
+          onUploadBackground={onUploadBackground}
           onChange={onThemeChange}
         />
       </div>

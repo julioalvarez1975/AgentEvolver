@@ -11,6 +11,7 @@ import type {
   SessionSnapshot,
   SessionUpdatedPayload,
   TextPayload,
+  ThemeBackground,
   ThemeId,
   ThemeOverrides,
   TransitionEffect,
@@ -23,6 +24,7 @@ import {
   isThemeId,
   isTransitionEffect,
   itemProjectionSlideCount,
+  normalizeThemeBackground,
   normalizeThemeOverrides,
 } from "@promedia/shared";
 import { validatePlaylistItem } from "@promedia/item-types/validate";
@@ -390,6 +392,7 @@ export class SessionStore {
     patch: {
       themeId?: ThemeId;
       themeOverrides?: ThemeOverrides | null;
+      themeBackground?: ThemeBackground | null;
       transitionEffect?: TransitionEffect;
     },
   ): HubMessage | { error: string } {
@@ -414,6 +417,11 @@ export class SessionStore {
         session.live.themeOverrides = normalized;
       }
     }
+    if (patch.themeBackground !== undefined) {
+      session.live.themeBackground = normalizeThemeBackground(
+        patch.themeBackground,
+      );
+    }
     if (patch.transitionEffect !== undefined) {
       if (!isTransitionEffect(patch.transitionEffect)) {
         return { error: "invalid_transition_effect" };
@@ -423,6 +431,7 @@ export class SessionStore {
     if (
       patch.themeId === undefined &&
       patch.themeOverrides === undefined &&
+      patch.themeBackground === undefined &&
       patch.transitionEffect === undefined
     ) {
       return { error: "empty_theme_patch" };

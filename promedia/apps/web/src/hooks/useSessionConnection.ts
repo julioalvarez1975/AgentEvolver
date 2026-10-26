@@ -7,6 +7,7 @@ import type {
   SceneMode,
   SessionSnapshot,
   TextPayload,
+  ThemeBackground,
   ThemeId,
   ThemeOverrides,
   TransitionEffect,
@@ -303,6 +304,7 @@ export function useSessionConnection(role: ClientRole) {
     (patch: {
       themeId?: ThemeId;
       themeOverrides?: ThemeOverrides | null;
+      themeBackground?: ThemeBackground | null;
       transitionEffect?: TransitionEffect;
     }): boolean => send("live.setTheme", patch),
     [send],

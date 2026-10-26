@@ -49,6 +49,95 @@ export type ThemeOverrides = {
   fontSize?: ThemeFontSize;
 };
 
+/**
+ * Stage background behind projected content (Output + En vivo + Vista previa).
+ * Solid uses theme bg color; media uses a built-in CSS pack or a session asset.
+ */
+export type ThemeBackgroundMode = "solid" | "media";
+
+export type ThemeBackgroundPackId =
+  | "aurora"
+  | "embers"
+  | "ocean"
+  | "softgrid";
+
+export type ThemeBackgroundMediaKind = "video" | "image";
+
+export type ThemeBackground = {
+  mode: ThemeBackgroundMode;
+  /** Built-in CSS/motion pack (mode=media, no upload). */
+  packId?: ThemeBackgroundPackId | null;
+  /** Uploaded session asset id (mode=media). */
+  assetId?: string | null;
+  /** Hint for rendering uploaded asset. */
+  mediaKind?: ThemeBackgroundMediaKind | null;
+  /**
+   * Black dots pattern overlay to darken busy/video backgrounds
+   * so light text stays readable (TEMA toggle).
+   */
+  dotsOverlay?: boolean;
+};
+
+export const THEME_BACKGROUND_PACK_IDS: readonly ThemeBackgroundPackId[] = [
+  "aurora",
+  "embers",
+  "ocean",
+  "softgrid",
+] as const;
+
+export const DEFAULT_THEME_BACKGROUND: ThemeBackground = {
+  mode: "solid",
+  dotsOverlay: false,
+};
+
+export function isThemeBackgroundPackId(
+  value: unknown,
+): value is ThemeBackgroundPackId {
+  return (
+    typeof value === "string" &&
+    (THEME_BACKGROUND_PACK_IDS as readonly string[]).includes(value)
+  );
+}
+
+export function isThemeBackgroundMediaKind(
+  value: unknown,
+): value is ThemeBackgroundMediaKind {
+  return value === "video" || value === "image";
+}
+
+/** Normalize / sanitize theme background from WS or storage. */
+export function normalizeThemeBackground(
+  raw: unknown,
+): ThemeBackground {
+  if (!raw || typeof raw !== "object") {
+    return { ...DEFAULT_THEME_BACKGROUND };
+  }
+  const o = raw as Record<string, unknown>;
+  const dotsOverlay = o.dotsOverlay === true;
+  const mode: ThemeBackgroundMode = o.mode === "media" ? "media" : "solid";
+  if (mode === "solid") {
+    return { mode: "solid", dotsOverlay };
+  }
+  const packId = isThemeBackgroundPackId(o.packId) ? o.packId : null;
+  const assetId =
+    typeof o.assetId === "string" && o.assetId.trim()
+      ? o.assetId.trim()
+      : null;
+  const mediaKind = isThemeBackgroundMediaKind(o.mediaKind)
+    ? o.mediaKind
+    : null;
+  if (!packId && !assetId) {
+    return { mode: "solid", dotsOverlay };
+  }
+  return {
+    mode: "media",
+    packId: assetId ? null : packId,
+    assetId,
+    mediaKind: assetId ? mediaKind ?? "video" : null,
+    dotsOverlay,
+  };
+}
+
 export type ResolvedTheme = {
   themeId: ThemeId;
   bg: string;
