@@ -1,5 +1,8 @@
 import type { SubtitleCue, SubtitleTargetLang } from "@promedia/shared";
-import { ensureSubtitleDirs } from "./subtitle-paths.js";
+import {
+  applyTransformersCacheEnv,
+  ensureSubtitleDirs,
+} from "./subtitle-paths.js";
 
 /**
  * Tiny local MT via Marian/OPUS ONNX (Xenova) when a pair model exists.
@@ -51,8 +54,9 @@ async function loadPair(src: string, tgt: string): Promise<TranslatePipeline | n
   if (!pending) {
     pending = (async () => {
       try {
-        await ensureSubtitleDirs();
+        const dirs = await ensureSubtitleDirs();
         const transformers = await import("@huggingface/transformers");
+        applyTransformersCacheEnv(transformers.env, dirs.models);
         const pipe = await transformers.pipeline("translation", modelId);
         return pipe as unknown as TranslatePipeline;
       } catch (err) {

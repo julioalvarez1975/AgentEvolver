@@ -211,6 +211,12 @@ export function ControlPage() {
         if (hint === "yt_dlp_missing" || hint === "ffmpeg_missing") {
           return t("control.subtitleAgentDepsMissing");
         }
+        if (hint === "model_download_failed") {
+          return t("control.subtitleAgentModelDownload");
+        }
+        if (hint === "model_path_error") {
+          return t("control.subtitleAgentModelPath");
+        }
         if (hint === "youtube_age_restricted") {
           return t("control.subtitleAgentYoutubeAge");
         }

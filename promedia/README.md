@@ -243,12 +243,15 @@ Reiniciá el hub tras instalar. Overrides: `FFMPEG_PATH`, `YT_DLP_PATH`.
 
 **Primera ejecución (descarga de modelos)**
 
-- Los pesos ONNX de Whisper (y de traducción, si aplica) se descargan **una vez** a `promedia/data/models/` (gitignore; no van al repo)
+- Hace falta **red una vez** para bajar Whisper (y Marian MT si aplica) a `promedia/data/models/` (gitignore; no van al repo). Después el hub puede trabajar **offline**.
+- El hub configura `@huggingface/transformers` con `env.cacheDir` + `env.localModelPath` → `data/models` (no basta `TRANSFORMERS_CACHE` en v4).
+- Si un intento deja descargas a medias (`.tmp.*`), el hub las limpia y **reintenta una vez**.
+- Errores claros en Control: red/`model_download_failed` vs ruta/caché/`model_path_error`.
 - Caché de cues por asset: `promedia/data/subtitles/cache/`
 - WAV temporal: `promedia/data/subtitles/wav/`
 - Audio YouTube cacheado: `promedia/data/subtitles/youtube-cache/` (gitignore; no commitear)
 - Requiere **`ffmpeg`** en el PATH (o `FFMPEG_PATH`); YouTube también **`yt-dlp`** (o `YT_DLP_PATH`)
-- Modelo ASR por defecto: `Xenova/whisper-tiny` (override: `SUBTITLE_WHISPER_MODEL`)
+- Modelo ASR por defecto: `Xenova/whisper-tiny` (override: `SUBTITLE_WHISPER_MODEL`, `SUBTITLE_WHISPER_REVISION`)
 
 **Traducción (enfoque por etapas)**
 
@@ -263,7 +266,7 @@ Reiniciá el hub tras instalar. Overrides: `FFMPEG_PATH`, `YT_DLP_PATH`.
 - Canciones de Biblioteca **solo texto** (sin pista de audio): el agente no hace STT (aviso)
 - Primera transcripción puede tardar (descarga + CPU); las siguientes del mismo archivo / videoId usan caché
 
-Env útiles: `SUBTITLE_MODELS_ROOT`, `SUBTITLE_DATA_ROOT`, `SUBTITLE_WHISPER_MODEL`, `FFMPEG_PATH`, `YT_DLP_PATH`, `TRANSFORMERS_CACHE`
+Env útiles: `SUBTITLE_MODELS_ROOT`, `SUBTITLE_DATA_ROOT`, `SUBTITLE_WHISPER_MODEL`, `SUBTITLE_WHISPER_REVISION`, `FFMPEG_PATH`, `YT_DLP_PATH`
 
 ### Tema (zona TEMA)
 
@@ -332,6 +335,7 @@ Ver `.env.example`. Las más relevantes:
 | `S3_*` | Stub S3-compatible (fallback a disco si incompleto) |
 | `SUBTITLE_MODELS_ROOT` / `SUBTITLE_DATA_ROOT` | Modelos Whisper/MT y caché de cues (default `data/models`, `data/subtitles`) |
 | `SUBTITLE_WHISPER_MODEL` | Modelo ASR local (default `Xenova/whisper-tiny`) |
+| `SUBTITLE_WHISPER_REVISION` | Revisión HF del modelo (default `main`) |
 | `FFMPEG_PATH` | Binario ffmpeg para extraer audio (default `ffmpeg`) |
 | `YT_DLP_PATH` | Binario yt-dlp para audio de YouTube (default `yt-dlp`) |
 
