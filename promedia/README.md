@@ -262,14 +262,14 @@ YouTube con captions oficiales/auto sigue siendo el camino más fiable para canc
 2. Añadí un **vídeo/audio local** (pestaña Audio del Guion incluida) o un **YouTube** público al Guion
 3. Pulsá **Agente subtítulos** en la barra (junto a **Proyectar** / **Idioma**; queda activo). El idioma de subtítulos **sigue el selector Idioma** de Control (ES / EN / PT / FR / ZH)
 4. Poné el ítem **En vivo** (las cues se sincronizan con `mediaClock` en Vista previa / En vivo / Output). Prioridad **letra real**, no etiquetas de sonido:
-   - YouTube: primero captions **manuales** (luego auto) con `yt-dlp`, preferiendo el idioma de Control; si no hay, bestaudio → Whisper
-   - Local: sidecar SRT/VTT o softsubs embebidos → si faltan, `ffmpeg` → WAV → **whisper.cpp** (`whisper-cli` + **ggml-base** ~142 MB; `-l auto`, `-sns` si el CLI lo soporta; si solo salen `[MUSIC]`/`[MÚSICA]`, reintento con `-tr` + MT)
+   - YouTube: primero captions **manuales/oficiales** (letra) con `yt-dlp` en el idioma de Control (`es` / `es-419`…); si la caché solo tiene auto, se vuelve a pedir la pista manual; si no hay captions, bestaudio → Whisper
+   - Local: sidecar SRT/VTT o softsubs embebidos → si faltan, `ffmpeg` → WAV → **whisper.cpp** (`whisper-cli` + **ggml-base** ~142 MB; `-l auto`, `-ml 48 -sow` para líneas tipo cancionero, `-sns` si el CLI lo soporta; si solo salen `[MUSIC]`/`[MÚSICA]`, reintento con `-tr` + MT)
    - Se filtran etiquetas no-speech (`[MUSIC]`, `[MÚSICA]`, etc.) antes de mostrar; un job vacío ya **no** se marca como «listo» (hint `no_speech` / error claro)
 5. Las captions aparecen **arriba del vídeo** (estilo cancionero / `FittedTextStage`), alineadas al mismo `mediaClock`, con anticipación configurable (−3…0 s, default −2 s) para leer la letra antes de cantarla. Tamaño SM–XL y anticipación van junto al botón **Agente subtítulos**. Canciones de Biblioteca con diapositivas ←/→ siguen siendo manuales (la anticipación solo aplica a cues con tiempo del agente).
 
 **Primera ejecución (descarga de modelos)**
 
-- Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-base.bin` (~142 MB) a `promedia/data/models/whisper/` (gitignore). Más preciso que `ggml-tiny` (~75 MB); override `SUBTITLE_WHISPER_CPP_MODEL=ggml-tiny.bin` si hace falta. La descarga es atómica (tmp único + rename) y se coalescen jobs concurrentes. ASR no arranca hasta tamaño válido (~140 MB+ para base). El hub pasa `-l auto` (y `-sns` cuando el CLI lo acepta) a `whisper-cli`. Luego offline.
+- Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-base.bin` (~142 MB) a `promedia/data/models/whisper/` (gitignore). Más preciso que `ggml-tiny` (~75 MB); override `SUBTITLE_WHISPER_CPP_MODEL=ggml-tiny.bin` si hace falta. La descarga es atómica (tmp único + rename) y se coalescen jobs concurrentes. ASR no arranca hasta tamaño válido (~140 MB+ para base). El hub pasa `-l auto`, `-ml 48 -sow` (líneas cortas tipo letra oficial) y `-sns` cuando el CLI lo acepta. Luego offline. Referencia de calidad: captions **manuales** de YouTube (p. ej. *Cuán grande es Él* `G6P1VnEPvjg`).
 - Sin whisper-cli: error claro `whisper_cpp_missing` → `brew install whisper-cpp` (no se usa Xenova/ONNX por defecto).
 - Errores claros en Control: `whisper_cpp_missing` / `whisper_cpp_failed` / `model_download_failed`.
 - Caché de cues por asset: `promedia/data/subtitles/cache/`

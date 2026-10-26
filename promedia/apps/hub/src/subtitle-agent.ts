@@ -27,8 +27,10 @@ import { tryLocalCaptionTracks } from "./subtitle-local-tracks.js";
 import { ensureSubtitleDirs } from "./subtitle-paths.js";
 import { translateCuesLocal } from "./subtitle-translate.js";
 import { filterSpeechCues } from "./subtitle-cue-text.js";
+import { shapeLyricLikeCues } from "./subtitle-lyric-shape.js";
 import {
   ensureYoutubeAudio,
+  expandCaptionPreferLangs,
   tryYoutubeCaptions,
   ytDlpAvailable,
 } from "./subtitle-youtube.js";
@@ -255,7 +257,7 @@ async function finishWithCues(options: {
     alreadyEnglish,
     preserveLyricsSource,
   } = options;
-  let cues = filterSpeechCues(options.cues);
+  let cues = shapeLyricLikeCues(filterSpeechCues(options.cues));
   let translated = alreadyEnglish && targetLang === "en";
   let hint = options.hint ?? null;
   let sourceLang = options.sourceLang;
@@ -275,7 +277,7 @@ async function finishWithCues(options: {
       alreadyEnglish,
       preserveLyricsSource: preserveLyricsSource === true,
     });
-    cues = filterSpeechCues(mt.cues);
+    cues = shapeLyricLikeCues(filterSpeechCues(mt.cues));
     translated = mt.translated || translated;
     if (mt.note && !mt.translated) {
       hint =
@@ -519,11 +521,9 @@ async function runSubtitleJob(
         sourceLang: null,
       });
 
-      // Prefer YouTube **manual** captions (then auto) matching app language
-      // over Whisper — tiny/base still stumble on sung lyrics (`[MUSIC]`).
-      const preferLangs = [targetLang, "en"].filter(
-        (v, i, a) => a.indexOf(v) === i,
-      );
+      // Prefer YouTube **manual** lyric captions (then auto) matching app
+      // language over Whisper — official tracks are the gold standard.
+      const preferLangs = expandCaptionPreferLangs([targetLang, "en"]);
       const caps = await tryYoutubeCaptions({
         videoId: resolved.youtube.videoId,
         sourceUrl: resolved.youtube.sourceUrl,

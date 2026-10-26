@@ -17,6 +17,14 @@ import {
   inferDominantLanguage,
 } from "../src/subtitle-lang-detect.ts";
 import {
+  mergeMicroLyricCues,
+  normalizeLyricPunctuation,
+  shapeLyricLikeCues,
+  splitLongLyricText,
+} from "../src/subtitle-lyric-shape.ts";
+import {
+  cachedCaptionSatisfiesPick,
+  expandCaptionPreferLangs,
   findYoutubeCaptionFiles,
   pickBestYoutubeCaptionTrack,
   rankYoutubeCaptionLang,
@@ -28,6 +36,10 @@ import {
   whisperCppDefaultMinBytes,
   whisperCppDefaultModelUrl,
 } from "../src/subtitle-whisper-cpp.ts";
+import {
+  cueAtPositionWithLeadMs,
+  type SubtitleCue,
+} from "@promedia/shared";
 
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg);
@@ -141,6 +153,130 @@ The club isn't the best place to find a lover
   assert(
     picked?.lang === "es" && picked.kind === "manual",
     `expected manual es, got ${picked?.kind}:${picked?.lang}`,
+  );
+
+  // Stale auto/unknown must not block a manual pick (same videoId.es.vtt name).
+  assert(
+    !cachedCaptionSatisfiesPick(
+      { lang: "es", trackKind: "unknown" },
+      { lang: "es", kind: "manual" },
+    ),
+    "unknown cache must not satisfy manual pick",
+  );
+  assert(
+    !cachedCaptionSatisfiesPick(
+      { lang: "es", trackKind: "auto" },
+      { lang: "es", kind: "manual" },
+    ),
+    "auto cache must not satisfy manual pick",
+  );
+  assert(
+    cachedCaptionSatisfiesPick(
+      { lang: "es", trackKind: "manual" },
+      { lang: "es", kind: "manual" },
+    ),
+    "manual cache satisfies manual pick",
+  );
+
+  const expanded = expandCaptionPreferLangs(["es"]);
+  assert(expanded[0] === "es" || expanded.includes("es"), "expand keeps es");
+  assert(expanded.includes("es-419"), "expand Spanish regional");
+
+  // Gold-standard hymn lines (Cuán grande es Él density) stay short + timed.
+  const hymn: SubtitleCue[] = [
+    { id: "a", startMs: 12_000, endMs: 15_000, text: "Señor mi Dios" },
+    {
+      id: "b",
+      startMs: 15_000,
+      endMs: 18_500,
+      text: "Al contemplar los cielos",
+    },
+    {
+      id: "c",
+      startMs: 18_500,
+      endMs: 22_000,
+      text: "El firmamento y las estrellas mil",
+    },
+    {
+      id: "d",
+      startMs: 22_000,
+      endMs: 26_000,
+      text: "Al oír tu voz en los potentes truenos",
+    },
+    {
+      id: "e",
+      startMs: 26_000,
+      endMs: 30_000,
+      text: "Y ver brillar el sol en su cenit",
+    },
+    {
+      id: "f",
+      startMs: 30_000,
+      endMs: 34_000,
+      text: "Mi corazón entona la canción",
+    },
+    {
+      id: "g",
+      startMs: 34_000,
+      endMs: 38_000,
+      text: "Cuán grande es Él, cuán grande es Él",
+    },
+    {
+      id: "h",
+      startMs: 38_000,
+      endMs: 42_000,
+      text: "Mi corazón entona la canción",
+    },
+  ];
+  const shapedHymn = shapeLyricLikeCues(hymn);
+  assert(shapedHymn.length >= 6, `hymn cues kept, got ${shapedHymn.length}`);
+  assert(
+    shapedHymn[0]!.text.toLowerCase().includes("señor"),
+    `hymn wording: ${shapedHymn[0]?.text}`,
+  );
+  // Intro-hold (#80) still sees first lyric before startMs.
+  assert(
+    cueAtPositionWithLeadMs(shapedHymn, 0, 0)?.text
+      .toLowerCase()
+      .includes("señor"),
+    "intro-hold still shows first hymn line at t=0",
+  );
+  assert(
+    cueAtPositionWithLeadMs(shapedHymn, 0, -2000)?.text
+      .toLowerCase()
+      .includes("señor"),
+    "Adelante −2 still works with shaped cues",
+  );
+
+  assert(
+    normalizeLyricPunctuation("señor mi dios") === "Señor mi dios",
+    "capitalize lyric line",
+  );
+  const split = splitLongLyricText(
+    "Señor mi Dios al contemplar los cielos el firmamento y las estrellas mil al oír tu voz en los potentes truenos y ver brillar el sol en su cenit",
+    0,
+    20_000,
+  );
+  assert(split.length >= 2, `long lyric split, got ${split.length}`);
+  assert(
+    split.every((s) => s.text.length <= 70),
+    "split pieces stay line-sized",
+  );
+
+  const micro = mergeMicroLyricCues([
+    { id: "1", startMs: 0, endMs: 400, text: "Cuán" },
+    { id: "2", startMs: 400, endMs: 800, text: "grande" },
+    { id: "3", startMs: 800, endMs: 1200, text: "es" },
+    { id: "4", startMs: 1200, endMs: 1800, text: "Él" },
+    { id: "5", startMs: 2000, endMs: 2400, text: "cuán" },
+    { id: "6", startMs: 2400, endMs: 2800, text: "grande" },
+    { id: "7", startMs: 2800, endMs: 3200, text: "es" },
+    { id: "8", startMs: 3200, endMs: 3800, text: "Él" },
+  ]);
+  assert(micro.length <= 4, `micro merge → lines, got ${micro.length}`);
+  assert(
+    micro.some((c) => /grande/i.test(c.text)),
+    "merged micro keeps wording",
   );
 
   // Already-Spanish must not look like English for MT skip.
