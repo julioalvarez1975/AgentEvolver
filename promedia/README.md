@@ -231,7 +231,7 @@ brew install yt-dlp ffmpeg whisper-cpp
 
 Reiniciá el hub tras instalar. Overrides: `FFMPEG_PATH`, `YT_DLP_PATH`, `WHISPER_CPP_PATH`.
 
-En **macOS** (y en cualquier host con `whisper-cli` en el PATH) el hub usa **whisper.cpp como ASR principal**; `@huggingface/transformers` (ONNX) queda como respaldo. Sin `whisper-cli`, intenta ONNX y, ante `Unable to get model file path or buffer`, vuelve a pedir `brew install whisper-cpp`.
+En **macOS** (y en cualquier host) el hub usa **whisper.cpp exclusivamente** cuando `whisper-cli` está en el PATH. **No carga** Xenova/ONNX en el modo por defecto (`SUBTITLE_ASR_BACKEND=auto`). Sin `whisper-cli`, falla con `whisper_cpp_missing` y el hint `brew install whisper-cpp` — no cae en el `model_path_error` de transformers.js.
 
 **Cómo usarlo**
 
@@ -246,13 +246,13 @@ En **macOS** (y en cualquier host con `whisper-cli` en el PATH) el hub usa **whi
 **Primera ejecución (descarga de modelos)**
 
 - Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-tiny.bin` a `promedia/data/models/whisper/` (gitignore). Luego offline.
-- Sin whisper-cli: intenta ONNX `Xenova/whisper-tiny` en `data/models/` (a menudo falla en Mac con `model_path_error` → instalá `brew install whisper-cpp`).
-- Errores claros en Control: `whisper_cpp_missing` / `model_download_failed` / `model_path_error`.
+- Sin whisper-cli: error claro `whisper_cpp_missing` → `brew install whisper-cpp` (no se usa Xenova/ONNX por defecto).
+- Errores claros en Control: `whisper_cpp_missing` / `whisper_cpp_failed` / `model_download_failed`.
 - Caché de cues por asset: `promedia/data/subtitles/cache/`
 - WAV temporal: `promedia/data/subtitles/wav/`
 - Audio YouTube cacheado: `promedia/data/subtitles/youtube-cache/` (gitignore; no commitear)
 - Requiere **`ffmpeg`** + **`whisper-cli`** (o `FFMPEG_PATH` / `WHISPER_CPP_PATH`); YouTube también **`yt-dlp`**
-- Backend: `SUBTITLE_ASR_BACKEND=auto|whisper_cpp|transformers` (default `auto` = preferir whisper-cli)
+- Backend: `SUBTITLE_ASR_BACKEND=auto|whisper_cpp|transformers` (default `auto` = solo whisper-cli; `transformers` es opt-in)
 
 **Traducción (enfoque por etapas)**
 

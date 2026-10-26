@@ -287,11 +287,6 @@ async function loadWhisperPipeline(attempt: number): Promise<WhisperPipeline> {
   return pipe as unknown as WhisperPipeline;
 }
 
-function isPathOrBufferError(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err ?? "");
-  return /unable to get model file path or buffer|model_path_error/i.test(msg);
-}
-
 async function getWhisper(): Promise<WhisperPipeline> {
   if (!whisperPromise) {
     whisperPromise = (async () => {
@@ -340,11 +335,19 @@ function asrBackendPref(): AsrBackend {
   return "auto";
 }
 
+/** Exported for smoke tests — documents the exclusive whisper.cpp contract. */
+export function asrBackendPreference(): AsrBackend {
+  return asrBackendPref();
+}
+
 async function transcribeWithTransformers(options: {
   wavPath: string;
   translateToEn: boolean;
   onStatus?: (status: "downloading" | "transcribing") => void;
 }): Promise<AsrResult> {
+  console.log(
+    "[subtitle] ASR backend=transformers (SUBTITLE_ASR_BACKEND=transformers)",
+  );
   options.onStatus?.("downloading");
   const whisper = await getWhisper();
   const audio = await wavToFloat32(options.wavPath);
@@ -383,7 +386,8 @@ async function transcribeViaWhisperCpp(options: {
   assetId: string;
   onStatus?: (status: "downloading" | "transcribing") => void;
 }): Promise<AsrResult> {
-  await assertWhisperCliOrThrow();
+  const bin = await assertWhisperCliOrThrow();
+  console.log(`[subtitle] ASR backend=whisper_cpp bin=${bin}`);
   const dirs = await ensureSubtitleDirs();
   const workDir = path.join(dirs.wav, `wcpp_${options.assetId}`);
   const result = await transcribeWithWhisperCpp({
@@ -400,8 +404,10 @@ async function transcribeViaWhisperCpp(options: {
 }
 
 /**
- * Local ASR with Whisper tiny (ONNX via @huggingface/transformers).
- * Models download once into gitignored `data/models/` (`env.cacheDir`).
+ * Local ASR. Default (`auto`): whisper.cpp exclusively when `whisper-cli` is
+ * on PATH (Homebrew Mac). Never loads Xenova/ONNX in that mode — Mac hits
+ * `model_path_error` on transformers.js. Missing CLI → `whisper_cpp_missing`
+ * with brew install hint. Opt-in only: `SUBTITLE_ASR_BACKEND=transformers`.
  */
 export async function transcribeLocalFile(options: {
   mediaPath: string;
@@ -443,19 +449,26 @@ export async function transcribeLocalFile(options: {
   const backend = asrBackendPref();
   let asr: AsrResult;
 
-  // Prefer whisper-cli whenever it is available (macOS brew path). ONNX
-  // transformers.js is secondary — Julio's Mac hits model_path_error reliably.
-  const cliPresent =
-    backend === "whisper_cpp"
-      ? true
-      : backend === "transformers"
-        ? false
-        : await whisperCliAvailable();
-
-  if (backend === "whisper_cpp" || (backend === "auto" && cliPresent)) {
-    console.log(
-      `[subtitle] ASR backend=whisper_cpp (${backend === "whisper_cpp" ? "forced" : "preferred"})`,
-    );
+  if (backend === "transformers") {
+    // Explicit opt-in only — not used on Mac default path.
+    try {
+      asr = await transcribeWithTransformers({
+        wavPath,
+        translateToEn,
+        onStatus,
+      });
+    } catch (tfErr) {
+      throw new Error(classifyWhisperLoadError(tfErr));
+    }
+  } else {
+    // auto | whisper_cpp: whisper-cli exclusively. Never fall into Xenova.
+    const cliPresent = await whisperCliAvailable();
+    if (!cliPresent) {
+      console.warn(
+        "[subtitle] ASR backend=whisper_cpp required but whisper-cli not found — install: brew install whisper-cpp (or set WHISPER_CPP_PATH). Not loading Xenova/ONNX.",
+      );
+      throw new Error("whisper_cpp_missing");
+    }
     try {
       asr = await transcribeViaWhisperCpp({
         wavPath,
@@ -466,79 +479,10 @@ export async function transcribeLocalFile(options: {
     } catch (cppErr) {
       const missing = missingBinHintFromError(cppErr, "whisper_cpp");
       if (missing) {
-        if (backend === "whisper_cpp") {
-          throw new Error("whisper_cpp_missing");
-        }
-        // auto but binary vanished mid-flight → try transformers once
-        console.warn(
-          "[subtitle] whisper.cpp missing mid-job; trying transformers",
-        );
-      } else {
-        const cppMsg =
-          cppErr instanceof Error ? cppErr.message : String(cppErr);
-        // On auto, if whisper.cpp fails for non-missing reasons, still try
-        // transformers before giving up — unless it is a clear cpp failure.
-        if (
-          backend === "whisper_cpp" ||
-          cppMsg.startsWith("whisper_cpp_failed") ||
-          cppMsg.startsWith("model_download_failed")
-        ) {
-          throw new Error(cppMsg.slice(0, 180));
-        }
-        console.warn(
-          `[subtitle] whisper.cpp failed (${cppMsg}); trying transformers`,
-        );
+        throw new Error("whisper_cpp_missing");
       }
-      asr = await transcribeWithTransformers({
-        wavPath,
-        translateToEn,
-        onStatus,
-      }).catch((tfErr) => {
-        throw new Error(classifyWhisperLoadError(tfErr));
-      });
-    }
-  } else {
-    // transformers forced, or auto with no whisper-cli on PATH
-    try {
-      asr = await transcribeWithTransformers({
-        wavPath,
-        translateToEn,
-        onStatus,
-      });
-    } catch (tfErr) {
-      const classified = classifyWhisperLoadError(tfErr);
-      const pathBuf =
-        classified === "model_path_error" || isPathOrBufferError(tfErr);
-
-      if (backend === "transformers" || !pathBuf) {
-        throw new Error(classified);
-      }
-
-      // auto, no cli detected earlier, but path/buffer → try whisper.cpp anyway
-      // (resolve may have missed brew path; assert gives clear hint).
-      console.warn(
-        `[subtitle] transformers failed (${classified}); falling back to whisper.cpp`,
-      );
-      try {
-        asr = await transcribeViaWhisperCpp({
-          wavPath,
-          translateToEn,
-          assetId,
-          onStatus,
-        });
-        console.log("[subtitle] ASR backend=whisper_cpp (fallback OK)");
-      } catch (cppErr) {
-        const missing = missingBinHintFromError(cppErr, "whisper_cpp");
-        if (missing) throw new Error("whisper_cpp_missing");
-        const cppMsg =
-          cppErr instanceof Error ? cppErr.message : String(cppErr);
-        throw new Error(
-          cppMsg.startsWith("whisper_cpp_") ||
-            cppMsg.startsWith("model_download_failed")
-            ? cppMsg.slice(0, 180)
-            : classified,
-        );
-      }
+      const cppMsg = cppErr instanceof Error ? cppErr.message : String(cppErr);
+      throw new Error(cppMsg.slice(0, 180));
     }
   }
 

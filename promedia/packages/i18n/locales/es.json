@@ -271,7 +271,7 @@
   "library.songFolderResult": "Importadas {n} canción(es){updated}{skipped}.",
   "bible.localBadge": "local",
   "control.subtitleAgent": "Agente subtítulos",
-  "control.subtitleAgentTitle": "Activar subtítulos locales (ASR offline). Archivos del hub o YouTube (audio vía yt-dlp). Requiere ffmpeg; YouTube también yt-dlp. Si falla Whisper ONNX, instalá whisper-cpp (`brew install yt-dlp ffmpeg whisper-cpp`). La primera vez descarga el modelo. El idioma de subtítulos sigue el selector Idioma de Control.",
+  "control.subtitleAgentTitle": "Activar subtítulos locales (ASR offline con whisper.cpp). Archivos del hub o YouTube (audio vía yt-dlp). Requiere ffmpeg + whisper-cli; YouTube también yt-dlp (`brew install yt-dlp ffmpeg whisper-cpp`). La primera vez descarga ggml-tiny. El idioma de subtítulos sigue el selector Idioma de Control.",
   "control.subtitleAgentLang": "Idioma de subtítulos (sigue Idioma de Control)",
   "control.subtitleAgentLangShort": "Subs",
   "control.subtitleAgentYoutube": "YouTube: el hub descarga el audio con yt-dlp (local) y corre Whisper. Requiere yt-dlp + ffmpeg en el PATH.",
@@ -281,7 +281,7 @@
   "control.subtitleAgentFfmpegMissing": "Instalá ffmpeg (`brew install ffmpeg`) y reiniciá ProMedia.",
   "control.subtitleAgentExtractFailed": "No se pudo extraer el audio (descarga incompleta o códec). Probá de nuevo o instalá/actualizá ffmpeg (`brew install ffmpeg`).",
   "control.subtitleAgentModelDownload": "No se pudo descargar el modelo Whisper (hace falta red la primera vez). Revisá la conexión y reintentá.",
-  "control.subtitleAgentModelPath": "Falló la caché ONNX de Whisper; se intenta whisper.cpp. Si ves esto, instalá `brew install whisper-cpp` y reiniciá ProMedia.",
+  "control.subtitleAgentModelPath": "Error de ruta del modelo Whisper. Instalá whisper.cpp (`brew install whisper-cpp`), reiniciá ProMedia y asegurate de que el hub use whisper-cli (no ONNX).",
   "control.subtitleAgentYoutubeAge": "YouTube con restricción de edad — no se pudo descargar el audio",
   "control.subtitleAgentYoutubePrivate": "Vídeo de YouTube privado o con login — no se pudo descargar",
   "control.subtitleAgentYoutubeFailed": "No se pudo descargar el audio de YouTube (privado, bloqueado o sin red)",
@@ -303,6 +303,6 @@
   "control.subtitleAgentLead20": "2s",
   "control.subtitleAgentLead25": "2,5s",
   "control.subtitleAgentLead30": "3s",
-  "control.subtitleAgentWhisperCppMissing": "Instalá whisper.cpp (`brew install whisper-cpp`) y reiniciá ProMedia. El hub lo usa si falla el modelo ONNX de Whisper.",
+  "control.subtitleAgentWhisperCppMissing": "Instalá whisper.cpp (`brew install whisper-cpp`) y reiniciá ProMedia. El hub necesita `whisper-cli` para el ASR local (PATH de Homebrew o WHISPER_CPP_PATH).",
   "control.subtitleAgentWhisperCppFailed": "Falló la transcripción con whisper.cpp. Revisá el modelo ggml en promedia/data/models/whisper/ o reinstalá (`brew install whisper-cpp`)."
 }
