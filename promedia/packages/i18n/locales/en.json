@@ -57,7 +57,7 @@
   "text.save": "Save",
   "text.importFile": "Import PDF / XML / text…",
   "text.importing": "Importing…",
-  "text.importLimits": "Limits: PDF/XML/txt/md · max 8 MB · up to 200 slides · ~900 chars per slide. Manual editor still available.",
+  "text.importLimits": "Limits: PDF/XML/txt/md · max 8 MB · up to 200 slides · 5 lines per projection slide · ~900 chars per block. Manual editor still available.",
   "text.importOk": "Imported {n} slides. Edit them below.",
   "text.importTruncated": "Import truncated to {n} slides (limit).",
   "text.importTooLarge": "File too large (max 8 MB).",

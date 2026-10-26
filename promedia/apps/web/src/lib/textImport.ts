@@ -92,7 +92,7 @@ export function chunkTextToSlides(
     id: cryptoRandomId(),
     lines: text.split("\n"),
   }));
-  // Enforce ≤4 lines per slide so import matches Output/Live ←/→ chunks.
+  // Enforce ≤5 lines per slide so import matches Output/Live ←/→ chunks.
   const projected = projectionTextSlides(rawSlides);
   const truncated = projected.length > maxSlides || chunks.length > maxSlides;
   const slides = truncated ? projected.slice(0, maxSlides) : projected;

@@ -9,7 +9,7 @@ export type TextOutputRendererProps = {
 /**
  * Text on Output. Align / colors / font come from session theme CSS vars
  * (`--pm-*` on `.pm-theme`); item.payload.align does not win (subtarea 8).
- * Shows at most 4 lines per slide, centered to fill the projection stage.
+ * Shows at most 5 lines per slide, centered to fill the projection stage.
  */
 export function TextOutputRenderer({ item, slideIndex }: TextOutputRendererProps) {
   const payload = item.payload as TextPayload;
