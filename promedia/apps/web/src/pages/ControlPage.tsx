@@ -1551,17 +1551,7 @@ export function ControlPage() {
                 assetSrc={themeBgAssetSrc}
                 showDots={!liveVideoPlaneDots}
               />
-              <span className="stage-overlay-label" aria-hidden="true">
-                {t("control.live")}
-              </span>
-              {sceneMode !== "normal" ? (
-                <span
-                  className="scene-mode-badge stage-overlay-badge"
-                  data-mode={sceneMode}
-                >
-                  {t(`scene.${sceneMode}`)}
-                </span>
-              ) : null}
+              {/* En vivo = content only (no label / badge / transport chrome). */}
               {liveItem && LivePanel ? (
                 <div
                   className={

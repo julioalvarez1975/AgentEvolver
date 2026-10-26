@@ -6,6 +6,7 @@ export type ImageLivePanelProps = {
   assetSrc?: string;
 };
 
+/** Live monitor — image only (no fit label chrome). */
 export function ImageLivePanel({ item, assetSrc }: ImageLivePanelProps) {
   if (item.type !== "image") {
     return null;
@@ -24,7 +25,6 @@ export function ImageLivePanel({ item, assetSrc }: ImageLivePanelProps) {
           <p className="image-missing">…</p>
         )}
       </div>
-      <p className="image-fit-label">{image.payload.fit}</p>
     </div>
   );
 }
