@@ -10,13 +10,23 @@ import {
   isImagePlaylistItem,
   normalizeImagePayload,
 } from "./image/schema.js";
+import {
+  isPresentationPlaylistItem,
+  normalizePresentationPayload,
+} from "./presentation/schema.js";
 import { isTextPlaylistItem, normalizeTextPayload } from "./text/schema.js";
 import {
   isVideoPlaylistItem,
   normalizeVideoPayload,
 } from "./video/schema.js";
 
-const REGISTERED_TYPES = new Set(["text", "image", "video", "bible"]);
+const REGISTERED_TYPES = new Set([
+  "text",
+  "image",
+  "video",
+  "bible",
+  "presentation",
+]);
 
 export function isRegisteredItemType(type: string): boolean {
   return REGISTERED_TYPES.has(type);
@@ -72,6 +82,17 @@ export function validatePlaylistItem(value: unknown): PlaylistItem | null {
       type: "bible",
       order: value.order,
       payload: normalizeBiblePayload(value.payload),
+    };
+  }
+  if (raw.type === "presentation") {
+    if (!isPresentationPlaylistItem(value)) {
+      return null;
+    }
+    return {
+      id: value.id,
+      type: "presentation",
+      order: value.order,
+      payload: normalizePresentationPayload(value.payload),
     };
   }
   return null;

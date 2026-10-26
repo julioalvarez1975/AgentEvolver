@@ -105,6 +105,21 @@ export class AssetStore {
     }
     return { error: "unsupported_mime" };
   }
+
+  /**
+   * Put a library-copied image (incl. SVG slides) into the session asset store.
+   */
+  async putProjectionImage(
+    sessionId: string,
+    bytes: Buffer,
+    mime: string,
+    originalName?: string,
+  ): Promise<MediaAsset | { error: string }> {
+    if (!isAllowedImageMime(mime) && mime !== "image/svg+xml") {
+      return { error: "unsupported_mime" };
+    }
+    return this.putKind(sessionId, "image", bytes, mime, originalName);
+  }
 }
 
 export const assetStore = new AssetStore();

@@ -12,6 +12,10 @@ import { TextLivePanel } from "./text/LivePanel.js";
 import { TextOutputRenderer } from "./text/OutputRenderer.js";
 import { TextPreview } from "./text/Preview.js";
 import { isTextPlaylistItem } from "./text/schema.js";
+import { PresentationLivePanel } from "./presentation/LivePanel.js";
+import { PresentationOutputRenderer } from "./presentation/OutputRenderer.js";
+import { PresentationPreview } from "./presentation/Preview.js";
+import { isPresentationPlaylistItem } from "./presentation/schema.js";
 import { VideoLivePanel } from "./video/LivePanel.js";
 import { VideoOutputRenderer } from "./video/OutputRenderer.js";
 import { VideoPreview } from "./video/Preview.js";
@@ -95,11 +99,21 @@ const bibleModule: MediaTypeModule = {
   OutputRenderer: BibleOutputRenderer,
 };
 
+const presentationModule: MediaTypeModule = {
+  type: "presentation",
+  labelKey: "itemTypes.presentation",
+  validate: isPresentationPlaylistItem,
+  Preview: PresentationPreview,
+  LivePanel: PresentationLivePanel,
+  OutputRenderer: PresentationOutputRenderer,
+};
+
 const modules: MediaTypeModule[] = [
   textModule,
   imageModule,
   videoModule,
   bibleModule,
+  presentationModule,
 ];
 
 export const itemTypeRegistry: readonly MediaTypeModule[] = modules;

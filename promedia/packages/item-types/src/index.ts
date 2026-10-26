@@ -48,3 +48,12 @@ export {
   BibleLivePanel,
   BibleOutputRenderer,
 } from "./bible/index.js";
+export {
+  isPresentationPayload,
+  isPresentationPlaylistItem,
+  isPresentationSlide,
+  normalizePresentationPayload,
+  PresentationPreview,
+  PresentationLivePanel,
+  PresentationOutputRenderer,
+} from "./presentation/index.js";

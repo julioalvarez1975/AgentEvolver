@@ -9,7 +9,7 @@ Proyección multimedia para **culto y evento**. Ventana **Control** (operador) +
 | `apps/web` | SPA **Vite + React** — rutas `/control`, `/output`, `/` |
 | `apps/hub` | **Hono** + WebSocket — sesiones, assets, Biblia, playlists |
 | `@promedia/shared` | Protocolo, temas, transiciones, tipos de sesión |
-| `@promedia/item-types` | Registry Preview / En vivo / Output (texto, imagen, vídeo, YouTube, Biblia) |
+| `@promedia/item-types` | Registry Preview / En vivo / Output (texto, imagen, vídeo, YouTube, Biblia, presentación) |
 | `@promedia/media` | Almacenamiento local (disco) + adapter S3 stub |
 | `@promedia/i18n` | Locales **ES · EN · PT · FR · ZH** |
 
@@ -161,11 +161,24 @@ Si el popup está bloqueado, aparece un aviso con enlace **Abrir salida**. El at
 
 ### Guion
 
-- **Añadir** (multiarchivo: imagen, vídeo, PDF/XML/texto) + menú: Enlace/YouTube, Biblia, Texto en blanco
+- **Añadir** (multiarchivo: imagen, vídeo, PDF/XML/texto) + menú: Enlace/YouTube, Biblia, Texto en blanco, **Crear canción**, **Biblioteca**
 - Drag ⋮⋮ (y ↑/↓), multi-selección + **Quitar seleccionados**
 - Guardar / Cargar guiones con nombre
 - Botón **En vivo** / doble clic = enviar al live
-- Tipos: texto, imagen, vídeo, YouTube, Biblia
+- Tipos: texto, imagen, vídeo, YouTube, Biblia, presentación (solo visualización)
+
+### Biblioteca
+
+Mediateca **local** del hub (no nube en esta fase). Datos en `promedia/data/library/` (gitignore).
+
+| Categoría | Contenido |
+|-----------|-----------|
+| Canciones | Editor de título / artista / estrofas → texto proyectable (chunks de 5 líneas) |
+| Biblias / Textos | Guardados en biblioteca para reutilizar |
+| Presentaciones | Import `.pptx` `.ppt` `.ppsx` `.potx` `.odp` `.pdf` → diapositivas para ←/→. **Sin** macros (`.pptm`/`.ppsm`). Sin edición nativa |
+| Imágenes / Vídeos | Subida y reuso en el Guion |
+
+API hub: `/api/v1/library/*` (listar, subir, canciones, añadir al Guion de la sesión).
 
 ### Vista previa + En vivo
 
@@ -204,7 +217,7 @@ Botón **Biblia** en el Guion: libro/capítulo/rango o referencia (`Juan 3:16-17
 | `L` / `B` / `C` | Logo / Negro / Clear |
 | `N` o `Esc` | Escena normal |
 | `1` / `2` / `3` | Temas Oscuro / Claro / Acento |
-| `←` / `→` | Slide anterior / siguiente (ítem live de texto/Biblia) |
+| `←` / `→` | Slide anterior / siguiente (texto / Biblia / presentación en vivo) |
 
 **Proyectar** no tiene atajo de teclado — solo el botón de la toolbar.
 
