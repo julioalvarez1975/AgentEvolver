@@ -16,6 +16,10 @@ import { PresentationLivePanel } from "./presentation/LivePanel.js";
 import { PresentationOutputRenderer } from "./presentation/OutputRenderer.js";
 import { PresentationPreview } from "./presentation/Preview.js";
 import { isPresentationPlaylistItem } from "./presentation/schema.js";
+import { AudioLivePanel } from "./audio/LivePanel.js";
+import { AudioOutputRenderer } from "./audio/OutputRenderer.js";
+import { AudioPreview } from "./audio/Preview.js";
+import { isAudioPlaylistItem } from "./audio/schema.js";
 import { VideoLivePanel } from "./video/LivePanel.js";
 import { VideoOutputRenderer } from "./video/OutputRenderer.js";
 import { VideoPreview } from "./video/Preview.js";
@@ -90,6 +94,15 @@ const videoModule: MediaTypeModule = {
   OutputRenderer: VideoOutputRenderer,
 };
 
+const audioModule: MediaTypeModule = {
+  type: "audio",
+  labelKey: "itemTypes.audio",
+  validate: isAudioPlaylistItem,
+  Preview: AudioPreview,
+  LivePanel: AudioLivePanel,
+  OutputRenderer: AudioOutputRenderer,
+};
+
 const bibleModule: MediaTypeModule = {
   type: "bible",
   labelKey: "itemTypes.bible",
@@ -112,6 +125,7 @@ const modules: MediaTypeModule[] = [
   textModule,
   imageModule,
   videoModule,
+  audioModule,
   bibleModule,
   presentationModule,
 ];

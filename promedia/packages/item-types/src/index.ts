@@ -42,6 +42,14 @@ export {
   shouldCorrectSeek,
 } from "./video/index.js";
 export {
+  isAudioPayload,
+  isAudioPlaylistItem,
+  normalizeAudioPayload,
+  AudioPreview,
+  AudioLivePanel,
+  AudioOutputRenderer,
+} from "./audio/index.js";
+export {
   isBiblePayload,
   isBiblePlaylistItem,
   normalizeBiblePayload,

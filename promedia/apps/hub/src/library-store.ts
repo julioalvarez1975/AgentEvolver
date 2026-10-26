@@ -82,6 +82,13 @@ function mimeFromName(name: string): string {
   if (lower.endsWith(".mp4")) return "video/mp4";
   if (lower.endsWith(".webm")) return "video/webm";
   if (lower.endsWith(".mov")) return "video/quicktime";
+  if (lower.endsWith(".mp3")) return "audio/mpeg";
+  if (lower.endsWith(".m4a")) return "audio/mp4";
+  if (lower.endsWith(".aac")) return "audio/aac";
+  if (lower.endsWith(".wav")) return "audio/wav";
+  if (lower.endsWith(".flac")) return "audio/flac";
+  if (lower.endsWith(".ogg") || lower.endsWith(".oga")) return "audio/ogg";
+  if (lower.endsWith(".opus")) return "audio/opus";
   if (lower.endsWith(".pdf")) return "application/pdf";
   if (lower.endsWith(".pptx")) {
     return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
@@ -148,6 +155,12 @@ function classifyUpload(
   ) {
     return "videos";
   }
+  if (
+    mime.startsWith("audio/") ||
+    /\.(mp3|m4a|aac|wav|flac|ogg|oga|opus)$/i.test(lower)
+  ) {
+    return "audios";
+  }
   if (/\.(txt|md)$/i.test(lower) || mime.startsWith("text/")) {
     return "textos";
   }
@@ -158,7 +171,7 @@ function classifyUpload(
   return {
     error: "unsupported_type",
     message:
-      "Tipo no soportado para la biblioteca. Subí imagen, vídeo, texto, Biblia (.xml/.xmm/.pdf), cancionero Quelea (.qsp/.xml) o presentación (.pptx/.pdf/…).",
+      "Tipo no soportado para la biblioteca. Subí imagen, vídeo, audio, texto, Biblia (.xml/.xmm/.pdf), cancionero Quelea (.qsp/.xml) o presentación (.pptx/.pdf/…).",
   };
 }
 
@@ -1059,6 +1072,37 @@ export class LibraryStore {
             autoplay: true,
             muted: false,
             fit: "contain",
+          },
+        },
+      };
+    }
+
+    if (lib.category === "audios" && lib.original) {
+      const bytes = await readFile(
+        this.resolveUnderLibrary(lib.original.relativePath),
+      );
+      const asset = await assetStore.putByMime(
+        opts.sessionId,
+        bytes,
+        lib.original.mime,
+        lib.original.originalName,
+      );
+      if ("error" in asset) {
+        return {
+          error: asset.error,
+          message: "No se pudo copiar el audio a la sesión.",
+        };
+      }
+      return {
+        item: {
+          id: newId(),
+          type: "audio",
+          order: opts.order,
+          payload: {
+            assetId: asset.id,
+            title: lib.title,
+            autoplay: true,
+            loop: false,
           },
         },
       };

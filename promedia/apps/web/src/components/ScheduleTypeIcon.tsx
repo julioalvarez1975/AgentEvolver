@@ -4,6 +4,7 @@ export type ScheduleKind =
   | "text"
   | "image"
   | "video"
+  | "audio"
   | "youtube"
   | "bible"
   | "presentation";
@@ -126,6 +127,17 @@ export function ScheduleTypeIcon({ kind, className }: Props) {
           stroke="currentColor"
           strokeWidth="1.3"
           strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (kind === "audio") {
+    return (
+      <svg {...common}>
+        <path
+          d="M6.5 4.2v7.8a2.6 2.6 0 1 1-1.5-2.35V6.4l6.5-1.5v5.6a2.6 2.6 0 1 1-1.5-2.35V4.5L6.5 4.2Z"
+          fill="currentColor"
         />
       </svg>
     );

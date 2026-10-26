@@ -95,6 +95,21 @@ export type VideoPlaylistItem = {
   payload: VideoPayload;
 };
 
+/** Local audio/music file (mp3, wav, m4a, …) — plays via mediaClock like file video. */
+export type AudioPayload = {
+  assetId: string;
+  title?: string;
+  autoplay?: boolean;
+  loop?: boolean;
+};
+
+export type AudioPlaylistItem = {
+  id: string;
+  type: "audio";
+  order: number;
+  payload: AudioPayload;
+};
+
 export type BiblePlaylistItem = {
   id: string;
   type: "bible";
@@ -131,6 +146,7 @@ export type PlaylistItemType =
   | "text"
   | "image"
   | "video"
+  | "audio"
   | "bible"
   | "presentation";
 
@@ -138,6 +154,7 @@ export type PlaylistItem =
   | TextPlaylistItem
   | ImagePlaylistItem
   | VideoPlaylistItem
+  | AudioPlaylistItem
   | BiblePlaylistItem
   | PresentationPlaylistItem;
 
@@ -148,7 +165,8 @@ export type LibraryCategory =
   | "textos"
   | "presentaciones"
   | "imagenes"
-  | "videos";
+  | "videos"
+  | "audios";
 
 export const LIBRARY_CATEGORIES: readonly LibraryCategory[] = [
   "canciones",
@@ -157,6 +175,7 @@ export const LIBRARY_CATEGORIES: readonly LibraryCategory[] = [
   "presentaciones",
   "imagenes",
   "videos",
+  "audios",
 ] as const;
 
 export type LibrarySongStanza = {
@@ -234,7 +253,7 @@ export type SavedPlaylist = {
   items: PlaylistItem[];
 };
 
-export type MediaKind = "image" | "video";
+export type MediaKind = "image" | "video" | "audio";
 
 /** Media asset metadata (bytes live on disk via packages/media). */
 export type MediaAsset = {
@@ -763,6 +782,9 @@ export function itemLabel(item: PlaylistItem): string {
   }
   if (item.type === "image") {
     return item.payload.title?.trim() || "Imagen";
+  }
+  if (item.type === "audio") {
+    return item.payload.title?.trim() || "Audio";
   }
   if (item.type === "presentation") {
     return (

@@ -1,6 +1,6 @@
 import { isSupportedTextImport } from "./textImport";
 
-export type MediaFileKind = "image" | "video" | "text" | "unsupported";
+export type MediaFileKind = "image" | "video" | "audio" | "text" | "unsupported";
 
 const IMAGE_EXTS = new Set([
   ".jpg",
@@ -10,6 +10,16 @@ const IMAGE_EXTS = new Set([
   ".gif",
 ]);
 const VIDEO_EXTS = new Set([".mp4", ".webm", ".mov"]);
+const AUDIO_EXTS = new Set([
+  ".mp3",
+  ".m4a",
+  ".aac",
+  ".wav",
+  ".flac",
+  ".ogg",
+  ".oga",
+  ".opus",
+]);
 
 function extOf(name: string): string {
   const i = name.lastIndexOf(".");
@@ -26,6 +36,9 @@ export function classifyMediaFile(file: File): MediaFileKind {
   }
   if (mime.startsWith("video/") || VIDEO_EXTS.has(ext)) {
     return "video";
+  }
+  if (mime.startsWith("audio/") || AUDIO_EXTS.has(ext)) {
+    return "audio";
   }
   if (isSupportedTextImport(file)) {
     return "text";
@@ -50,6 +63,21 @@ export const UNIFIED_MEDIA_ACCEPT = [
   ".mp4",
   ".webm",
   ".mov",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/aac",
+  "audio/wav",
+  "audio/flac",
+  "audio/ogg",
+  "audio/*",
+  ".mp3",
+  ".m4a",
+  ".aac",
+  ".wav",
+  ".flac",
+  ".ogg",
+  ".oga",
+  ".opus",
   ".pdf",
   ".xml",
   ".txt",
@@ -61,4 +89,23 @@ export const UNIFIED_MEDIA_ACCEPT = [
   "text/markdown",
   "application/xml",
   "text/xml",
+].join(",");
+
+/** Accept attribute for the Guion Audio solapa picker. */
+export const AUDIO_MEDIA_ACCEPT = [
+  "audio/*",
+  "audio/mpeg",
+  "audio/mp4",
+  "audio/aac",
+  "audio/wav",
+  "audio/flac",
+  "audio/ogg",
+  ".mp3",
+  ".m4a",
+  ".aac",
+  ".wav",
+  ".flac",
+  ".ogg",
+  ".oga",
+  ".opus",
 ].join(",");

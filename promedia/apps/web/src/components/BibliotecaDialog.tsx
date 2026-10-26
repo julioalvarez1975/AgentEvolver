@@ -40,6 +40,7 @@ const CATEGORY_LABEL: Record<LibraryCategory, string> = {
   presentaciones: "library.cat.presentaciones",
   imagenes: "library.cat.imagenes",
   videos: "library.cat.videos",
+  audios: "library.cat.audios",
 };
 
 export function BibliotecaDialog({

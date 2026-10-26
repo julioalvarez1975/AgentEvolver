@@ -372,6 +372,7 @@ export class SessionStore {
       item.type !== "text" &&
       item.type !== "image" &&
       item.type !== "video" &&
+      item.type !== "audio" &&
       item.type !== "bible"
     ) {
       return { error: "unsupported_type" };
@@ -380,8 +381,11 @@ export class SessionStore {
     session.live.currentSlideIndex = 0;
     // Julio lock: Go Live resets sceneMode to normal
     session.live.sceneMode = "normal";
-    // Q3: video Go Live auto-starts playback (unmuted per Q2 / payload.muted)
-    if (item.type === "video" && item.payload.autoplay !== false) {
+    // Q3: video/audio Go Live auto-starts playback (unmuted per Q2 / payload.muted)
+    if (
+      (item.type === "video" || item.type === "audio") &&
+      item.payload.autoplay !== false
+    ) {
       session.live.mediaClock = {
         itemId,
         playing: true,
@@ -389,7 +393,7 @@ export class SessionStore {
         rate: 1,
         updatedAt: nowIso(),
       };
-    } else if (item.type === "video") {
+    } else if (item.type === "video" || item.type === "audio") {
       session.live.mediaClock = {
         itemId,
         playing: false,
@@ -519,7 +523,7 @@ export class SessionStore {
       return { error: "no_live_item" };
     }
     const item = session.playlist.items.find((i) => i.id === itemId);
-    if (!item || item.type !== "video") {
+    if (!item || (item.type !== "video" && item.type !== "audio")) {
       return { error: "no_video_live" };
     }
     const prev = session.live.mediaClock;
@@ -551,6 +555,12 @@ export class SessionStore {
     if (item.type === "video" && item.payload.sourceKind === "file") {
       const asset = assetStore.get(session.id, item.payload.assetId);
       if (!asset || asset.kind !== "video") {
+        return { error: "unknown_asset" };
+      }
+    }
+    if (item.type === "audio") {
+      const asset = assetStore.get(session.id, item.payload.assetId);
+      if (!asset || asset.kind !== "audio") {
         return { error: "unknown_asset" };
       }
     }
