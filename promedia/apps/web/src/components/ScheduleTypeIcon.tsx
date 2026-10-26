@@ -1,6 +1,12 @@
 import type { PlaylistItem } from "@promedia/shared";
 
-export type ScheduleKind = "text" | "image" | "video" | "youtube" | "bible";
+export type ScheduleKind =
+  | "text"
+  | "image"
+  | "video"
+  | "youtube"
+  | "bible"
+  | "presentation";
 
 export function scheduleKindOf(item: PlaylistItem): ScheduleKind {
   if (item.type === "video" && item.payload.sourceKind === "youtube") {
@@ -97,6 +103,28 @@ export function ScheduleTypeIcon({ kind, className }: Props) {
           d="M5.2 5.2h4.2M5.2 7.4h3.2"
           stroke="currentColor"
           strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  if (kind === "presentation") {
+    return (
+      <svg {...common}>
+        <rect
+          x="2"
+          y="3"
+          width="12"
+          height="9"
+          rx="1.2"
+          stroke="currentColor"
+          strokeWidth="1.4"
+        />
+        <path
+          d="M5 14.5h6M8 12v2.5"
+          stroke="currentColor"
+          strokeWidth="1.3"
           strokeLinecap="round"
         />
       </svg>

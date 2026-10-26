@@ -12,6 +12,7 @@ import type {
 import { assetStore } from "./asset-store.js";
 import { authorizeSessionAccess } from "./auth.js";
 import { broadcastSession } from "./broadcast.js";
+import { libraryStore } from "./library-store.js";
 import { playlistStore } from "./playlist-store.js";
 import { sessionStore } from "./session-store.js";
 import { BIBLE_BOOKS } from "./bible/books.js";
@@ -22,6 +23,7 @@ import {
   TEXT_IMPORT_MAX_BYTES,
   parsePdfBuffer,
 } from "./text-import.js";
+import type { LibrarySongPayload, TextPayload, BiblePayload } from "@promedia/shared";
 
 function publicBase(c: {
   req: { url: string; header: (name: string) => string | undefined };
@@ -433,6 +435,236 @@ export function createApiRoutes(): Hono {
       slides,
     });
   });
+
+  // ── Local media library (Phase 1 — disk + JSON; not cloud) ──────────
+
+  api.get("/library/items", async (c) => {
+    const category = c.req.query("category") ?? undefined;
+    const q = c.req.query("q") ?? undefined;
+    const items = await libraryStore.list({ category, q });
+    return c.json({ items });
+  });
+
+  api.get("/library/items/:id", async (c) => {
+    const item = await libraryStore.get(c.req.param("id"));
+    if (!item) {
+      return c.json({ error: "not_found" }, 404);
+    }
+    return c.json({ item });
+  });
+
+  api.post("/library/songs", async (c) => {
+    let body: LibrarySongPayload;
+    try {
+      body = (await c.req.json()) as LibrarySongPayload;
+    } catch {
+      return c.json({ error: "invalid_json" }, 400);
+    }
+    const result = await libraryStore.createSong(body);
+    if ("error" in result) {
+      return c.json(
+        { error: result.error, message: result.message },
+        400,
+      );
+    }
+    return c.json({ item: result }, 201);
+  });
+
+  api.put("/library/songs/:id", async (c) => {
+    let body: LibrarySongPayload;
+    try {
+      body = (await c.req.json()) as LibrarySongPayload;
+    } catch {
+      return c.json({ error: "invalid_json" }, 400);
+    }
+    const result = await libraryStore.updateSong(c.req.param("id"), body);
+    if ("error" in result) {
+      const status = result.error === "not_found" ? 404 : 400;
+      return c.json(
+        { error: result.error, message: result.message },
+        status,
+      );
+    }
+    return c.json({ item: result });
+  });
+
+  api.post("/library/text", async (c) => {
+    let body: { title?: string; text?: TextPayload };
+    try {
+      body = (await c.req.json()) as { title?: string; text?: TextPayload };
+    } catch {
+      return c.json({ error: "invalid_json" }, 400);
+    }
+    if (!body.text) {
+      return c.json({ error: "missing_text" }, 400);
+    }
+    const result = await libraryStore.saveText({
+      title: body.title ?? body.text.title ?? "Texto",
+      text: body.text,
+    });
+    if ("error" in result) {
+      return c.json(
+        { error: result.error, message: result.message },
+        400,
+      );
+    }
+    return c.json({ item: result }, 201);
+  });
+
+  api.post("/library/bible", async (c) => {
+    let body: BiblePayload;
+    try {
+      body = (await c.req.json()) as BiblePayload;
+    } catch {
+      return c.json({ error: "invalid_json" }, 400);
+    }
+    const result = await libraryStore.saveBible(body);
+    if ("error" in result) {
+      return c.json(
+        { error: result.error, message: result.message },
+        400,
+      );
+    }
+    return c.json({ item: result }, 201);
+  });
+
+  /** Upload image / video / presentation / text file into the local library. */
+  api.post("/library/upload", async (c) => {
+    let body: Record<string, string | File>;
+    try {
+      body = (await c.req.parseBody({ all: true })) as Record<
+        string,
+        string | File
+      >;
+    } catch {
+      return c.json({ error: "invalid_multipart" }, 400);
+    }
+    const file = body.file;
+    if (!file || typeof file === "string") {
+      return c.json({ error: "missing_file" }, 400);
+    }
+    const title =
+      typeof body.title === "string" ? body.title : undefined;
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const result = await libraryStore.uploadFile({
+      bytes,
+      originalName: file.name,
+      mime: file.type || undefined,
+      title,
+    });
+    if ("error" in result) {
+      return c.json(
+        { error: result.error, message: result.message },
+        400,
+      );
+    }
+    return c.json({ item: result }, 201);
+  });
+
+  api.delete("/library/items/:id", async (c) => {
+    const result = await libraryStore.remove(c.req.param("id"));
+    if (result === false) {
+      return c.json({ error: "not_found" }, 404);
+    }
+    if (typeof result === "object" && "error" in result) {
+      return c.json(
+        { error: result.error, message: result.message },
+        400,
+      );
+    }
+    return c.json({ ok: true });
+  });
+
+  api.get("/library/items/:id/original", async (c) => {
+    const opened = await libraryStore.openFile(c.req.param("id"), "original");
+    if (!opened) {
+      return c.json({ error: "not_found" }, 404);
+    }
+    try {
+      await stat(opened.path);
+      const nodeStream = createReadStream(opened.path);
+      const webStream = Readable.toWeb(nodeStream) as ReadableStream;
+      return new Response(webStream, {
+        status: 200,
+        headers: {
+          "Content-Type": opened.mime,
+          "Content-Disposition": `attachment; filename="${opened.downloadName.replace(/"/g, "")}"`,
+          "Cache-Control": "private, max-age=60",
+        },
+      });
+    } catch {
+      return c.json({ error: "file_missing" }, 404);
+    }
+  });
+
+  api.get("/library/items/:id/slides/:slideId", async (c) => {
+    const opened = await libraryStore.openFile(c.req.param("id"), {
+      slideId: c.req.param("slideId"),
+    });
+    if (!opened) {
+      return c.json({ error: "not_found" }, 404);
+    }
+    try {
+      await stat(opened.path);
+      const nodeStream = createReadStream(opened.path);
+      const webStream = Readable.toWeb(nodeStream) as ReadableStream;
+      return new Response(webStream, {
+        status: 200,
+        headers: {
+          "Content-Type": opened.mime,
+          "Cache-Control": "private, max-age=60",
+        },
+      });
+    } catch {
+      return c.json({ error: "file_missing" }, 404);
+    }
+  });
+
+  /**
+   * Copy a library item into the live session playlist (control).
+   * Presentation/image/video bytes are copied into session assets.
+   */
+  api.post(
+    "/sessions/:sessionId/library/:libraryItemId/add",
+    async (c) => {
+      const sessionId = c.req.param("sessionId");
+      const libraryItemId = c.req.param("libraryItemId");
+      const credential =
+        bearerToken(c.req.header("authorization")) ??
+        c.req.query("credential");
+      const access = authorizeSessionAccess(sessionId, {
+        credential,
+        requireRole: "control",
+      });
+      if (!access.ok) {
+        return c.json({ error: access.error }, access.status);
+      }
+      const session = sessionStore.get(sessionId);
+      if (!session) {
+        return c.json({ error: "not_found" }, 404);
+      }
+      const materialized = await libraryStore.addToSession({
+        sessionId,
+        libraryItemId,
+        order: session.playlist.items.length,
+      });
+      if ("error" in materialized) {
+        return c.json(
+          { error: materialized.error, message: materialized.message },
+          400,
+        );
+      }
+      const result = sessionStore.addItem(session, materialized.item);
+      if ("error" in result) {
+        return c.json({ error: result.error }, 400);
+      }
+      broadcastSession(sessionId, result);
+      return c.json({
+        item: materialized.item,
+        snapshot: sessionStore.toSnapshot(session),
+      }, 201);
+    },
+  );
 
   /**
    * Serve asset bytes. Auth via credential / code / accessToken query.

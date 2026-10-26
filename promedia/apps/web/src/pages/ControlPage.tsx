@@ -9,6 +9,7 @@ import type {
   BiblePayload,
   ImageFit,
   ImagePayload,
+  LibrarySongPayload,
   PlaylistItem,
   SceneMode,
   TextPayload,
@@ -23,14 +24,17 @@ import {
   itemHasSlides,
   itemProjectionSlideCount,
   normalizeThemeBackground,
+  songToTextPayload,
 } from "@promedia/shared";
 import { AboutDialog } from "../components/AboutDialog";
+import { BibliotecaDialog } from "../components/BibliotecaDialog";
 import { BibleDialog } from "../components/BibleDialog";
 import { ControlAdBanner } from "../components/ControlAdBanner";
 import { ControlHeaderToolbar } from "../components/ControlHeaderToolbar";
 import { LinkAddDialog } from "../components/LinkAddDialog";
 import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { SchedulePanel } from "../components/SchedulePanel";
+import { SongEditor } from "../components/SongEditor";
 import { StageBackground } from "../components/StageBackground";
 import { StatusTip } from "../components/StatusTip";
 import { TextItemEditor } from "../components/TextItemEditor";
@@ -52,6 +56,7 @@ import {
   loadPersistedControlSession,
   savePersistedControlSession,
 } from "../lib/controlSessionPersist";
+import { createLibrarySong } from "../lib/library";
 import { openOutputWindow, startProjection } from "../lib/openOutputWindow";
 import {
   TEXT_IMPORT_MAX_BYTES,
@@ -64,12 +69,21 @@ function assetSrcFor(
   sessionId: string,
   wsTicket: string,
   item: PlaylistItem | null,
+  slideIndex = 0,
 ): string | undefined {
   if (!item || !sessionId || !wsTicket) {
     return undefined;
   }
   if (item.type === "image") {
     return buildAssetUrl(sessionId, item.payload.assetId, wsTicket);
+  }
+  if (item.type === "presentation") {
+    const slide =
+      item.payload.slides[slideIndex] ?? item.payload.slides[0] ?? null;
+    if (!slide) {
+      return undefined;
+    }
+    return buildAssetUrl(sessionId, slide.assetId, wsTicket);
   }
   if (item.type === "video" && item.payload.sourceKind === "file") {
     return buildAssetUrl(sessionId, item.payload.assetId, wsTicket);
@@ -93,6 +107,10 @@ export function ControlPage() {
   const [creating, setCreating] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [bibleDialogOpen, setBibleDialogOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [songEditorOpen, setSongEditorOpen] = useState(false);
+  const [songBusy, setSongBusy] = useState(false);
+  const [songError, setSongError] = useState<string | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   /** Soft hints retained for setters (upload / playlist); message log panel removed. */
@@ -445,6 +463,57 @@ export function ControlPage() {
 
   const closeBibleDialog = () => setBibleDialogOpen(false);
 
+  const openLibrary = () => {
+    setUploadHint(null);
+    setCreating(false);
+    setEditingId(null);
+    setLinkDialogOpen(false);
+    setBibleDialogOpen(false);
+    setSongEditorOpen(false);
+    setLibraryOpen(true);
+  };
+
+  const openCreateSong = () => {
+    setUploadHint(null);
+    setCreating(false);
+    setEditingId(null);
+    setLinkDialogOpen(false);
+    setBibleDialogOpen(false);
+    setLibraryOpen(false);
+    setSongError(null);
+    setSongEditorOpen(true);
+  };
+
+  const saveSongFromGuion = async (song: LibrarySongPayload) => {
+    if (!ensureWsOrHint()) {
+      return;
+    }
+    setSongBusy(true);
+    setSongError(null);
+    try {
+      await createLibrarySong(song);
+      const payload = songToTextPayload(song);
+      const item: PlaylistItem = {
+        id: cryptoRandomId(),
+        type: "text",
+        order: itemsLenRef.current,
+        payload,
+      };
+      if (!session.addItem(item)) {
+        setUploadHint(t("control.wsDisconnectedHint"));
+        session.reconnect();
+        return;
+      }
+      setSelectedItemId(item.id);
+      setPreviewSlideIndex(0);
+      setSongEditorOpen(false);
+    } catch (err) {
+      setSongError(String(err));
+    } finally {
+      setSongBusy(false);
+    }
+  };
+
   const addBiblePassage = (payload: BiblePayload) => {
     if (!ensureWsOrHint()) {
       return;
@@ -721,7 +790,10 @@ export function ControlPage() {
   };
 
   const onFitChange = (fit: ImageFit) => {
-    if (!selectedItem || selectedItem.type !== "image") {
+    if (
+      !selectedItem ||
+      (selectedItem.type !== "image" && selectedItem.type !== "presentation")
+    ) {
       return;
     }
     session.updateItem(selectedItem.id, {
@@ -865,8 +937,14 @@ export function ControlPage() {
     session.sessionId,
     session.wsTicket,
     selectedItem,
+    previewSlideIndex,
   );
-  const liveSrc = assetSrcFor(session.sessionId, session.wsTicket, liveItem);
+  const liveSrc = assetSrcFor(
+    session.sessionId,
+    session.wsTicket,
+    liveItem,
+    liveSlideIndex,
+  );
 
   const liveDurationMs =
     (liveItemId && durationByItemId[liveItemId]) || 0;
@@ -1086,6 +1164,30 @@ export function ControlPage() {
         onAdd={addBiblePassage}
       />
 
+      <BibliotecaDialog
+        open={libraryOpen}
+        sessionId={session.sessionId}
+        wsTicket={session.wsTicket}
+        canMutate={canMutate}
+        onClose={() => setLibraryOpen(false)}
+        onAddedToGuion={(itemId) => {
+          setSelectedItemId(itemId);
+          setPreviewSlideIndex(0);
+          setLibraryOpen(false);
+        }}
+        onOpenCreateSong={() => {
+          /* Song editor opens inside BibliotecaDialog */
+        }}
+      />
+
+      <SongEditor
+        open={songEditorOpen}
+        busy={songBusy}
+        error={songError}
+        onClose={() => setSongEditorOpen(false)}
+        onSave={(song) => void saveSongFromGuion(song)}
+      />
+
       <div className="control-zones control-zones-stacked">
         {/*
           Left column: Guion list on top + compact En vivo monitor below
@@ -1146,6 +1248,18 @@ export function ControlPage() {
                 return;
               }
               startCreateTextBlank();
+            }}
+            onCreateSong={() => {
+              if (!sessionReady) {
+                return;
+              }
+              openCreateSong();
+            }}
+            onOpenLibrary={() => {
+              if (!sessionReady) {
+                return;
+              }
+              openLibrary();
             }}
             onOpenLoad={() => {
               if (!session.hasSession) {
@@ -1330,7 +1444,10 @@ export function ControlPage() {
                   onSlideIndexChange={setPreviewSlideIndex}
                   assetSrc={previewSrc}
                   onFitChange={
-                    selectedItem.type === "image" ? onFitChange : undefined
+                    selectedItem.type === "image" ||
+                    selectedItem.type === "presentation"
+                      ? onFitChange
+                      : undefined
                   }
                   projecting={
                     selectedItem.type === "video" &&

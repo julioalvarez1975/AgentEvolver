@@ -98,6 +98,14 @@ export function OutputPage() {
     if (liveItem.type === "image") {
       return buildAssetUrl(sessionId, liveItem.payload.assetId, wsTicket);
     }
+    if (liveItem.type === "presentation") {
+      const slide =
+        liveItem.payload.slides[liveSlideIndex] ?? liveItem.payload.slides[0];
+      if (!slide) {
+        return undefined;
+      }
+      return buildAssetUrl(sessionId, slide.assetId, wsTicket);
+    }
     if (liveItem.type === "video" && liveItem.payload.sourceKind === "file") {
       return buildAssetUrl(sessionId, liveItem.payload.assetId, wsTicket);
     }

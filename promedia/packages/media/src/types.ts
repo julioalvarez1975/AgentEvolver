@@ -30,6 +30,7 @@ export const ALLOWED_IMAGE_MIMES = [
   "image/png",
   "image/webp",
   "image/gif",
+  "image/svg+xml",
 ] as const;
 
 export type AllowedImageMime = (typeof ALLOWED_IMAGE_MIMES)[number];
@@ -65,6 +66,8 @@ export function extensionForMime(mime: string): string {
       return ".webp";
     case "image/gif":
       return ".gif";
+    case "image/svg+xml":
+      return ".svg";
     case "video/mp4":
       return ".mp4";
     case "video/webm":

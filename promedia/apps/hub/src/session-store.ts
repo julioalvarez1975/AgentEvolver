@@ -4,6 +4,7 @@ import type {
   ImagePayload,
   MediaClock,
   PlaylistItem,
+  PresentationPayload,
   SceneMode,
   SessionLiveState,
   SessionMode,
@@ -261,7 +262,7 @@ export class SessionStore {
     session: SessionRecord,
     id: string,
     patch: {
-      payload?: TextPayload | ImagePayload | VideoPayload;
+      payload?: TextPayload | ImagePayload | VideoPayload | PresentationPayload;
       order?: number;
     },
   ): HubMessage | { error: string } {
@@ -445,7 +446,12 @@ export class SessionStore {
       return { error: "no_live_item" };
     }
     const item = session.playlist.items.find((i) => i.id === itemId);
-    if (!item || (item.type !== "text" && item.type !== "bible")) {
+    if (
+      !item ||
+      (item.type !== "text" &&
+        item.type !== "bible" &&
+        item.type !== "presentation")
+    ) {
       return { error: "no_live_item" };
     }
     const max = Math.max(itemProjectionSlideCount(item) - 1, 0);
@@ -496,6 +502,14 @@ export class SessionStore {
       const asset = assetStore.get(session.id, item.payload.assetId);
       if (!asset || asset.kind !== "video") {
         return { error: "unknown_asset" };
+      }
+    }
+    if (item.type === "presentation") {
+      for (const slide of item.payload.slides) {
+        const asset = assetStore.get(session.id, slide.assetId);
+        if (!asset || asset.kind !== "image") {
+          return { error: "unknown_asset" };
+        }
       }
     }
     return null;

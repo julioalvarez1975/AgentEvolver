@@ -36,6 +36,10 @@ export type SchedulePanelProps = {
   onAddLink: () => void;
   onAddBible: () => void;
   onAddTextBlank: () => void;
+  /** Create song (library + projectable text). */
+  onCreateSong: () => void;
+  /** Open local media library (Biblioteca). */
+  onOpenLibrary: () => void;
   onOpenLoad: () => void;
   onOpenSave: () => void;
   /** External file drag onto Guion (not item reorder). */
@@ -81,6 +85,8 @@ export function SchedulePanel({
   onAddLink,
   onAddBible,
   onAddTextBlank,
+  onCreateSong,
+  onOpenLibrary,
   onOpenLoad,
   onOpenSave,
   onFilesDropped,
@@ -272,6 +278,30 @@ export function SchedulePanel({
               >
                 <ScheduleTypeIcon kind="text" />
                 {t("text.blankManual")}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="schedule-chooser-item"
+                onClick={() => {
+                  setChooserOpen(false);
+                  onCreateSong();
+                }}
+              >
+                <ScheduleTypeIcon kind="text" />
+                {t("library.createSong")}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="schedule-chooser-item"
+                onClick={() => {
+                  setChooserOpen(false);
+                  onOpenLibrary();
+                }}
+              >
+                <ScheduleTypeIcon kind="image" />
+                {t("library.open")}
               </button>
             </div>
           ) : null}

@@ -4,6 +4,7 @@ import type {
   HubMessage,
   ImagePayload,
   PlaylistItem,
+  PresentationPayload,
   SceneMode,
   SessionSnapshot,
   TextPayload,
@@ -263,7 +264,11 @@ export function useSessionConnection(role: ClientRole) {
     (
       id: string,
       patch: {
-        payload?: TextPayload | ImagePayload | VideoPayload;
+        payload?:
+          | TextPayload
+          | ImagePayload
+          | VideoPayload
+          | PresentationPayload;
         order?: number;
       },
     ): boolean => send("playlist.itemUpdate", { id, patch }),

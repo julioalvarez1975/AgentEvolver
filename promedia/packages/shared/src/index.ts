@@ -102,13 +102,104 @@ export type BiblePlaylistItem = {
   payload: BiblePayload;
 };
 
-export type PlaylistItemType = "text" | "image" | "video" | "bible";
+/** One projected page/slide of an imported presentation (image or SVG asset). */
+export type PresentationSlide = {
+  id: string;
+  assetId: string;
+};
+
+/**
+ * View-only presentation (PPTX/PDF/… import). No native edit — ←/→ navigates slides.
+ */
+export type PresentationPayload = {
+  title?: string;
+  fit: ImageFit;
+  slides: PresentationSlide[];
+  /** Original filename kept for operator reference / re-download from library. */
+  originalName?: string;
+  libraryItemId?: string;
+};
+
+export type PresentationPlaylistItem = {
+  id: string;
+  type: "presentation";
+  order: number;
+  payload: PresentationPayload;
+};
+
+export type PlaylistItemType =
+  | "text"
+  | "image"
+  | "video"
+  | "bible"
+  | "presentation";
 
 export type PlaylistItem =
   | TextPlaylistItem
   | ImagePlaylistItem
   | VideoPlaylistItem
-  | BiblePlaylistItem;
+  | BiblePlaylistItem
+  | PresentationPlaylistItem;
+
+/** Local media library categories (Phase 1 — on-disk, not cloud). */
+export type LibraryCategory =
+  | "canciones"
+  | "biblias"
+  | "textos"
+  | "presentaciones"
+  | "imagenes"
+  | "videos";
+
+export const LIBRARY_CATEGORIES: readonly LibraryCategory[] = [
+  "canciones",
+  "biblias",
+  "textos",
+  "presentaciones",
+  "imagenes",
+  "videos",
+] as const;
+
+export type LibrarySongStanza = {
+  id: string;
+  lines: string[];
+};
+
+export type LibrarySongPayload = {
+  title: string;
+  artist?: string;
+  stanzas: LibrarySongStanza[];
+};
+
+export type LibraryFileRef = {
+  relativePath: string;
+  mime: string;
+  originalName: string;
+  size: number;
+};
+
+export type LibrarySlideRef = {
+  id: string;
+  relativePath: string;
+  mime: string;
+};
+
+export type LibraryItem = {
+  id: string;
+  category: LibraryCategory;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Songs: lyrics by stanza (projectable as text). */
+  song?: LibrarySongPayload;
+  /** Free-form text saved in library. */
+  text?: TextPayload;
+  /** Bible passage snapshot. */
+  bible?: BiblePayload;
+  /** Original uploaded file (presentations, images, videos, optional for others). */
+  original?: LibraryFileRef;
+  /** Rendered pages/slides for projection (presentations). */
+  slides?: LibrarySlideRef[];
+};
 
 export type SessionPlaylist = {
   items: PlaylistItem[];
@@ -289,7 +380,12 @@ export type PlaylistItemUpdateMessage = {
   payload: {
     id: string;
     patch: Partial<{
-      payload: TextPayload | ImagePayload | VideoPayload;
+      payload:
+        | TextPayload
+        | ImagePayload
+        | VideoPayload
+        | BiblePayload
+        | PresentationPayload;
       order: number;
     }>;
   };
@@ -439,15 +535,26 @@ export function itemLabel(item: PlaylistItem): string {
   if (item.type === "image") {
     return item.payload.title?.trim() || "Imagen";
   }
+  if (item.type === "presentation") {
+    return (
+      item.payload.title?.trim() ||
+      item.payload.originalName?.trim() ||
+      "Presentación"
+    );
+  }
   if (item.payload.sourceKind === "youtube") {
     return item.payload.title?.trim() || `YouTube ${item.payload.videoId}`;
   }
   return item.payload.title?.trim() || "Vídeo";
 }
 
-/** Text and bible items share slide navigation on Output / Live. */
+/** Text, bible and presentation items share ←/→ slide navigation. */
 export function itemHasSlides(item: PlaylistItem): boolean {
-  return item.type === "text" || item.type === "bible";
+  return (
+    item.type === "text" ||
+    item.type === "bible" ||
+    item.type === "presentation"
+  );
 }
 
 /**
@@ -494,10 +601,32 @@ export function projectionTextSlides(
   return out.length > 0 ? out : [{ id: "empty", lines: [""] }];
 }
 
-/** Slide count used by ←/→ for text and bible items (after 4-line chunking). */
+/** Slide count used by ←/→ (text/bible after 4-line chunking; presentation = pages). */
 export function itemProjectionSlideCount(item: PlaylistItem): number {
+  if (item.type === "presentation") {
+    return Math.max(item.payload.slides.length, 0);
+  }
   if (item.type !== "text" && item.type !== "bible") {
     return 0;
   }
   return projectionTextSlides(item.payload.slides).length;
+}
+
+/** Convert library song stanzas → text slides, then 4-line projection chunks. */
+export function songToTextPayload(song: LibrarySongPayload): TextPayload {
+  const stanzas =
+    song.stanzas.length > 0
+      ? song.stanzas
+      : [{ id: "empty", lines: [""] as string[] }];
+  const slides: TextSlide[] = stanzas.map((stanza, index) => ({
+    id: stanza.id || `stanza_${index}`,
+    lines: stanza.lines.length > 0 ? stanza.lines.map((l) => String(l)) : [""],
+  }));
+  const title = song.title.trim();
+  const artist = song.artist?.trim();
+  return {
+    title: artist ? `${title} — ${artist}` : title || undefined,
+    align: "center",
+    slides: projectionTextSlides(slides),
+  };
 }
