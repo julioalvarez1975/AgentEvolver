@@ -173,7 +173,7 @@ Mediateca **local** del hub (no nube en esta fase). Datos en `promedia/data/libr
 
 | Categoría | Contenido |
 |-----------|-----------|
-| Canciones | Editor de título / artista / estrofas → texto proyectable (chunks de 4 líneas) |
+| Canciones | Editor de título / artista / estrofas → texto proyectable (chunks de 5 líneas) |
 | Biblias / Textos | Guardados en biblioteca para reutilizar |
 | Presentaciones | Import `.pptx` `.ppt` `.ppsx` `.potx` `.odp` `.pdf` → diapositivas para ←/→. **Sin** macros (`.pptm`/`.ppsm`). Sin edición nativa |
 | Imágenes / Vídeos | Subida y reuso en el Guion |

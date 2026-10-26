@@ -21,7 +21,7 @@ function textToLines(text: string): string[] {
   return text.split("\n");
 }
 
-/** Song editor: title, optional artist, lyrics by stanzas → 4-line projection. */
+/** Song editor: title, optional artist, lyrics by stanzas → 5-line projection. */
 export function SongEditor({
   open,
   initial,

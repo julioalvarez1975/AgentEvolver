@@ -559,11 +559,11 @@ export function itemHasSlides(item: PlaylistItem): boolean {
 
 /**
  * Max lines shown at once on Output / Preview / Live text stages.
- * Longer slides are split into chunks so ←/→ advances by 4 lines.
+ * Longer slides are split into chunks so ←/→ advances by 5 lines.
  */
-export const TEXT_PROJECTION_LINES = 4;
+export const TEXT_PROJECTION_LINES = 5;
 
-/** Split a line list into chunks of at most `linesPerChunk` (default 4). */
+/** Split a line list into chunks of at most `linesPerChunk` (default 5). */
 export function chunkTextLines(
   lines: string[],
   linesPerChunk: number = TEXT_PROJECTION_LINES,
@@ -578,7 +578,7 @@ export function chunkTextLines(
 }
 
 /**
- * Expand text/bible slides so each has ≤4 lines for projection navigation.
+ * Expand text/bible slides so each has ≤5 lines for projection navigation.
  * Preserves intentional slide boundaries; splits only when a slide is longer.
  */
 export function projectionTextSlides(
@@ -601,7 +601,7 @@ export function projectionTextSlides(
   return out.length > 0 ? out : [{ id: "empty", lines: [""] }];
 }
 
-/** Slide count used by ←/→ (text/bible after 4-line chunking; presentation = pages). */
+/** Slide count used by ←/→ (text/bible after 5-line chunking; presentation = pages). */
 export function itemProjectionSlideCount(item: PlaylistItem): number {
   if (item.type === "presentation") {
     return Math.max(item.payload.slides.length, 0);
@@ -612,7 +612,7 @@ export function itemProjectionSlideCount(item: PlaylistItem): number {
   return projectionTextSlides(item.payload.slides).length;
 }
 
-/** Convert library song stanzas → text slides, then 4-line projection chunks. */
+/** Convert library song stanzas → text slides, then 5-line projection chunks. */
 export function songToTextPayload(song: LibrarySongPayload): TextPayload {
   const stanzas =
     song.stanzas.length > 0
