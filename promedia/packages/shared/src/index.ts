@@ -164,6 +164,10 @@ export function isSceneMode(value: unknown): value is SceneMode {
 
 export type {
   ResolvedTheme,
+  ThemeBackground,
+  ThemeBackgroundMediaKind,
+  ThemeBackgroundMode,
+  ThemeBackgroundPackId,
   ThemeFontFamily,
   ThemeFontSize,
   ThemeId,
@@ -172,8 +176,10 @@ export type {
   TransitionEffect,
 } from "./themes.js";
 export {
+  DEFAULT_THEME_BACKGROUND,
   DEFAULT_THEME_ID,
   DEFAULT_TRANSITION_EFFECT,
+  THEME_BACKGROUND_PACK_IDS,
   THEME_IDS,
   THEME_PRESETS,
   TRANSITION_DURATION_MS,
@@ -181,17 +187,26 @@ export {
   fontFamilyCss,
   fontSizeCss,
   getThemePreset,
+  isThemeBackgroundMediaKind,
+  isThemeBackgroundPackId,
   isThemeFontFamily,
   isThemeFontSize,
   isThemeId,
   isTransitionEffect,
+  normalizeThemeBackground,
   normalizeThemeOverrides,
   resolveTheme,
   themeToCssVars,
 } from "./themes.js";
 
-import type { ThemeId, ThemeOverrides, TransitionEffect } from "./themes.js";
+import type {
+  ThemeBackground,
+  ThemeId,
+  ThemeOverrides,
+  TransitionEffect,
+} from "./themes.js";
 import {
+  DEFAULT_THEME_BACKGROUND,
   DEFAULT_THEME_ID,
   DEFAULT_TRANSITION_EFFECT,
 } from "./themes.js";
@@ -203,6 +218,8 @@ export type SessionLiveState = {
   themeId: ThemeId;
   /** Deltas over preset; null = pure preset. */
   themeOverrides: ThemeOverrides | null;
+  /** Stage background: solid color or media (pack / upload). */
+  themeBackground: ThemeBackground;
   /** CSS transition on Output when live item changes. */
   transitionEffect: TransitionEffect;
   mediaClock: MediaClock | null;
@@ -318,6 +335,7 @@ export type LiveSetThemeMessage = {
   payload: {
     themeId?: ThemeId;
     themeOverrides?: ThemeOverrides | null;
+    themeBackground?: ThemeBackground | null;
     transitionEffect?: TransitionEffect;
   };
 };
@@ -367,7 +385,7 @@ export type JoinSessionResponse = {
   snapshot: SessionSnapshot;
 };
 
-export const SHARED_PACKAGE_VERSION = "0.0.13-mvp" as const;
+export const SHARED_PACKAGE_VERSION = "0.0.14-mvp" as const;
 
 export function emptyLiveState(): SessionLiveState {
   return {
@@ -376,6 +394,7 @@ export function emptyLiveState(): SessionLiveState {
     sceneMode: "normal",
     themeId: DEFAULT_THEME_ID,
     themeOverrides: null,
+    themeBackground: { ...DEFAULT_THEME_BACKGROUND },
     transitionEffect: DEFAULT_TRANSITION_EFFECT,
     mediaClock: null,
   };

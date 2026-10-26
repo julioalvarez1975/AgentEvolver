@@ -10,11 +10,14 @@ import { getItemType } from "@promedia/item-types";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
 import type { SceneMode, ThemeId, TransitionEffect } from "@promedia/shared";
 import {
+  DEFAULT_THEME_BACKGROUND,
   DEFAULT_THEME_ID,
   DEFAULT_TRANSITION_EFFECT,
   TRANSITION_DURATION_MS,
+  normalizeThemeBackground,
 } from "@promedia/shared";
 import { SceneOverlay } from "../components/SceneOverlay";
+import { StageBackground } from "../components/StageBackground";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import { buildAssetUrl } from "../lib/assets";
 import { themeSurfaceStyle } from "../lib/theme";
@@ -63,6 +66,9 @@ export function OutputPage() {
   const sceneMode: SceneMode = snapshot?.live.sceneMode ?? "normal";
   const themeId: ThemeId = snapshot?.live.themeId ?? DEFAULT_THEME_ID;
   const themeOverrides = snapshot?.live.themeOverrides ?? null;
+  const themeBackground = normalizeThemeBackground(
+    snapshot?.live.themeBackground ?? DEFAULT_THEME_BACKGROUND,
+  );
   const transitionEffect: TransitionEffect =
     snapshot?.live.transitionEffect ?? DEFAULT_TRANSITION_EFFECT;
   const themeStyle = themeSurfaceStyle(themeId, themeOverrides);
@@ -70,6 +76,13 @@ export function OutputPage() {
   const OutputRenderer = liveItem
     ? getItemType(liveItem.type)?.OutputRenderer
     : undefined;
+  const themeBgAssetSrc =
+    themeBackground.mode === "media" &&
+    themeBackground.assetId &&
+    sessionId &&
+    wsTicket
+      ? buildAssetUrl(sessionId, themeBackground.assetId, wsTicket)
+      : undefined;
 
   // Remount item layer on live item change so CSS enter transition can run.
   // Single layer only — keeps YouTube to one iframe (no dual-embed).
@@ -203,6 +216,10 @@ export function OutputPage() {
         style={themeStyle}
         data-theme={themeId}
       >
+        <StageBackground
+          background={themeBackground}
+          assetSrc={themeBgAssetSrc}
+        />
         {wsStatus === "connecting" && !hasSession ? (
           <p className="output-waiting">{t(locale, "output.joining")}</p>
         ) : error && !hasSession ? (

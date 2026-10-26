@@ -14,6 +14,7 @@ import {
   isSceneMode,
   isThemeId,
   isTransitionEffect,
+  normalizeThemeBackground,
   normalizeThemeOverrides,
 } from "@promedia/shared";
 import { sessionStore, type SessionRecord } from "./session-store.js";
@@ -156,6 +157,7 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
       const p = payload as {
         themeId?: unknown;
         themeOverrides?: unknown;
+        themeBackground?: unknown;
         transitionEffect?: unknown;
       } | undefined;
       if (!p) {
@@ -164,6 +166,7 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
       const out: {
         themeId?: import("@promedia/shared").ThemeId;
         themeOverrides?: import("@promedia/shared").ThemeOverrides | null;
+        themeBackground?: import("@promedia/shared").ThemeBackground | null;
         transitionEffect?: import("@promedia/shared").TransitionEffect;
       } = {};
       if (p.themeId !== undefined) {
@@ -185,6 +188,13 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
           }
         }
       }
+      if (p.themeBackground !== undefined) {
+        if (p.themeBackground === null) {
+          out.themeBackground = { mode: "solid" };
+        } else {
+          out.themeBackground = normalizeThemeBackground(p.themeBackground);
+        }
+      }
       if (p.transitionEffect !== undefined) {
         if (!isTransitionEffect(p.transitionEffect)) {
           return null;
@@ -194,6 +204,7 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
       if (
         out.themeId === undefined &&
         out.themeOverrides === undefined &&
+        out.themeBackground === undefined &&
         out.transitionEffect === undefined
       ) {
         return null;
