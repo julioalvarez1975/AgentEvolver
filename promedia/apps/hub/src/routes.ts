@@ -512,6 +512,85 @@ export function createApiRoutes(): Hono {
     return c.json({ item: result });
   });
 
+  /**
+   * Bulk-import Quelea song pack (.qsp) or a single Quelea song .xml.
+   * Idempotent-ish: same title+author updates lyrics. Does not commit packs to git.
+   */
+  api.post("/library/songs/import", async (c) => {
+    let body: Record<string, string | File>;
+    try {
+      body = (await c.req.parseBody({ all: true })) as Record<
+        string,
+        string | File
+      >;
+    } catch {
+      return c.json({ error: "invalid_multipart" }, 400);
+    }
+    const file = body.file;
+    if (!file || typeof file === "string") {
+      return c.json({ error: "missing_file" }, 400);
+    }
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const result = await libraryStore.importQueleaUpload({
+      bytes,
+      originalName: file.name,
+    });
+    return c.json({
+      imported: result.imported.map((i) => ({
+        id: i.id,
+        title: i.title,
+        artist: i.song?.artist,
+        stanzaCount: i.song?.stanzas.length,
+      })),
+      updated: result.updated.map((i) => ({
+        id: i.id,
+        title: i.title,
+        artist: i.song?.artist,
+        stanzaCount: i.song?.stanzas.length,
+      })),
+      skipped: result.skipped,
+      importedCount: result.imported.length,
+      updatedCount: result.updated.length,
+      skippedCount: result.skipped.length,
+    });
+  });
+
+  /**
+   * Import Quelea .qsp / .xml from the operator folder
+   * (default: data/library/songs/import/).
+   */
+  api.post("/library/songs/import-folder", async (c) => {
+    let folder: string | undefined;
+    try {
+      const body = (await c.req.json().catch(() => null)) as {
+        folder?: string;
+      } | null;
+      folder = body?.folder?.trim() || undefined;
+    } catch {
+      folder = undefined;
+    }
+    const result = await libraryStore.importSongsFromFolder({ folder });
+    return c.json({
+      folder: result.folder,
+      imported: result.imported.map((i) => ({
+        id: i.id,
+        title: i.title,
+        artist: i.song?.artist,
+        stanzaCount: i.song?.stanzas.length,
+      })),
+      updated: result.updated.map((i) => ({
+        id: i.id,
+        title: i.title,
+        artist: i.song?.artist,
+        stanzaCount: i.song?.stanzas.length,
+      })),
+      skipped: result.skipped,
+      importedCount: result.imported.length,
+      updatedCount: result.updated.length,
+      skippedCount: result.skipped.length,
+    });
+  });
+
   api.post("/library/text", async (c) => {
     let body: { title?: string; text?: TextPayload };
     try {

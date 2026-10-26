@@ -177,6 +177,70 @@ export async function importBiblesFromFolder(): Promise<BibleFolderImportResult>
   return body;
 }
 
+export type SongImportResult = {
+  folder?: string;
+  importedCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  imported: Array<{
+    id: string;
+    title: string;
+    artist?: string;
+    stanzaCount?: number;
+  }>;
+  updated: Array<{
+    id: string;
+    title: string;
+    artist?: string;
+    stanzaCount?: number;
+  }>;
+  skipped: Array<{ file: string; error: string; message: string }>;
+};
+
+/** Multipart upload of a Quelea .qsp pack or single song .xml. */
+export async function importQueleaSongsFile(
+  file: File,
+): Promise<SongImportResult> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${hubHttpBase()}/api/v1/library/songs/import`, {
+    method: "POST",
+    body: form,
+  });
+  const body = (await res.json().catch(() => ({}))) as SongImportResult & {
+    error?: string;
+    message?: string;
+  };
+  if (!res.ok) {
+    throw new Error(
+      body.message || body.error || `song_import_${res.status}`,
+    );
+  }
+  return body;
+}
+
+/** Import Quelea packs/XML from hub data/library/songs/import/. */
+export async function importSongsFromFolder(): Promise<SongImportResult> {
+  const res = await fetch(
+    `${hubHttpBase()}/api/v1/library/songs/import-folder`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    },
+  );
+  const body = (await res.json().catch(() => ({}))) as SongImportResult & {
+    error?: string;
+    message?: string;
+  };
+  if (!res.ok) {
+    throw new Error(
+      body.message || body.error || `song_import_folder_${res.status}`,
+    );
+  }
+  return body;
+}
+
 export async function deleteLibraryItem(id: string): Promise<void> {
   const res = await fetch(
     `${hubHttpBase()}/api/v1/library/items/${encodeURIComponent(id)}`,
@@ -221,6 +285,9 @@ export function libraryOriginalUrl(itemId: string): string {
 }
 
 export const LIBRARY_UPLOAD_ACCEPT =
-  ".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.mov,.txt,.md,.xml,.xmm,.pdf,.pptx,.ppt,.ppsx,.potx,.odp,image/*,video/*,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.presentationml.slideshow,application/vnd.oasis.opendocument.presentation";
+  ".png,.jpg,.jpeg,.gif,.webp,.svg,.mp4,.webm,.mov,.txt,.md,.xml,.xmm,.qsp,.pdf,.pptx,.ppt,.ppsx,.potx,.odp,image/*,video/*,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.presentationml.slideshow,application/vnd.oasis.opendocument.presentation";
 
 export const LIBRARY_BIBLE_UPLOAD_ACCEPT = ".xml,.xmm,.pdf,application/pdf,text/xml,application/xml";
+
+export const LIBRARY_SONG_UPLOAD_ACCEPT =
+  ".qsp,.xml,application/zip,application/xml,text/xml";

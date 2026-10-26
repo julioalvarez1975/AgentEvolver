@@ -261,5 +261,11 @@
   "library.bibleFolderResult": "Imported {n} translation(s){skipped}.",
   "library.bibleVerseCount": "{v} verses · {b} books",
   "library.bibleUseInControl": "Use in Schedule → Bible",
+  "library.importQsp": "Import QSP",
+  "library.importingQsp": "Importing QSP…",
+  "library.importSongFolder": "Import local folder",
+  "library.songHint": "Quelea song packs (.qsp) and XML stay on this machine (data/library/). Not committed to Git. After import, add them to the Schedule as text.",
+  "library.songImportResult": "Imported {n} song(s){updated}{skipped}.",
+  "library.songFolderResult": "Imported {n} song(s){updated}{skipped}.",
   "bible.localBadge": "local"
 }

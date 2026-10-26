@@ -261,5 +261,11 @@
   "library.bibleFolderResult": "Importadas {n} traducción(es){skipped}.",
   "library.bibleVerseCount": "{v} versículos · {b} libros",
   "library.bibleUseInControl": "Usar en Guion → Biblia",
+  "library.importQsp": "Importar QSP",
+  "library.importingQsp": "Importando QSP…",
+  "library.importSongFolder": "Importar carpeta local",
+  "library.songHint": "Cancioneros Quelea (.qsp) y XML se guardan solo en este equipo (data/library/). No se suben a Git. Tras importar, añadilos al Guion como texto.",
+  "library.songImportResult": "Importadas {n} canción(es){updated}{skipped}.",
+  "library.songFolderResult": "Importadas {n} canción(es){updated}{skipped}.",
   "bible.localBadge": "local"
 }

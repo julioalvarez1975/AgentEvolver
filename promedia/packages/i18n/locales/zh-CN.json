@@ -261,5 +261,11 @@
   "library.bibleFolderResult": "已导入 {n} 个译本{skipped}。",
   "library.bibleVerseCount": "{v} 节 · {b} 卷",
   "library.bibleUseInControl": "在脚本 → 圣经中使用",
+  "library.importQsp": "导入 QSP",
+  "library.importingQsp": "正在导入 QSP…",
+  "library.importSongFolder": "从本地文件夹导入",
+  "library.songHint": "Quelea 歌本（.qsp）和 XML 仅保存在本机（data/library/），不会提交到 Git。导入后可加入脚本作为文本投影。",
+  "library.songImportResult": "已导入 {n} 首歌曲{updated}{skipped}。",
+  "library.songFolderResult": "已导入 {n} 首歌曲{updated}{skipped}。",
   "bible.localBadge": "本地"
 }

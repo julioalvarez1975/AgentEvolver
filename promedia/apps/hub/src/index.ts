@@ -12,12 +12,13 @@ const app = new Hono();
 const port = Number(process.env.PORT ?? 8787);
 const deployMode = (process.env.PROMEDIA_MODE ?? "lan").toLowerCase();
 
-// Create data/library/{files,bibles/import} on boot so Finder shows them
-// after first launch (no manual mkdir for Bible drop folder).
+// Create data/library/{files,bibles/import,songs/import} on boot so Finder
+// shows drop folders after first launch (no manual mkdir).
 try {
   const layout = await ensureLibraryLayout();
   console.log(`[hub] library ready: ${layout.root}`);
   console.log(`[hub] Bible import folder: ${layout.bibleImport}`);
+  console.log(`[hub] Song import folder: ${layout.songImport}`);
 } catch (err) {
   console.error(
     "[hub] WARN: no se pudo crear la carpeta de biblioteca:",
