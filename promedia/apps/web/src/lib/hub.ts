@@ -60,6 +60,13 @@ export function isHubUnreachableError(err: unknown): boolean {
   );
 }
 
+export type HubHealth = {
+  ok: boolean;
+  mode?: string;
+  listenHost?: string;
+  lanAddresses?: string[];
+};
+
 export async function probeHubHealth(): Promise<boolean> {
   try {
     const res = await fetch(`${hubHttpBase()}/health`, {
@@ -70,6 +77,45 @@ export async function probeHubHealth(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Hub /health — includes LAN IPs when mode=lan for phone Control URL. */
+export async function fetchHubHealth(): Promise<HubHealth | null> {
+  try {
+    const res = await fetch(`${hubHttpBase()}/health`, {
+      method: "GET",
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as HubHealth;
+  } catch {
+    return null;
+  }
+}
+
+/** True when the page is opened via loopback (PC), not via LAN IP on a phone. */
+export function isLoopbackPageHost(): boolean {
+  const host = (window.location.hostname || "").toLowerCase();
+  return (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "[::1]" ||
+    host === "::1"
+  );
+}
+
+/**
+ * Control URL(s) a phone should open on the same Wi‑Fi.
+ * Uses current Vite port + hub-reported LAN IPs.
+ */
+export function buildLanControlUrls(lanAddresses: string[]): string[] {
+  const port =
+    window.location.port ||
+    (window.location.protocol === "https:" ? "443" : "80");
+  const path = "/control";
+  return lanAddresses
+    .filter((ip) => typeof ip === "string" && ip.length > 0)
+    .map((ip) => `http://${ip}:${port}${path}`);
 }
 
 export async function createSession(

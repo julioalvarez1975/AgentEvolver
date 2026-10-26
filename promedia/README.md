@@ -27,10 +27,22 @@ promedia/
 
 | Servicio | Puerto | URL típica |
 |----------|--------|------------|
-| **Hub** (API + WS) | **8787** | http://localhost:8787 |
+| **Hub** (API + WS) | **8787** | http://localhost:8787 (también en la IP LAN) |
 | **Web** (Vite) | **5173+** | http://localhost:5173 (o 5174–5178 si 5173 está ocupado) |
 
 Abrí siempre **`/control`**, no `/` (la Home es solo un enlace mínimo).
+
+### Control remoto por LAN (teléfono)
+
+Con `PROMEDIA_MODE=lan` (default), hub y Vite escuchan en **todas las interfaces** (`0.0.0.0`), no solo localhost.
+
+1. Arrancá ProMedia en la **PC del proyector** (`Abrir-ProMedia.*` / `pnpm dev`). Dejá **Output** en esa máquina.
+2. Teléfono y PC en la **misma Wi‑Fi**.
+3. En la Terminal (o el pie de Control en la PC) aparece algo como  
+   `http://192.168.x.x:5173/control` — abrila en el navegador del móvil.
+4. En el móvil administrás Guion / En vivo / escenas / temas. La proyección fullscreen sigue en la PC.
+
+Si el firewall bloquea, permití Node en los puertos **5173** y **8787** (entrada LAN). Solo localhost: `HUB_HOST=127.0.0.1`.
 
 ---
 
@@ -329,7 +341,8 @@ Ver `.env.example`. Las más relevantes:
 | Variable | Uso |
 |----------|-----|
 | `PORT` | Puerto del hub (default **8787**) |
-| `VITE_HUB_URL` / `VITE_HUB_WS_URL` | Override REST/WS (en DEV el WS suele ir a `:8787` directo) |
+| `HUB_HOST` | Bind del hub (default **`0.0.0.0`** en lan/portable/cloud; usá `127.0.0.1` para solo localhost) |
+| `VITE_HUB_URL` / `VITE_HUB_WS_URL` | Override REST/WS (en DEV el WS usa `ws://<host-de-la-página>:8787`) |
 | `VITE_GAM_NETWORK_CODE` | Código de red Google Ad Manager |
 | `VITE_GAM_AD_UNIT` | Ad unit del banner en Control (hace falta **ambas** GAM; si faltan → placeholder) |
 | `PROMEDIA_MODE` | `lan` (default) / `cloud` / `portable` |

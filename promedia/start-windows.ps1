@@ -13,9 +13,35 @@ $ErrorActionPreference = "Continue"
 Set-Location -LiteralPath $PSScriptRoot
 
 $ReadyFile = Join-Path (Get-Location) ".promedia-ready-url"
+$LanUrlFile = Join-Path (Get-Location) ".promedia-lan-url"
 $LockFile = Join-Path (Get-Location) ".promedia-dev.lock"
 $OpenedMarker = Join-Path (Get-Location) ".promedia-browser-opened"
 $VitePorts = @(5173, 5174, 5175, 5176, 5177, 5178)
+
+function Write-LanControlHint([int]$Port = 5173) {
+  if (Test-Path -LiteralPath $LanUrlFile) {
+    $lan = (Get-Content -LiteralPath $LanUrlFile -Raw -ErrorAction SilentlyContinue)
+    if ($lan) { $lan = $lan.Trim() }
+    if ($lan) {
+      Write-Host "Teléfono (misma Wi‑Fi) → $lan"
+      Write-Host "  Output/proyección sigue en esta PC; el móvil es solo Control."
+      return
+    }
+  }
+  $script = Join-Path (Get-Location) "scripts\lan-ips.mjs"
+  if ((Get-Command node -ErrorAction SilentlyContinue) -and (Test-Path -LiteralPath $script)) {
+    try {
+      $ip = (& node $script 2>$null | Select-Object -First 1)
+      if ($ip) {
+        $ip = $ip.Trim()
+        Write-Host "Teléfono (misma Wi‑Fi) → http://${ip}:${Port}/control"
+        Write-Host "  Output/proyección sigue en esta PC; el móvil es solo Control."
+        return
+      }
+    } catch { }
+  }
+  Write-Host "Teléfono: abrí http://<IP-LAN-de-esta-PC>:${Port}/control (misma Wi‑Fi)."
+}
 
 Write-Host "=========================================="
 Write-Host "  ProMedia — carpeta: $(Get-Location)"
@@ -110,6 +136,9 @@ function Open-ControlWhenReady {
       if ($url -and (Test-ProMediaUrl $url)) {
         Write-Host ""
         Write-Host "Abriendo Control → $url"
+        $portHint = 5173
+        if ($url -match ':(\d+)/control') { $portHint = [int]$Matches[1] }
+        Write-LanControlHint $portHint
         Write-Host "Dejá esta ventana abierta. Para detener: Ctrl+C."
         New-Item -LiteralPath $OpenedMarker -ItemType File -Force | Out-Null
         Start-Process $url
@@ -122,6 +151,7 @@ function Open-ControlWhenReady {
         $url = "http://localhost:$port/control"
         Write-Host ""
         Write-Host "Abriendo Control → $url"
+        Write-LanControlHint $port
         Write-Host "Dejá esta ventana abierta. Para detener: Ctrl+C."
         New-Item -LiteralPath $OpenedMarker -ItemType File -Force | Out-Null
         Start-Process $url
@@ -215,11 +245,15 @@ if (-not (Test-Path "node_modules") -or -not (Test-Path $modulesYaml)) {
 $waitS = if ($env:PROMEDIA_OPEN_WAIT_S) { $env:PROMEDIA_OPEN_WAIT_S } else { "90" }
 $readyPathEsc = $ReadyFile.Replace("'", "''")
 $openedPathEsc = $OpenedMarker.Replace("'", "''")
+$lanPathEsc = $LanUrlFile.Replace("'", "''")
+$lanIpsEsc = (Join-Path (Get-Location) "scripts\lan-ips.mjs").Replace("'", "''")
 $openerScript = @"
 `$maxWait = $waitS
 `$elapsed = 0
 `$readyFile = '$readyPathEsc'
 `$openedMarker = '$openedPathEsc'
+`$lanUrlFile = '$lanPathEsc'
+`$lanIpsScript = '$lanIpsEsc'
 `$ports = @(5173, 5174, 5175, 5176, 5177, 5178)
 function Test-Url(`$u) {
   try {
@@ -237,6 +271,28 @@ function Test-Url(`$u) {
     return `$true
   } catch { return `$false }
 }
+function Write-LanHint(`$Port) {
+  if (Test-Path -LiteralPath `$lanUrlFile) {
+    `$lan = (Get-Content -LiteralPath `$lanUrlFile -Raw -ErrorAction SilentlyContinue)
+    if (`$lan) { `$lan = `$lan.Trim() }
+    if (`$lan) {
+      Write-Host "Teléfono (misma Wi‑Fi) → `$lan"
+      Write-Host "  Output/proyección sigue en esta PC; el móvil es solo Control."
+      return
+    }
+  }
+  if ((Get-Command node -ErrorAction SilentlyContinue) -and (Test-Path -LiteralPath `$lanIpsScript)) {
+    try {
+      `$ip = (& node `$lanIpsScript 2>`$null | Select-Object -First 1)
+      if (`$ip) {
+        `$ip = `$ip.Trim()
+        Write-Host "Teléfono (misma Wi‑Fi) → http://`${ip}:`${Port}/control"
+        Write-Host "  Output/proyección sigue en esta PC; el móvil es solo Control."
+        return
+      }
+    } catch {}
+  }
+}
 Remove-Item -LiteralPath `$openedMarker -Force -ErrorAction SilentlyContinue
 while (`$elapsed -lt `$maxWait) {
   if (Test-Path -LiteralPath `$openedMarker) { exit 0 }
@@ -246,6 +302,9 @@ while (`$elapsed -lt `$maxWait) {
     if (`$url -and (Test-Url `$url)) {
       Write-Host ""
       Write-Host "Abriendo Control → `$url"
+      `$ph = 5173
+      if (`$url -match ':(\d+)/control') { `$ph = [int]`$Matches[1] }
+      Write-LanHint `$ph
       Write-Host "Dejá esta ventana abierta. Para detener: Ctrl+C."
       New-Item -LiteralPath `$openedMarker -ItemType File -Force | Out-Null
       Start-Process `$url
@@ -258,6 +317,7 @@ while (`$elapsed -lt `$maxWait) {
       `$url = "http://localhost:`$port/control"
       Write-Host ""
       Write-Host "Abriendo Control → `$url"
+      Write-LanHint `$port
       Write-Host "Dejá esta ventana abierta. Para detener: Ctrl+C."
       New-Item -LiteralPath `$openedMarker -ItemType File -Force | Out-Null
       Start-Process `$url

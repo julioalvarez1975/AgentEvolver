@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import type { Server } from "node:http";
 import { SHARED_PACKAGE_VERSION } from "@promedia/shared";
 import { setSessionBroadcaster } from "./broadcast.js";
+import { listLanIPv4, resolveHubListenHost } from "./lan.js";
 import { ensureLibraryLayout } from "./library-store.js";
 import { createApiRoutes } from "./routes.js";
 import { ensureSubtitleDirs } from "./subtitle-paths.js";
@@ -12,6 +13,8 @@ import { WsHub } from "./ws-hub.js";
 const app = new Hono();
 const port = Number(process.env.PORT ?? 8787);
 const deployMode = (process.env.PROMEDIA_MODE ?? "lan").toLowerCase();
+const listenHost = resolveHubListenHost(deployMode);
+const lanAddresses = listLanIPv4();
 
 // Create data/library/{files,bibles/import,songs/import} on boot so Finder
 // shows drop folders after first launch (no manual mkdir).
@@ -53,6 +56,8 @@ app.get("/health", (c) =>
     service: "promedia-hub",
     shared: SHARED_PACKAGE_VERSION,
     mode: deployMode,
+    listenHost,
+    lanAddresses,
     mediaAdapter: process.env.MEDIA_ADAPTER ?? (deployMode === "cloud" ? "s3-compatible" : "local"),
   }),
 );
@@ -89,12 +94,27 @@ const server = serve(
   {
     fetch: app.fetch,
     port,
+    hostname: listenHost,
   },
   (info) => {
     // Only log after a successful bind — never before serve() listens.
     console.log(
-      `ProMedia hub listening on http://localhost:${info.port} (mode=${deployMode})`,
+      `ProMedia hub listening on http://localhost:${info.port} (mode=${deployMode}, bind=${listenHost})`,
     );
+    if (lanAddresses.length > 0) {
+      for (const ip of lanAddresses) {
+        console.log(
+          `[hub] LAN API/WS → http://${ip}:${info.port}  (teléfono: Control en :5173, misma IP)`,
+        );
+      }
+      console.log(
+        `[hub] Control en el teléfono (misma Wi‑Fi): http://${lanAddresses[0]}:5173/control`,
+      );
+    } else {
+      console.log(
+        "[hub] Sin IPv4 LAN detectada — Control remoto necesita Wi‑Fi / Ethernet.",
+      );
+    }
   },
 );
 

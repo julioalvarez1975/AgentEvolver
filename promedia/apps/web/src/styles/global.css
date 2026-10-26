@@ -742,10 +742,14 @@ body {
 @media (max-width: 720px) {
   .control-header {
     padding: 0.3rem 0.5rem 0.2rem;
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+    padding-right: max(0.5rem, env(safe-area-inset-right));
   }
 
   .control-toolbar-strip {
     padding: 0.2rem 0.5rem 0.35rem;
+    padding-left: max(0.5rem, env(safe-area-inset-left));
+    padding-right: max(0.5rem, env(safe-area-inset-right));
     gap: 0.4rem 0.35rem;
   }
 
@@ -764,25 +768,111 @@ body {
     row-gap: 0.35rem;
   }
 
+  /* Touch-friendly primary admin actions on phone Control. */
   .toolbar-icon-btn {
-    min-width: 2.25rem;
-    max-width: 2.9rem;
+    min-width: 2.65rem;
+    max-width: 3.4rem;
+    min-height: 2.65rem;
+    padding: 0.28rem 0.16rem 0.2rem;
   }
 
   .toolbar-icon-btn-label {
-    font-size: 0.52rem;
+    font-size: 0.55rem;
   }
 
+  .toolbar-primary-action.toolbar-icon-btn,
   .toolbar-subtitle-agent {
-    min-width: 3.8rem;
-    max-width: 5.4rem;
+    min-width: 3.1rem;
+    max-width: 5.6rem;
   }
 
   .toolbar-subtitle-agent .toolbar-icon-btn-label {
     display: block;
     overflow: visible;
     max-height: none;
-    font-size: 0.5rem;
+    font-size: 0.52rem;
+  }
+
+  .toolbar-lang {
+    min-width: 2.9rem;
+    max-width: 3.6rem;
+    min-height: 2.65rem;
+  }
+
+  .control-header-toolbar > .toolbar-tool {
+    min-height: 2.4rem;
+  }
+
+  .control-ad-slot {
+    height: 50px;
+    max-height: 50px;
+  }
+
+  .control-footer {
+    padding: 0.45rem 0.65rem;
+    padding-bottom: max(0.45rem, env(safe-area-inset-bottom));
+    font-size: 0.78rem;
+    gap: 0.35rem;
+  }
+
+  .lan-remote-link {
+    font-size: 0.72rem;
+  }
+}
+
+/* Phone-narrow: stack zones, prioritize Guion + En vivo admin actions. */
+@media (max-width: 560px) {
+  .control-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .control-ad-slot {
+    display: none;
+  }
+
+  .control-zones,
+  .control-zones-stacked {
+    grid-template-columns: 1fr;
+  }
+
+  .control-guion-column {
+    min-height: 22rem;
+    order: 0;
+  }
+
+  .control-guion-column > .zone-live-sidebar {
+    height: auto;
+    min-height: 10rem;
+    max-height: none;
+  }
+
+  .control-stages-preview-only {
+    min-height: 14rem;
+    order: 1;
+  }
+
+  .preview-toolbar-persistent .btn {
+    min-height: 2.5rem;
+    min-width: 2.5rem;
+    padding: 0.35rem 0.55rem;
+  }
+
+  .schedule-toolbar .btn,
+  .schedule-row-actions .btn-ghost {
+    min-height: 2.25rem;
+    padding: 0.3rem 0.45rem;
+  }
+
+  .schedule-item {
+    padding: 0.35rem 0.4rem;
+  }
+
+  .promedia-dialog {
+    max-width: calc(100vw - 1rem);
+    width: calc(100vw - 1rem);
+    margin: 0.5rem;
   }
 }
 
@@ -1740,6 +1830,44 @@ body {
 
 .footer-muted {
   opacity: 0.85;
+}
+
+.lan-remote-hint {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.4rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.lan-remote-label {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.lan-remote-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.lan-remote-link:hover {
+  text-decoration: underline;
+}
+
+.lan-remote-copy {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.35rem;
+  min-height: 1.6rem;
+}
+
+.lan-remote-badge {
+  color: #9ec5ff;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 /* —— Output shell —— */
