@@ -8,7 +8,10 @@ import type {
   TransitionEffect,
 } from "@promedia/shared";
 import { LOCALE_SHORT, useLocale } from "../locale/LocaleContext";
-import { ThemePanel } from "./ThemePanel";
+import {
+  ThemePanel,
+  type ThemeBackgroundAssetOption,
+} from "./ThemePanel";
 import {
   IconAbout,
   IconLanguage,
@@ -31,6 +34,8 @@ export type ControlHeaderToolbarProps = {
   themeBackground: ThemeBackground;
   transitionEffect: TransitionEffect;
   uploadingBackground?: boolean;
+  /** Session-uploaded stage backgrounds for the Theme dropdown. */
+  backgroundAssets?: ThemeBackgroundAssetOption[];
   onProject: () => void;
   /** Open local Biblioteca (songs / bibles / texts / presentations / media). */
   onOpenLibrary: () => void;
@@ -96,6 +101,7 @@ export function ControlHeaderToolbar({
   themeBackground,
   transitionEffect,
   uploadingBackground,
+  backgroundAssets,
   onProject,
   onOpenLibrary,
   onSceneNormal,
@@ -227,6 +233,7 @@ export function ControlHeaderToolbar({
           transitionEffect={transitionEffect}
           disabled={!canMutate}
           uploadingBackground={uploadingBackground}
+          backgroundAssets={backgroundAssets}
           onUploadBackground={onUploadBackground}
           onChange={onThemeChange}
         />
