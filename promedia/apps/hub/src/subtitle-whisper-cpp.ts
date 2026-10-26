@@ -11,6 +11,7 @@ import {
   resolveWhisperCliBin,
 } from "./subtitle-bins.js";
 import { cleanCueText, filterSpeechCues } from "./subtitle-cue-text.js";
+import { shapeLyricLikeCues } from "./subtitle-lyric-shape.js";
 import { ensureSubtitleDirs, subtitleModelsRoot } from "./subtitle-paths.js";
 
 /**
@@ -567,8 +568,17 @@ export async function transcribeWithWhisperCpp(options: {
   const lang = whisperCliLanguageArg(options.languageHint ?? "auto");
 
   // Prefer suppressing non-speech tokens (`-sns`) so music videos yield lyrics
-  // instead of `[MUSIC]` / `[MÚSICA]`. Older whisper-cli builds may reject it.
-  const buildArgs = (optional: { np: boolean; sns: boolean }): string[] => {
+  // instead of `[MUSIC]` / `[MÚSICA]`. `-ml` + `-sow` keep segments at
+  // cancionero line length (gold-standard hymn timing) instead of late
+  // paragraphs. Older whisper-cli builds may reject optional flags.
+  const lyricMaxLen = Number(
+    process.env.SUBTITLE_WHISPER_MAX_LEN?.trim() || "48",
+  );
+  const buildArgs = (optional: {
+    np: boolean;
+    sns: boolean;
+    lyricSeg: boolean;
+  }): string[] => {
     const args = [
       "-m",
       modelPath,
@@ -585,6 +595,13 @@ export async function transcribeWithWhisperCpp(options: {
     ];
     if (optional.np) args.push("-np");
     if (optional.sns) args.push("-sns");
+    if (
+      optional.lyricSeg &&
+      Number.isFinite(lyricMaxLen) &&
+      lyricMaxLen > 0
+    ) {
+      args.push("-ml", String(Math.floor(lyricMaxLen)), "-sow");
+    }
     if (options.translateToEn) {
       args.push("-tr");
     }
@@ -593,7 +610,7 @@ export async function transcribeWithWhisperCpp(options: {
 
   let code: number;
   let stderr: string;
-  let args = buildArgs({ np: true, sns: true });
+  let args = buildArgs({ np: true, sns: true, lyricSeg: true });
   try {
     ({ code, stderr } = await runCmd(bin, args));
   } catch (err) {
@@ -607,12 +624,31 @@ export async function transcribeWithWhisperCpp(options: {
     throw err;
   }
 
-  if (code !== 0 && /-(?:np|sns)|unknown|unrecognized/i.test(stderr)) {
-    // Older builds may reject -np and/or -sns — retry without optional flags.
-    args = buildArgs({ np: false, sns: false });
-    const second = await runCmd(bin, args);
-    code = second.code;
-    stderr = second.stderr;
+  if (
+    code !== 0 &&
+    /-(?:np|sns|ml|sow)|max-len|split-on-word|unknown|unrecognized/i.test(
+      stderr,
+    )
+  ) {
+    // Older builds may reject optional flags — peel them off in stages.
+    const retries = [
+      { np: true, sns: true, lyricSeg: false },
+      { np: false, sns: false, lyricSeg: false },
+    ] as const;
+    for (const opt of retries) {
+      args = buildArgs(opt);
+      const next = await runCmd(bin, args);
+      code = next.code;
+      stderr = next.stderr;
+      if (code === 0) break;
+      if (
+        !/-(?:np|sns|ml|sow)|max-len|split-on-word|unknown|unrecognized/i.test(
+          stderr,
+        )
+      ) {
+        break;
+      }
+    }
   }
 
   if (code !== 0) {
@@ -669,8 +705,10 @@ export async function transcribeWithWhisperCpp(options: {
     sourceLang = "en";
   }
 
-  // Drop `[MUSIC]` / sound labels — prefer real lyric/transcript text only.
-  cues = filterSpeechCues(cues);
+  // Drop `[MUSIC]` / sound labels, then shape toward official lyric density
+  // (short lines, punctuation, no late gaps vs previous cue). Adelante lead
+  // and intro-hold stay on the overlay path — we only fix cue payload here.
+  cues = shapeLyricLikeCues(filterSpeechCues(cues));
 
   return {
     cues,

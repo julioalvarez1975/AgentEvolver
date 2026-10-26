@@ -16,6 +16,7 @@ import {
   subtitleModelsRoot,
 } from "./subtitle-paths.js";
 import { filterSpeechCues, speechCueRatio } from "./subtitle-cue-text.js";
+import { shapeLyricLikeCues } from "./subtitle-lyric-shape.js";
 import {
   assertWhisperCliOrThrow,
   transcribeWithWhisperCpp,
@@ -147,15 +148,15 @@ async function fileSha256(filePath: string): Promise<string> {
 }
 
 /**
- * Cache key v4: busts tiny-model ASR caches after default ggml upgrade to
- * **base**, plus music-label-only / pre-`-l auto` leftovers from v2/v3.
+ * Cache key v5: busts pre–lyric-shape Whisper caches (v4 had base + `-l auto`
+ * but long late paragraphs). Forces re-ASR with `-ml`/`-sow` + cancionero shape.
  */
 function cacheKey(
   assetId: string,
   targetLang: SubtitleTargetLang,
   translateToEn: boolean,
 ): string {
-  return `${assetId}_${translateToEn ? "en" : "src"}_${targetLang}_v4`;
+  return `${assetId}_${translateToEn ? "en" : "src"}_${targetLang}_v5`;
 }
 
 function normalizeChunks(
@@ -451,7 +452,7 @@ export async function transcribeLocalFile(options: {
       cached.sourceHash === sourceHash &&
       Array.isArray(cached.cues)
     ) {
-      const cues = filterSpeechCues(cached.cues);
+      const cues = shapeLyricLikeCues(filterSpeechCues(cached.cues));
       // Ignore stale music-label-only caches (showed as `[MÚSICA]` only).
       if (cues.length > 0) {
         return {
@@ -544,7 +545,7 @@ export async function transcribeLocalFile(options: {
 
   asr = {
     ...asr,
-    cues: filterSpeechCues(asr.cues),
+    cues: shapeLyricLikeCues(filterSpeechCues(asr.cues)),
   };
 
   // Only cache when we have real speech/lyric cues — never persist `[MUSIC]`-only.
