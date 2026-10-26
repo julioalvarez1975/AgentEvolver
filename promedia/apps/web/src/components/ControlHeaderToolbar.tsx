@@ -2,11 +2,13 @@ import type { ReactNode } from "react";
 import type { Locale } from "@promedia/i18n";
 import type {
   SceneMode,
+  SubtitleTargetLang,
   ThemeBackground,
   ThemeId,
   ThemeOverrides,
   TransitionEffect,
 } from "@promedia/shared";
+import { SUBTITLE_TARGET_LANGS } from "@promedia/shared";
 import { LOCALE_SHORT, useLocale } from "../locale/LocaleContext";
 import {
   ThemePanel,
@@ -21,6 +23,7 @@ import {
   IconSceneClear,
   IconSceneLogo,
   IconSceneNormal,
+  IconSubtitles,
 } from "./UiIcons";
 
 export type ControlHeaderToolbarProps = {
@@ -51,6 +54,13 @@ export type ControlHeaderToolbarProps = {
   onAbout: () => void;
   /** Manual create/join when no session yet (rare after auto-session). */
   sessionFallback?: ReactNode;
+  /** Local AI subtitle agent (Phase 1). */
+  subtitleAgentEnabled?: boolean;
+  subtitleTargetLang?: SubtitleTargetLang;
+  /** Tooltip when current selection cannot run ASR (YouTube / text-only). */
+  subtitleAgentTitle?: string;
+  onToggleSubtitleAgent?: () => void;
+  onSubtitleTargetLang?: (lang: SubtitleTargetLang) => void;
 };
 
 function ToolbarBtn({
@@ -111,6 +121,11 @@ export function ControlHeaderToolbar({
   onUploadBackground,
   onAbout,
   sessionFallback,
+  subtitleAgentEnabled = false,
+  subtitleTargetLang = "es",
+  subtitleAgentTitle,
+  onToggleSubtitleAgent,
+  onSubtitleTargetLang,
 }: ControlHeaderToolbarProps) {
   const { t, locale, setLocale, locales } = useLocale();
 
@@ -130,6 +145,10 @@ export function ControlHeaderToolbar({
       onClick={onClick}
     />
   );
+
+  const subtitleTitle =
+    subtitleAgentTitle?.trim() ||
+    t("control.subtitleAgentTitle");
 
   return (
     <div
@@ -156,6 +175,44 @@ export function ControlHeaderToolbar({
         icon={<IconLibrary />}
         onClick={onOpenLibrary}
       />
+
+      <ToolbarBtn
+        active={subtitleAgentEnabled}
+        disabled={!canMutate || !onToggleSubtitleAgent}
+        title={subtitleTitle}
+        label={t("control.subtitleAgent")}
+        icon={<IconSubtitles />}
+        onClick={() => onToggleSubtitleAgent?.()}
+      />
+
+      {subtitleAgentEnabled ? (
+        <label
+          className="toolbar-lang toolbar-subtitle-lang"
+          title={t("control.subtitleAgentLang")}
+        >
+          <span className="toolbar-icon-btn-glyph" aria-hidden>
+            <IconSubtitles />
+          </span>
+          <select
+            className="toolbar-lang-select"
+            value={subtitleTargetLang}
+            aria-label={t("control.subtitleAgentLang")}
+            disabled={!canMutate || !onSubtitleTargetLang}
+            onChange={(e) =>
+              onSubtitleTargetLang?.(e.target.value as SubtitleTargetLang)
+            }
+          >
+            {SUBTITLE_TARGET_LANGS.map((code) => (
+              <option key={code} value={code}>
+                {LOCALE_SHORT[code as Locale] ?? code}
+              </option>
+            ))}
+          </select>
+          <span className="toolbar-icon-btn-label">
+            {t("control.subtitleAgentLangShort")}
+          </span>
+        </label>
+      ) : null}
 
       <label className="toolbar-lang" title={t("control.language")}>
         <span className="toolbar-icon-btn-glyph" aria-hidden>

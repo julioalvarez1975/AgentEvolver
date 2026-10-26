@@ -392,3 +392,27 @@ export function IconTheme(props: IconProps) {
     </svg>
   );
 }
+
+/** Local AI subtitle agent — caption bars. */
+export function IconSubtitles(props: IconProps) {
+  return (
+    <svg {...svgProps({ ...props, size: props.size ?? 20 })}>
+      <rect
+        x="3"
+        y="5"
+        width="18"
+        height="14"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        fill="none"
+      />
+      <path
+        d="M6 14.5h7M6 11h12"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}

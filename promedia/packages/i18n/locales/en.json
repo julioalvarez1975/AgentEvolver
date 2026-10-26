@@ -267,5 +267,16 @@
   "library.songHint": "Quelea song packs (.qsp) and XML stay on this machine (data/library/). Not committed to Git. After import, add them to the Schedule as text.",
   "library.songImportResult": "Imported {n} song(s){updated}{skipped}.",
   "library.songFolderResult": "Imported {n} song(s){updated}{skipped}.",
-  "bible.localBadge": "local"
+  "bible.localBadge": "local",
+  "control.subtitleAgent": "Subtitle agent",
+  "control.subtitleAgentTitle": "Enable local subtitles (offline ASR). Local hub files only — not YouTube in phase 1.",
+  "control.subtitleAgentLang": "Subtitle language",
+  "control.subtitleAgentLangShort": "Subs",
+  "control.subtitleAgentYoutube": "Local files only in phase 1",
+  "control.subtitleAgentTextOnly": "No audio — text-only song or item",
+  "control.subtitleAgentNoItem": "Select a local video or audio item",
+  "control.subtitleAgentWorking": "Processing subtitles on the hub (local)…",
+  "control.subtitleAgentReady": "Subtitles ready",
+  "control.subtitleAgentSourceOnly": "ASR ready; local MT unavailable for this pair — showing source language",
+  "control.subtitleAgentError": "Subtitle agent error"
 }

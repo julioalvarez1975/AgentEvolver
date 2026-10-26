@@ -12,6 +12,7 @@ import type {
   LibrarySongPayload,
   PlaylistItem,
   SceneMode,
+  SubtitleTargetLang,
   TextPayload,
   ThemeId,
   TransitionEffect,
@@ -21,6 +22,7 @@ import {
   DEFAULT_THEME_BACKGROUND,
   DEFAULT_THEME_ID,
   DEFAULT_TRANSITION_EFFECT,
+  emptySubtitleAgentState,
   itemHasSlides,
   itemProjectionSlideCount,
   normalizeThemeBackground,
@@ -37,6 +39,7 @@ import { SchedulePanel } from "../components/SchedulePanel";
 import { SongEditor } from "../components/SongEditor";
 import { StageBackground } from "../components/StageBackground";
 import { StatusTip } from "../components/StatusTip";
+import { SubtitleOverlay } from "../components/SubtitleOverlay";
 import { TextItemEditor } from "../components/TextItemEditor";
 import { IconGoLive, IconNext, IconPrev } from "../components/UiIcons";
 import { useLocale } from "../locale/LocaleContext";
@@ -169,7 +172,29 @@ export function ControlPage() {
   );
   const transitionEffect: TransitionEffect =
     session.snapshot?.live.transitionEffect ?? DEFAULT_TRANSITION_EFFECT;
+  const subtitleAgent =
+    session.snapshot?.live.subtitleAgent ?? emptySubtitleAgentState();
   const themeStyle = themeSurfaceStyle(themeId, themeOverrides);
+
+  const subtitleFocusItem = liveItem ?? selectedItem;
+  const subtitleAgentTitle = useMemo(() => {
+    if (!subtitleFocusItem) {
+      return t("control.subtitleAgentNoItem");
+    }
+    if (subtitleFocusItem.type === "video") {
+      if (subtitleFocusItem.payload.sourceKind === "youtube") {
+        return t("control.subtitleAgentYoutube");
+      }
+      return t("control.subtitleAgentTitle");
+    }
+    if (
+      subtitleFocusItem.type === "text" ||
+      subtitleFocusItem.type === "bible"
+    ) {
+      return t("control.subtitleAgentTextOnly");
+    }
+    return t("control.subtitleAgentTitle");
+  }, [subtitleFocusItem, t]);
 
   const themeBgAssetSrc =
     themeBackground.mode === "media" &&
@@ -236,6 +261,34 @@ export function ControlPage() {
   const sessionReady = session.hasSession;
   /** Playlist chrome needs a session; mutations need WS (auto-reconnects if down). */
   const canMutate = sessionReady && wsReady;
+
+  // When agent is on, re-target ASR if focus item changed (live preferred).
+  useEffect(() => {
+    if (!subtitleAgent.enabled || !canMutate) {
+      return;
+    }
+    const focusId = liveItemId || selectedItemId;
+    if (!focusId) {
+      return;
+    }
+    if (subtitleAgent.itemId === focusId) {
+      return;
+    }
+    session.setSubtitleAgent({
+      enabled: true,
+      targetLang: subtitleAgent.targetLang,
+      itemId: focusId,
+    });
+    // Intentionally depend on focus ids / enabled — not full agent object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    subtitleAgent.enabled,
+    subtitleAgent.targetLang,
+    subtitleAgent.itemId,
+    liveItemId,
+    selectedItemId,
+    canMutate,
+  ]);
 
   const canGoLive = Boolean(
     selectedItem &&
@@ -1008,6 +1061,26 @@ export function ControlPage() {
               onThemeChange={(patch) => session.setTheme(patch)}
               onUploadBackground={onUploadThemeBackground}
               onAbout={() => setAboutOpen(true)}
+              subtitleAgentEnabled={subtitleAgent.enabled}
+              subtitleTargetLang={subtitleAgent.targetLang}
+              subtitleAgentTitle={subtitleAgentTitle}
+              onToggleSubtitleAgent={() => {
+                const next = !subtitleAgent.enabled;
+                session.setSubtitleAgent({
+                  enabled: next,
+                  targetLang: subtitleAgent.targetLang,
+                  itemId:
+                    (liveItemId || selectedItemId || undefined) ?? undefined,
+                });
+              }}
+              onSubtitleTargetLang={(lang: SubtitleTargetLang) => {
+                session.setSubtitleAgent({
+                  enabled: true,
+                  targetLang: lang,
+                  itemId:
+                    (liveItemId || selectedItemId || undefined) ?? undefined,
+                });
+              }}
               sessionFallback={
                 <>
                   <button
@@ -1382,6 +1455,11 @@ export function ControlPage() {
               ) : (
                 <p>{t("control.liveEmpty")}</p>
               )}
+              <SubtitleOverlay
+                agent={subtitleAgent}
+                mediaClock={mediaClock}
+                itemId={liveItem?.id ?? null}
+              />
             </div>
           </section>
         </div>
@@ -1494,6 +1572,15 @@ export function ControlPage() {
               ) : (
                 <p>{t("control.previewEmpty")}</p>
               )}
+              <SubtitleOverlay
+                agent={subtitleAgent}
+                mediaClock={
+                  selectedItem && selectedItem.id === liveItemId
+                    ? mediaClock
+                    : null
+                }
+                itemId={selectedItem?.id ?? null}
+              />
             </div>
           </section>
         </div>

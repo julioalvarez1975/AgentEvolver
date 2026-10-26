@@ -14,10 +14,12 @@ import {
   DEFAULT_THEME_ID,
   DEFAULT_TRANSITION_EFFECT,
   TRANSITION_DURATION_MS,
+  emptySubtitleAgentState,
   normalizeThemeBackground,
 } from "@promedia/shared";
 import { SceneOverlay } from "../components/SceneOverlay";
 import { StageBackground } from "../components/StageBackground";
+import { SubtitleOverlay } from "../components/SubtitleOverlay";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import { buildAssetUrl } from "../lib/assets";
 import { themeSurfaceStyle } from "../lib/theme";
@@ -71,6 +73,8 @@ export function OutputPage() {
   );
   const transitionEffect: TransitionEffect =
     snapshot?.live.transitionEffect ?? DEFAULT_TRANSITION_EFFECT;
+  const subtitleAgent =
+    snapshot?.live.subtitleAgent ?? emptySubtitleAgentState();
   const themeStyle = themeSurfaceStyle(themeId, themeOverrides);
   const liveItemKey = liveItem?.id ?? "__empty__";
   const OutputRenderer = liveItem
@@ -274,6 +278,11 @@ export function OutputPage() {
                 </div>
               </div>
             ) : null}
+            <SubtitleOverlay
+              agent={subtitleAgent}
+              mediaClock={mediaClock}
+              itemId={liveItem?.id ?? null}
+            />
             <SceneOverlay mode={sceneMode} />
           </>
         )}

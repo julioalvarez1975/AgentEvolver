@@ -11,6 +11,7 @@ import type {
   SessionPlaylist,
   SessionSnapshot,
   SessionUpdatedPayload,
+  SubtitleAgentState,
   TextPayload,
   ThemeBackground,
   ThemeId,
@@ -21,6 +22,7 @@ import type {
 import {
   emptyLiveState,
   emptyPlaylist,
+  emptySubtitleAgentState,
   isSceneMode,
   isThemeId,
   isTransitionEffect,
@@ -173,11 +175,22 @@ export class SessionStore {
     }
   }
 
+  private ensureSubtitleAgent(session: SessionRecord): SubtitleAgentState {
+    if (!session.live.subtitleAgent) {
+      session.live.subtitleAgent = emptySubtitleAgentState();
+    }
+    return session.live.subtitleAgent;
+  }
+
   private bumpUpdated(session: SessionRecord): HubMessage {
+    this.ensureSubtitleAgent(session);
     session.seq += 1;
     const payload: SessionUpdatedPayload = {
       seq: session.seq,
-      live: { ...session.live },
+      live: {
+        ...session.live,
+        subtitleAgent: { ...session.live.subtitleAgent },
+      },
       playlist: { items: session.playlist.items.map((item) => ({ ...item })) },
       lastTouchAt: session.lastTouchAt,
       touchNote: session.touchNote,
@@ -185,6 +198,12 @@ export class SessionStore {
     const message = this.makeMessage(session, "session.updated", payload);
     this.pushEvent(session, message);
     return message;
+  }
+
+  /** Persist subtitleAgent field already mutated on session.live. */
+  touchSubtitleAgent(session: SessionRecord): HubMessage {
+    this.ensureSubtitleAgent(session);
+    return this.bumpUpdated(session);
   }
 
   touch(session: SessionRecord, note?: string): HubMessage {
@@ -373,8 +392,23 @@ export class SessionStore {
     session.live.currentSlideIndex = 0;
     session.live.mediaClock = null;
     session.live.sceneMode = "normal";
+    const agent = this.ensureSubtitleAgent(session);
+    if (agent.enabled) {
+      session.live.subtitleAgent = {
+        ...agent,
+        status: "idle",
+        itemId: null,
+        assetId: null,
+        cues: [],
+        hint: null,
+        sourceLang: null,
+        translated: false,
+        updatedAt: nowIso(),
+      };
+    }
     return this.bumpUpdated(session);
   }
+
 
   setSceneMode(
     session: SessionRecord,

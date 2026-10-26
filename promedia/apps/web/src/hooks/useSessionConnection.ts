@@ -7,6 +7,7 @@ import type {
   PresentationPayload,
   SceneMode,
   SessionSnapshot,
+  SubtitleTargetLang,
   TextPayload,
   ThemeBackground,
   ThemeId,
@@ -315,6 +316,15 @@ export function useSessionConnection(role: ClientRole) {
     [send],
   );
 
+  const setSubtitleAgent = useCallback(
+    (patch: {
+      enabled?: boolean;
+      targetLang?: SubtitleTargetLang;
+      itemId?: string;
+    }): boolean => send("live.subtitleAgent.set", patch),
+    [send],
+  );
+
   const isWsOpen = useCallback(
     () => socketRef.current?.isOpen === true,
     [],
@@ -347,6 +357,7 @@ export function useSessionConnection(role: ClientRole) {
     setMediaClock,
     setSceneMode,
     setTheme,
+    setSubtitleAgent,
     isWsOpen,
     hasSession: Boolean(sessionId && wsTicket),
   };
