@@ -10,6 +10,7 @@ import {
   missingBinHintFromError,
   resolveWhisperCliBin,
 } from "./subtitle-bins.js";
+import { cleanCueText, filterSpeechCues } from "./subtitle-cue-text.js";
 import { ensureSubtitleDirs, subtitleModelsRoot } from "./subtitle-paths.js";
 
 /** ggml tiny multilingual — small, good enough for local ASR fallback. */
@@ -381,7 +382,7 @@ export function parseWhisperCppResult(raw: string): WhisperCppParsed {
   let i = 0;
 
   const push = (text: string, startMs: number, endMs: number) => {
-    const t = text.replace(/\s+/g, " ").trim();
+    const t = cleanCueText(text);
     if (!t) return;
     let start = Math.max(0, Math.round(startMs));
     let end = Math.max(0, Math.round(endMs));
@@ -457,7 +458,7 @@ export function parseWhisperCppVttOrSrt(raw: string): SubtitleCue[] {
       if (/^(WEBVTT|NOTE)\b/i.test(line)) continue;
       textLines.push(line);
     }
-    const text = textLines.join(" ").replace(/\s+/g, " ").trim();
+    const text = cleanCueText(textLines.join(" "));
     if (!text) continue;
     let end = endMs;
     if (end <= startMs) end = startMs + 1500;
@@ -516,34 +517,40 @@ export async function transcribeWithWhisperCpp(options: {
   // whisper-cli defaults `-l en` — must pass auto/es/… or Spanish audio yields empty/garbage.
   const lang = whisperCliLanguageArg(options.languageHint ?? "auto");
 
-  const args = [
-    "-m",
-    modelPath,
-    "-f",
-    options.wavPath,
-    "-of",
-    outBase,
-    "-oj",
-    "-ovtt",
-    "-osrt",
-    "-nt", // no timestamps in stdout (cleaner)
-    "-np", // no prints progress spam when supported; ignored if unknown
-    "-l",
-    lang,
-  ];
-  if (options.translateToEn) {
-    args.push("-tr");
-  }
+  // Prefer suppressing non-speech tokens (`-sns`) so music videos yield lyrics
+  // instead of `[MUSIC]` / `[MÚSICA]`. Older whisper-cli builds may reject it.
+  const buildArgs = (optional: { np: boolean; sns: boolean }): string[] => {
+    const args = [
+      "-m",
+      modelPath,
+      "-f",
+      options.wavPath,
+      "-of",
+      outBase,
+      "-oj",
+      "-ovtt",
+      "-osrt",
+      "-nt", // no timestamps in stdout (cleaner)
+      "-l",
+      lang,
+    ];
+    if (optional.np) args.push("-np");
+    if (optional.sns) args.push("-sns");
+    if (options.translateToEn) {
+      args.push("-tr");
+    }
+    return args;
+  };
 
   let code: number;
   let stderr: string;
+  let args = buildArgs({ np: true, sns: true });
   try {
     ({ code, stderr } = await runCmd(bin, args));
   } catch (err) {
     if (missingBinHintFromError(err, "whisper_cpp")) {
       throw new Error("whisper_cpp_missing");
     }
-    // Older builds may reject -np; retry without optional flags.
     const msg = err instanceof Error ? err.message : String(err);
     if (/enoent|not found/i.test(msg)) {
       throw new Error("whisper_cpp_missing");
@@ -551,14 +558,12 @@ export async function transcribeWithWhisperCpp(options: {
     throw err;
   }
 
-  if (code !== 0) {
-    // Retry without -np if the flag is unknown
-    if (/-np|unknown|unrecognized/i.test(stderr)) {
-      const args2 = args.filter((a) => a !== "-np");
-      const second = await runCmd(bin, args2);
-      code = second.code;
-      stderr = second.stderr;
-    }
+  if (code !== 0 && /-(?:np|sns)|unknown|unrecognized/i.test(stderr)) {
+    // Older builds may reject -np and/or -sns — retry without optional flags.
+    args = buildArgs({ np: false, sns: false });
+    const second = await runCmd(bin, args);
+    code = second.code;
+    stderr = second.stderr;
   }
 
   if (code !== 0) {
@@ -614,6 +619,9 @@ export async function transcribeWithWhisperCpp(options: {
   if (options.translateToEn) {
     sourceLang = "en";
   }
+
+  // Drop `[MUSIC]` / sound labels — prefer real lyric/transcript text only.
+  cues = filterSpeechCues(cues);
 
   return {
     cues,

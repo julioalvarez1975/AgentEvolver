@@ -15,6 +15,7 @@ import {
   ensureSubtitleDirs,
   subtitleModelsRoot,
 } from "./subtitle-paths.js";
+import { filterSpeechCues, speechCueRatio } from "./subtitle-cue-text.js";
 import {
   assertWhisperCliOrThrow,
   transcribeWithWhisperCpp,
@@ -146,15 +147,15 @@ async function fileSha256(filePath: string): Promise<string> {
 }
 
 /**
- * Cache key v2: busts empty/garbage Spanish cues from pre-`-l auto` whisper-cli
- * runs and from incomplete ggml downloads that slipped past the old 10 MB floor.
+ * Cache key v3: busts music-label-only cues (`[MUSIC]` / `[MÚSICA]`) that v2
+ * cached as "ready", and empty/garbage Spanish cues from pre-`-l auto` runs.
  */
 function cacheKey(
   assetId: string,
   targetLang: SubtitleTargetLang,
   translateToEn: boolean,
 ): string {
-  return `${assetId}_${translateToEn ? "en" : "src"}_${targetLang}_v2`;
+  return `${assetId}_${translateToEn ? "en" : "src"}_${targetLang}_v3`;
 }
 
 function normalizeChunks(
@@ -188,7 +189,7 @@ function normalizeChunks(
       text,
     });
   }
-  return cues;
+  return filterSpeechCues(cues);
 }
 
 type WhisperPipeline = (
@@ -448,14 +449,17 @@ export async function transcribeLocalFile(options: {
     if (
       cached &&
       cached.sourceHash === sourceHash &&
-      Array.isArray(cached.cues) &&
-      cached.cues.length > 0
+      Array.isArray(cached.cues)
     ) {
-      return {
-        cues: cached.cues,
-        sourceLang: cached.sourceLang,
-        whisperTranslatedToEn: cached.whisperTranslatedToEn,
-      };
+      const cues = filterSpeechCues(cached.cues);
+      // Ignore stale music-label-only caches (showed as `[MÚSICA]` only).
+      if (cues.length > 0) {
+        return {
+          cues,
+          sourceLang: cached.sourceLang,
+          whisperTranslatedToEn: cached.whisperTranslatedToEn,
+        };
+      }
     }
   } catch {
     // miss
@@ -473,19 +477,19 @@ export async function transcribeLocalFile(options: {
   // Detected sourceLang then drives Marian when targetLang differs.
   const languageHint = "auto";
 
-  if (backend === "transformers") {
-    // Explicit opt-in only — not used on Mac default path.
-    try {
-      asr = await transcribeWithTransformers({
-        wavPath,
-        translateToEn,
-        languageHint,
-        onStatus,
-      });
-    } catch (tfErr) {
-      throw new Error(classifyWhisperLoadError(tfErr));
+  async function runAsr(forceTranslateToEn: boolean): Promise<AsrResult> {
+    if (backend === "transformers") {
+      try {
+        return await transcribeWithTransformers({
+          wavPath,
+          translateToEn: forceTranslateToEn,
+          languageHint,
+          onStatus,
+        });
+      } catch (tfErr) {
+        throw new Error(classifyWhisperLoadError(tfErr));
+      }
     }
-  } else {
     // auto | whisper_cpp: whisper-cli exclusively. Never fall into Xenova.
     const cliPresent = await whisperCliAvailable();
     if (!cliPresent) {
@@ -495,9 +499,9 @@ export async function transcribeLocalFile(options: {
       throw new Error("whisper_cpp_missing");
     }
     try {
-      asr = await transcribeViaWhisperCpp({
+      return await transcribeViaWhisperCpp({
         wavPath,
-        translateToEn,
+        translateToEn: forceTranslateToEn,
         languageHint,
         assetId,
         onStatus,
@@ -512,15 +516,49 @@ export async function transcribeLocalFile(options: {
     }
   }
 
-  const payload: CachedAsr = {
-    assetId,
-    sourceHash,
-    sourceLang: asr.sourceLang,
-    whisperTranslatedToEn: asr.whisperTranslatedToEn,
-    cues: asr.cues,
-    createdAt: new Date().toISOString(),
+  asr = await runAsr(translateToEn);
+
+  // English UI with `-tr` already produced lyrics for songs where plain
+  // transcribe only emitted `[MUSIC]`. When the Spanish (or other) UI gets
+  // music labels / empty after filter, retry once with translate→EN so Marian
+  // can turn real English lyrics into the target language.
+  if (
+    !translateToEn &&
+    (asr.cues.length === 0 || speechCueRatio(asr.cues) < 0.25)
+  ) {
+    console.warn(
+      `[subtitle] ASR yielded ${asr.cues.length} speech cues — retrying with Whisper -tr (translate→EN) for lyrics`,
+    );
+    try {
+      const retry = await runAsr(true);
+      if (retry.cues.length > asr.cues.length) {
+        asr = retry;
+      }
+    } catch (retryErr) {
+      console.warn(
+        "[subtitle] Whisper -tr lyrics retry failed:",
+        retryErr instanceof Error ? retryErr.message : retryErr,
+      );
+    }
+  }
+
+  asr = {
+    ...asr,
+    cues: filterSpeechCues(asr.cues),
   };
-  await writeFile(cachePath, JSON.stringify(payload, null, 2), "utf8");
+
+  // Only cache when we have real speech/lyric cues — never persist `[MUSIC]`-only.
+  if (asr.cues.length > 0) {
+    const payload: CachedAsr = {
+      assetId,
+      sourceHash,
+      sourceLang: asr.sourceLang,
+      whisperTranslatedToEn: asr.whisperTranslatedToEn,
+      cues: asr.cues,
+      createdAt: new Date().toISOString(),
+    };
+    await writeFile(cachePath, JSON.stringify(payload, null, 2), "utf8");
+  }
   return asr;
 }
 

@@ -238,14 +238,15 @@ En **macOS** (y en cualquier host) el hub usa **whisper.cpp exclusivamente** cua
 1. Arrancá ProMedia (`pnpm dev` / launcher) y abrí **Control**
 2. Añadí un **vídeo/audio local** o un **YouTube** público al Guion
 3. Pulsá **Agente subtítulos** en la barra (junto a **Proyectar** / **Idioma**; queda activo). El idioma de subtítulos **sigue el selector Idioma** de Control (ES / EN / PT / FR / ZH)
-4. Poné el ítem **En vivo** (o dejalo seleccionado en Vista previa):
-   - Local: `ffmpeg` → WAV → **whisper.cpp** (`whisper-cli` + ggml-tiny) (+ MT opcional)
-   - YouTube: `yt-dlp` (bestaudio) → caché → mismo pipeline ASR
+4. Poné el ítem **En vivo** (o dejalo seleccionado en Vista previa). Prioridad **letra real**, no etiquetas de sonido:
+   - YouTube: primero captions oficiales/auto (`yt-dlp` `--write-subs` / `--write-auto-subs`); si no hay, bestaudio → Whisper
+   - Local: `ffmpeg` → WAV → **whisper.cpp** (`whisper-cli` + ggml-tiny; `-l auto`, `-sns` si el CLI lo soporta; si solo salen `[MUSIC]`/`[MÚSICA]`, reintento con `-tr` + MT)
+   - Se filtran etiquetas no-speech (`[MUSIC]`, `[MÚSICA]`, etc.) antes de mostrar
 5. Las captions aparecen **arriba del vídeo** (estilo cancionero / `FittedTextStage`), alineadas al mismo `mediaClock`, con anticipación configurable (1,5–3 s, default 2 s) para leer la letra antes de cantarla. Tamaño SM–XL y anticipación van junto al botón **Agente subtítulos**. Canciones de Biblioteca con diapositivas ←/→ siguen siendo manuales (la anticipación solo aplica a cues con tiempo del agente).
 
 **Primera ejecución (descarga de modelos)**
 
-- Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-tiny.bin` a `promedia/data/models/whisper/` (gitignore). La descarga es atómica (tmp único + rename) y se coalescen jobs concurrentes (un solo fetch; no se pisan `.tmp` a medias). ASR no arranca hasta que el archivo tenga tamaño válido (~70 MB+). El hub pasa `-l auto` a `whisper-cli` (el default del CLI es `en`, que dejaba el español en blanco). Luego offline.
+- Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-tiny.bin` a `promedia/data/models/whisper/` (gitignore). La descarga es atómica (tmp único + rename) y se coalescen jobs concurrentes (un solo fetch; no se pisan `.tmp` a medias). ASR no arranca hasta que el archivo tenga tamaño válido (~70 MB+). El hub pasa `-l auto` (y `-sns` cuando el CLI lo acepta) a `whisper-cli`. Luego offline.
 - Sin whisper-cli: error claro `whisper_cpp_missing` → `brew install whisper-cpp` (no se usa Xenova/ONNX por defecto).
 - Errores claros en Control: `whisper_cpp_missing` / `whisper_cpp_failed` / `model_download_failed`.
 - Caché de cues por asset: `promedia/data/subtitles/cache/`
