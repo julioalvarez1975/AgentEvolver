@@ -2425,14 +2425,19 @@ body {
   }
 }
 
-/* Black dots pattern — Julio's 2×2 PNG tile; darkens busy/video bgs for light text. */
+/* Black dots pattern — Julio's 2×2 PNG tile; darkens busy/video bgs for light text.
+   Tile: UL cell opaque (α~227), other three transparent. Repeat upright from 0,0 —
+   nearest-neighbor scale so the UL quadrant stays a hard matrix cell (no smear/mirror). */
 .pm-stage-bg-dots {
   position: absolute;
   inset: 0;
   z-index: 1;
   background-image: url("/theme-bg-dots-tile.png");
   background-repeat: repeat;
+  background-position: 0 0;
   background-size: 8px 8px;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
 }
 
 .pm-theme[data-theme="acento"] {
