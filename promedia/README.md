@@ -40,7 +40,7 @@ Abrí siempre **`/control`**, no `/` (la Home es solo un enlace mínimo).
 
 ### Mac — doble clic (Finder)
 
-**Deps subtítulos (una vez):** `brew install yt-dlp ffmpeg` — luego reiniciá ProMedia (el hub también busca en `/opt/homebrew/bin` y `/usr/local/bin`).
+**Deps subtítulos (una vez):** `brew install yt-dlp ffmpeg whisper-cpp` — luego reiniciá ProMedia (el hub también busca en `/opt/homebrew/bin` y `/usr/local/bin`).
 
 1. Finder → carpeta del repo → **`promedia`**
 2. Doble clic en **`start-mac.command`** o **`Abrir-ProMedia.command`** (mismo arranque; el segundo es atajo con nombre claro)
@@ -226,10 +226,12 @@ Subtítulos automáticos **100 % locales** (sin API keys ni STT/MT en la nube). 
 **Dependencias en el PATH (Mac)**
 
 ```bash
-brew install yt-dlp ffmpeg
+brew install yt-dlp ffmpeg whisper-cpp
 ```
 
-Reiniciá el hub tras instalar. Overrides: `FFMPEG_PATH`, `YT_DLP_PATH`.
+Reiniciá el hub tras instalar. Overrides: `FFMPEG_PATH`, `YT_DLP_PATH`, `WHISPER_CPP_PATH`.
+
+En **macOS** (y en cualquier host con `whisper-cli` en el PATH) el hub usa **whisper.cpp como ASR principal**; `@huggingface/transformers` (ONNX) queda como respaldo. Sin `whisper-cli`, intenta ONNX y, ante `Unable to get model file path or buffer`, vuelve a pedir `brew install whisper-cpp`.
 
 **Cómo usarlo**
 
@@ -237,21 +239,20 @@ Reiniciá el hub tras instalar. Overrides: `FFMPEG_PATH`, `YT_DLP_PATH`.
 2. Añadí un **vídeo/audio local** o un **YouTube** público al Guion
 3. Pulsá **Agente subtítulos** en la barra (junto a **Proyectar** / **Idioma**; queda activo). El idioma de subtítulos **sigue el selector Idioma** de Control (ES / EN / PT / FR / ZH)
 4. Poné el ítem **En vivo** (o dejalo seleccionado en Vista previa):
-   - Local: `ffmpeg` → WAV → **Whisper tiny** (+ MT opcional)
+   - Local: `ffmpeg` → WAV → **whisper.cpp** (`whisper-cli` + ggml-tiny) (+ MT opcional)
    - YouTube: `yt-dlp` (bestaudio) → caché → mismo pipeline ASR
 5. Las captions aparecen **arriba del vídeo** (estilo cancionero / `FittedTextStage`), alineadas al mismo `mediaClock`, con anticipación configurable (1,5–3 s, default 2 s) para leer la letra antes de cantarla. Tamaño SM–XL y anticipación van junto al botón **Agente subtítulos**. Canciones de Biblioteca con diapositivas ←/→ siguen siendo manuales (la anticipación solo aplica a cues con tiempo del agente).
 
 **Primera ejecución (descarga de modelos)**
 
-- Hace falta **red una vez** para bajar Whisper (y Marian MT si aplica) a `promedia/data/models/` (gitignore; no van al repo). Después el hub puede trabajar **offline**.
-- El hub configura `@huggingface/transformers` con `env.cacheDir` + `env.localModelPath` → `data/models` (no basta `TRANSFORMERS_CACHE` en v4).
-- Si un intento deja descargas a medias (`.tmp.*`), el hub las limpia y **reintenta una vez**.
-- Errores claros en Control: red/`model_download_failed` vs ruta/caché/`model_path_error`.
+- Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-tiny.bin` a `promedia/data/models/whisper/` (gitignore). Luego offline.
+- Sin whisper-cli: intenta ONNX `Xenova/whisper-tiny` en `data/models/` (a menudo falla en Mac con `model_path_error` → instalá `brew install whisper-cpp`).
+- Errores claros en Control: `whisper_cpp_missing` / `model_download_failed` / `model_path_error`.
 - Caché de cues por asset: `promedia/data/subtitles/cache/`
 - WAV temporal: `promedia/data/subtitles/wav/`
 - Audio YouTube cacheado: `promedia/data/subtitles/youtube-cache/` (gitignore; no commitear)
-- Requiere **`ffmpeg`** en el PATH (o `FFMPEG_PATH`); YouTube también **`yt-dlp`** (o `YT_DLP_PATH`)
-- Modelo ASR por defecto: `Xenova/whisper-tiny` (override: `SUBTITLE_WHISPER_MODEL`, `SUBTITLE_WHISPER_REVISION`)
+- Requiere **`ffmpeg`** + **`whisper-cli`** (o `FFMPEG_PATH` / `WHISPER_CPP_PATH`); YouTube también **`yt-dlp`**
+- Backend: `SUBTITLE_ASR_BACKEND=auto|whisper_cpp|transformers` (default `auto` = preferir whisper-cli)
 
 **Traducción (enfoque por etapas)**
 
@@ -266,7 +267,7 @@ Reiniciá el hub tras instalar. Overrides: `FFMPEG_PATH`, `YT_DLP_PATH`.
 - Canciones de Biblioteca **solo texto** (sin pista de audio): el agente no hace STT (aviso)
 - Primera transcripción puede tardar (descarga + CPU); las siguientes del mismo archivo / videoId usan caché
 
-Env útiles: `SUBTITLE_MODELS_ROOT`, `SUBTITLE_DATA_ROOT`, `SUBTITLE_WHISPER_MODEL`, `SUBTITLE_WHISPER_REVISION`, `FFMPEG_PATH`, `YT_DLP_PATH`
+Env útiles: `SUBTITLE_MODELS_ROOT`, `SUBTITLE_DATA_ROOT`, `SUBTITLE_ASR_BACKEND`, `SUBTITLE_WHISPER_MODEL`, `SUBTITLE_WHISPER_REVISION`, `FFMPEG_PATH`, `YT_DLP_PATH`, `WHISPER_CPP_PATH`
 
 ### Tema (zona TEMA)
 

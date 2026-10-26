@@ -223,6 +223,15 @@ export function ControlPage() {
         if (hint === "model_path_error") {
           return t("control.subtitleAgentModelPath");
         }
+        if (hint === "whisper_cpp_missing") {
+          return t("control.subtitleAgentWhisperCppMissing");
+        }
+        if (
+          hint === "whisper_cpp_failed" ||
+          hint.startsWith("whisper_cpp_failed")
+        ) {
+          return t("control.subtitleAgentWhisperCppFailed");
+        }
         if (hint === "youtube_age_restricted") {
           return t("control.subtitleAgentYoutubeAge");
         }

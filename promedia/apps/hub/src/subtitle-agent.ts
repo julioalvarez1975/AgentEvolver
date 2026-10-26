@@ -19,6 +19,7 @@ import {
   ffmpegAvailable,
   mediaFileExists,
   transcribeLocalFile,
+  whisperCliAvailable,
 } from "./subtitle-asr.js";
 import { isMissingBinHint, missingBinHintFromError } from "./subtitle-bins.js";
 import { ensureSubtitleDirs } from "./subtitle-paths.js";
@@ -215,6 +216,9 @@ async function missingBinStillAbsent(hint: string): Promise<boolean> {
   }
   if (hint === "ffmpeg_missing") {
     return !(await ffmpegAvailable());
+  }
+  if (hint === "whisper_cpp_missing") {
+    return !(await whisperCliAvailable());
   }
   return true;
 }
@@ -551,10 +555,12 @@ async function runSubtitleJob(
     if (!isCurrent(sessionId, gen)) return;
     const live = sessionStore.get(sessionId);
     if (!live) return;
-    // Prefer stable hint codes for Control (strip long ffmpeg stderr tails).
+    // Prefer stable hint codes for Control (strip long stderr tails).
     const uiHint = hint.startsWith("ffmpeg_extract_failed")
       ? "ffmpeg_extract_failed"
-      : hint;
+      : hint.startsWith("whisper_cpp_failed")
+        ? "whisper_cpp_failed"
+        : hint;
     patchAndBroadcast(live, {
       status: "error",
       cues: [],
