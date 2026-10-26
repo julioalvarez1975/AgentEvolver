@@ -12,6 +12,7 @@ data
 coverage
 .vite
 .promedia-ready-url
+.promedia-lan-url
 .promedia-dev.lock
 .promedia-browser-opened
 

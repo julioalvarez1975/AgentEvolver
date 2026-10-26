@@ -10,16 +10,19 @@
  * Prints the ACTUAL Vite URL from "Local: http://localhost:PORT"
  * (ANSI-safe, line-buffered). Writes `.promedia-ready-url` as soon as
  * that URL is known so launchers can open Control without racing.
+ * Also writes `.promedia-lan-url` with http://<lan-ip>:PORT/control for phones.
  */
 import concurrently from "concurrently";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const READY_URL_FILE = path.join(ROOT, ".promedia-ready-url");
+const LAN_URL_FILE = path.join(ROOT, ".promedia-lan-url");
 const HUB_URL = (process.env.HUB_URL ?? "http://127.0.0.1:8787").replace(
   /\/$/,
   "",
@@ -29,11 +32,27 @@ const HUB_WAIT_MS = Number(process.env.PROMEDIA_HUB_WAIT_MS ?? 45_000);
 const WEB_URL_WAIT_MS = Number(process.env.PROMEDIA_WEB_URL_WAIT_MS ?? 20_000);
 const VITE_PORTS = [5173, 5174, 5175, 5176, 5177, 5178];
 
+function listLanIPv4() {
+  const out = [];
+  for (const addrs of Object.values(os.networkInterfaces())) {
+    if (!addrs) continue;
+    for (const a of addrs) {
+      const isV4 = a.family === "IPv4" || a.family === 4;
+      if (!isV4 || a.internal) continue;
+      if (String(a.address).startsWith("169.254.")) continue;
+      if (!out.includes(a.address)) out.push(a.address);
+    }
+  }
+  return out;
+}
+
 function clearReadyUrlFile() {
-  try {
-    fs.unlinkSync(READY_URL_FILE);
-  } catch {
-    // ignore
+  for (const file of [READY_URL_FILE, LAN_URL_FILE]) {
+    try {
+      fs.unlinkSync(file);
+    } catch {
+      // ignore
+    }
   }
 }
 
@@ -42,6 +61,37 @@ function writeReadyUrlFile(controlUrl) {
     fs.writeFileSync(READY_URL_FILE, `${controlUrl}\n`, "utf8");
   } catch {
     // ignore — launchers still probe /control on 5173–5178
+  }
+}
+
+function writeLanUrlFile(controlUrl) {
+  try {
+    fs.writeFileSync(LAN_URL_FILE, `${controlUrl}\n`, "utf8");
+  } catch {
+    // ignore
+  }
+}
+
+function advertiseLanControl(localUrl) {
+  let port = 5173;
+  try {
+    const u = new URL(localUrl);
+    port = Number(u.port) || (u.protocol === "https:" ? 443 : 80);
+  } catch {
+    // keep 5173
+  }
+  const ips = listLanIPv4();
+  if (ips.length === 0) {
+    console.log(
+      "[dev] Sin IPv4 LAN — el teléfono no podrá abrir Control hasta tener Wi‑Fi/Ethernet.",
+    );
+    return;
+  }
+  const primary = `http://${ips[0]}:${port}/control`;
+  writeLanUrlFile(primary);
+  console.log(`[dev] Teléfono (misma Wi‑Fi) → ${primary}`);
+  for (const ip of ips.slice(1)) {
+    console.log(`[dev]   también → http://${ip}:${port}/control`);
   }
 }
 
@@ -288,9 +338,10 @@ if (localUrl) {
   const control = `${localUrl.replace(/\/$/, "")}/control`;
   writeReadyUrlFile(control);
   console.log(`[dev] ready — Control ${control} · health ${HEALTH}`);
+  advertiseLanControl(localUrl);
   if (!/:(5173)(\/|$)/.test(localUrl)) {
     console.log(
-      `[dev] Nota: Vite no usó 5173 — abrí exactamente ${control} (no asumas :5173).`,
+      `[dev] Nota: Vite no usó 5173 — abrí exactamente ${control} (y la URL LAN del mismo puerto).`,
     );
   }
 } else {

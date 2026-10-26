@@ -11,8 +11,32 @@ set -e
 cd "$(dirname "$0")"
 
 READY_FILE=".promedia-ready-url"
+LAN_URL_FILE=".promedia-lan-url"
 LOCK_FILE=".promedia-dev.lock"
 VITE_PORTS="5173 5174 5175 5176 5177 5178"
+
+# Print phone Control URL (same Wi‑Fi). Prefer file from pnpm dev; else lan-ips.mjs.
+print_lan_control_hint() {
+  local port="${1:-5173}"
+  local url ip
+  if [ -f "$LAN_URL_FILE" ]; then
+    url=$(tr -d '[:space:]' < "$LAN_URL_FILE" 2>/dev/null || true)
+    if [ -n "$url" ]; then
+      echo "Teléfono (misma Wi‑Fi) → ${url}"
+      echo "  Output/proyección sigue en esta Mac; el móvil es solo Control."
+      return 0
+    fi
+  fi
+  if command -v node >/dev/null 2>&1 && [ -f scripts/lan-ips.mjs ]; then
+    ip=$(node scripts/lan-ips.mjs 2>/dev/null | head -n 1 || true)
+    if [ -n "$ip" ]; then
+      echo "Teléfono (misma Wi‑Fi) → http://${ip}:${port}/control"
+      echo "  Output/proyección sigue en esta Mac; el móvil es solo Control."
+      return 0
+    fi
+  fi
+  echo "Teléfono: abrí http://<IP-LAN-de-esta-Mac>:${port}/control (misma Wi‑Fi)."
+}
 
 echo "=========================================="
 echo "  ProMedia — carpeta: $(pwd)"
@@ -78,6 +102,8 @@ open_control_when_ready() {
       if [ -n "$url" ] && curl -sf -o /dev/null --connect-timeout 1 "$url" 2>/dev/null; then
         echo ""
         echo "Abriendo Control → ${url}"
+        port_hint=$(printf '%s' "$url" | sed -n 's/.*:\([0-9][0-9]*\)\/control.*/\1/p')
+        print_lan_control_hint "${port_hint:-5173}"
         echo "Dejá esta Terminal abierta. Para detener: Ctrl+C."
         touch "$opened_marker"
         if command -v open >/dev/null 2>&1; then
@@ -96,6 +122,7 @@ open_control_when_ready() {
         url="http://localhost:${port}/control"
         echo ""
         echo "Abriendo Control → ${url}"
+        print_lan_control_hint "$port"
         echo "Dejá esta Terminal abierta. Para detener: Ctrl+C."
         touch "$opened_marker"
         if command -v open >/dev/null 2>&1; then

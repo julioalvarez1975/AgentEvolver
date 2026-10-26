@@ -36,6 +36,7 @@ import { BibliotecaDialog } from "../components/BibliotecaDialog";
 import { BibleDialog } from "../components/BibleDialog";
 import { ControlAdBanner } from "../components/ControlAdBanner";
 import { ControlHeaderToolbar } from "../components/ControlHeaderToolbar";
+import { LanRemoteHint } from "../components/LanRemoteHint";
 import { LinkAddDialog } from "../components/LinkAddDialog";
 import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { SchedulePanel } from "../components/SchedulePanel";
@@ -1757,6 +1758,7 @@ export function ControlPage() {
         </span>
         <span className="footer-sep">·</span>
         <span>seq {session.lastSeq >= 0 ? session.lastSeq : "—"}</span>
+        <LanRemoteHint />
         {uploading ? (
           <>
             <span className="footer-sep">·</span>
