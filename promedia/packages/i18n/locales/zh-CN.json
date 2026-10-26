@@ -57,7 +57,7 @@
   "text.save": "保存",
   "text.importFile": "导入 PDF / XML / 文本…",
   "text.importing": "正在导入…",
-  "text.importLimits": "限制：PDF/XML/txt/md · 最大 8 MB · 最多 200 张幻灯片 · 每张约 900 字符。仍可手动编辑。",
+  "text.importLimits": "限制：PDF/XML/txt/md · 最大 8 MB · 最多 200 张幻灯片 · 投影每页 5 行 · 每块约 900 字符。仍可手动编辑。",
   "text.importOk": "已导入 {n} 张幻灯片。可在下方编辑。",
   "text.importTruncated": "导入已截断为 {n} 张（上限）。",
   "text.importTooLarge": "文件过大（最大 8 MB）。",
