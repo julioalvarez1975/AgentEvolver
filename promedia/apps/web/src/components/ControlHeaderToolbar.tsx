@@ -2,11 +2,13 @@ import type { ReactNode } from "react";
 import type { Locale } from "@promedia/i18n";
 import type {
   SceneMode,
+  SubtitleFontSize,
   ThemeBackground,
   ThemeId,
   ThemeOverrides,
   TransitionEffect,
 } from "@promedia/shared";
+import { SUBTITLE_FONT_SIZES } from "@promedia/shared";
 import { LOCALE_SHORT, useLocale } from "../locale/LocaleContext";
 import {
   ThemePanel,
@@ -55,6 +57,8 @@ export type ControlHeaderToolbarProps = {
   sessionFallback?: ReactNode;
   /** Local AI subtitle agent (Phase 1). */
   subtitleAgentEnabled?: boolean;
+  /** Caption size SM–XL (session-persisted). */
+  subtitleAgentFontSize?: SubtitleFontSize;
   /** Tooltip: help text, download progress, or ASR errors (incl. yt-dlp). */
   subtitleAgentTitle?: string;
   /**
@@ -63,6 +67,7 @@ export type ControlHeaderToolbarProps = {
    */
   subtitleAgentErrorMessage?: string | null;
   onToggleSubtitleAgent?: () => void;
+  onSubtitleFontSizeChange?: (size: SubtitleFontSize) => void;
 };
 
 function ToolbarBtn({
@@ -126,11 +131,19 @@ export function ControlHeaderToolbar({
   onAbout,
   sessionFallback,
   subtitleAgentEnabled = false,
+  subtitleAgentFontSize = "md",
   subtitleAgentTitle,
   subtitleAgentErrorMessage,
   onToggleSubtitleAgent,
+  onSubtitleFontSizeChange,
 }: ControlHeaderToolbarProps) {
   const { t, locale, setLocale, locales } = useLocale();
+  const subtitleSizeLabel: Record<SubtitleFontSize, string> = {
+    sm: t("control.subtitleAgentFontSizeSm"),
+    md: t("control.subtitleAgentFontSizeMd"),
+    lg: t("control.subtitleAgentFontSizeLg"),
+    xl: t("control.subtitleAgentFontSizeXl"),
+  };
 
   const sceneBtn = (
     mode: SceneMode,
@@ -184,6 +197,29 @@ export function ControlHeaderToolbar({
           icon={<IconSubtitles />}
           onClick={() => onToggleSubtitleAgent?.()}
         />
+        <label
+          className="toolbar-subtitle-size"
+          title={t("control.subtitleAgentFontSize")}
+        >
+          <select
+            className="toolbar-subtitle-size-select"
+            value={subtitleAgentFontSize}
+            disabled={!canMutate || !onSubtitleFontSizeChange}
+            aria-label={t("control.subtitleAgentFontSize")}
+            onChange={(e) => {
+              const next = e.target.value as SubtitleFontSize;
+              if (SUBTITLE_FONT_SIZES.includes(next)) {
+                onSubtitleFontSizeChange?.(next);
+              }
+            }}
+          >
+            {SUBTITLE_FONT_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {subtitleSizeLabel[size]}
+              </option>
+            ))}
+          </select>
+        </label>
         {depsError ? (
           <StatusTip
             className="toolbar-subtitle-agent-error"

@@ -23,6 +23,7 @@ import {
   emptyLiveState,
   emptyPlaylist,
   emptySubtitleAgentState,
+  isSubtitleFontSize,
   isSceneMode,
   isThemeId,
   isTransitionEffect,
@@ -178,6 +179,11 @@ export class SessionStore {
   private ensureSubtitleAgent(session: SessionRecord): SubtitleAgentState {
     if (!session.live.subtitleAgent) {
       session.live.subtitleAgent = emptySubtitleAgentState();
+    } else if (!isSubtitleFontSize(session.live.subtitleAgent.fontSize)) {
+      session.live.subtitleAgent = {
+        ...session.live.subtitleAgent,
+        fontSize: "md",
+      };
     }
     return session.live.subtitleAgent;
   }

@@ -2,6 +2,7 @@ import type {
   HubMessage,
   PlaylistItem,
   SubtitleAgentState,
+  SubtitleFontSize,
   SubtitleTargetLang,
   VideoPlaylistItem,
 } from "@promedia/shared";
@@ -220,14 +221,21 @@ export function setSubtitleAgent(
   patch: {
     enabled?: boolean;
     targetLang?: SubtitleTargetLang;
+    fontSize?: SubtitleFontSize;
     itemId?: string;
   },
 ): HubMessage {
   const prev = session.live.subtitleAgent ?? emptySubtitleAgentState();
   const enabled = patch.enabled ?? prev.enabled;
   const targetLang = patch.targetLang ?? prev.targetLang;
+  const fontSize = patch.fontSize ?? prev.fontSize ?? "md";
   const wasOff = !prev.enabled;
   const stickyMissing = isStickyMissingBin(prev);
+  const fontOnly =
+    patch.fontSize !== undefined &&
+    patch.enabled === undefined &&
+    patch.targetLang === undefined &&
+    patch.itemId === undefined;
 
   if (!enabled) {
     bumpJob(session.id);
@@ -236,6 +244,18 @@ export function setSubtitleAgent(
       ...emptySubtitleAgentState(targetLang),
       enabled: false,
       status: "off",
+      fontSize,
+      updatedAt: new Date().toISOString(),
+    };
+    return sessionStore.touchSubtitleAgent(session);
+  }
+
+  // Font-size-only patch: persist without restarting ASR.
+  if (fontOnly) {
+    session.live.subtitleAgent = {
+      ...prev,
+      enabled: true,
+      fontSize,
       updatedAt: new Date().toISOString(),
     };
     return sessionStore.touchSubtitleAgent(session);
@@ -253,6 +273,7 @@ export function setSubtitleAgent(
     ...prev,
     enabled: true,
     targetLang,
+    fontSize,
     status: keepSticky
       ? "error"
       : prev.status === "ready" && prev.targetLang === targetLang

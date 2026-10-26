@@ -7,6 +7,7 @@ import type {
   PresentationPayload,
   SceneMode,
   SessionSnapshot,
+  SubtitleFontSize,
   SubtitleTargetLang,
   TextPayload,
   ThemeBackground,
@@ -320,6 +321,7 @@ export function useSessionConnection(role: ClientRole) {
     (patch: {
       enabled?: boolean;
       targetLang?: SubtitleTargetLang;
+      fontSize?: SubtitleFontSize;
       itemId?: string;
     }): boolean => send("live.subtitleAgent.set", patch),
     [send],

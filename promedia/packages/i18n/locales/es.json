@@ -286,5 +286,10 @@
   "control.subtitleAgentWorking": "Procesando subtítulos en el hub (local)…",
   "control.subtitleAgentReady": "Subtítulos listos",
   "control.subtitleAgentSourceOnly": "ASR listo; traducción local no disponible para este par — mostrando idioma de origen",
-  "control.subtitleAgentError": "Error del agente de subtítulos"
+  "control.subtitleAgentError": "Error del agente de subtítulos",
+  "control.subtitleAgentFontSize": "Tamaño de subtítulos",
+  "control.subtitleAgentFontSizeSm": "SM",
+  "control.subtitleAgentFontSizeMd": "MD",
+  "control.subtitleAgentFontSizeLg": "LG",
+  "control.subtitleAgentFontSizeXl": "XL"
 }

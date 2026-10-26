@@ -378,13 +378,50 @@ body {
   order: 0;
 }
 
-/* Subtitle agent + optional missing-deps StatusTip. */
+/* Subtitle agent + size select + optional missing-deps StatusTip. */
 .toolbar-subtitle-agent-wrap {
   display: inline-flex;
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.2rem;
   flex-shrink: 0;
+  max-width: 8.5rem;
+}
+
+.toolbar-subtitle-size {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.6rem;
+  max-width: 3.2rem;
+  padding: 0.15rem 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.toolbar-subtitle-size-select {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 0;
+  cursor: pointer;
+  width: 100%;
+  outline: none;
+  box-shadow: none;
+}
+
+.toolbar-subtitle-size-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* Long “Agente subtítulos” label must stay readable — not icon-only / clipped. */
@@ -1379,6 +1416,32 @@ body {
   height: 100%;
 }
 
+/* Text / image / presentation / bible sit above the dots pattern.
+   Video stays at z-index 1 so dots darken the playing media. */
+.output-item-layer[data-content="text"],
+.output-item-layer[data-content="bible"],
+.output-item-layer[data-content="image"],
+.output-item-layer[data-content="presentation"] {
+  z-index: 3;
+}
+
+/* Control Preview / Live: same stacking vs elevated dots. */
+.zone-stage > .video-preview,
+.zone-stage > .video-live-panel {
+  position: relative;
+  z-index: 1;
+}
+
+.zone-stage > .text-preview,
+.zone-stage > .text-live-panel,
+.zone-stage > .image-preview,
+.zone-stage > .image-live-panel,
+.zone-stage > .presentation-preview,
+.zone-stage > .presentation-live-panel {
+  position: relative;
+  z-index: 3;
+}
+
 /* Isolation so stage bg z-index:-1 stays inside the stage, not under the page. */
 .zone-stage.pm-theme,
 .output-stage.pm-theme {
@@ -1482,7 +1545,8 @@ body {
   pointer-events: none;
 }
 
-/* Local AI captions — under scene overlays so black/logo still cover them. */
+/* Local AI captions — under scene overlays so black/logo still cover them.
+   Above dots (z-index 2) and item video (z-index 1). */
 .subtitle-overlay {
   position: absolute;
   left: 0;
@@ -1512,6 +1576,22 @@ body {
     0 0 0.55em rgba(0, 0, 0, 0.55);
   background: rgba(0, 0, 0, 0.28);
   border-radius: 0.25em;
+}
+
+.subtitle-overlay[data-size="sm"] .subtitle-overlay-line {
+  font-size: clamp(0.8rem, 2vw, 1.25rem);
+}
+
+.subtitle-overlay[data-size="md"] .subtitle-overlay-line {
+  font-size: clamp(0.95rem, 2.6vw, 1.65rem);
+}
+
+.subtitle-overlay[data-size="lg"] .subtitle-overlay-line {
+  font-size: clamp(1.15rem, 3.2vw, 2.1rem);
+}
+
+.subtitle-overlay[data-size="xl"] .subtitle-overlay-line {
+  font-size: clamp(1.35rem, 4vw, 2.6rem);
 }
 
 /* Subtitle target lang follows Control language; no separate Subs select. */
@@ -2534,11 +2614,14 @@ body {
 }
 
 /* Black dots pattern — same as CEOSA .cb-slideshow:after (native 2×2 PNG tile).
-   No background-size: tile at intrinsic 2px density like favoritos/css/style2.css. */
+   No background-size: tile at intrinsic 2px density like favoritos/css/style2.css.
+   Elevated above playlist video/YouTube (z-index 1) and pack bg (z-index -1);
+   below captions (4) and scene overlays (5). */
 .pm-stage-bg-dots {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
+  pointer-events: none;
   background: transparent url("/theme-bg-dots-tile.png") repeat top left;
 }
 

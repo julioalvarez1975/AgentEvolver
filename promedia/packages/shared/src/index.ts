@@ -299,10 +299,26 @@ export type SubtitleAgentStatus =
   | "unsupported"
   | "error";
 
+/** Caption size on Preview / Live / Output (SM–XL). Default MD. */
+export type SubtitleFontSize = "sm" | "md" | "lg" | "xl";
+
+export const SUBTITLE_FONT_SIZES: readonly SubtitleFontSize[] = [
+  "sm",
+  "md",
+  "lg",
+  "xl",
+] as const;
+
+export function isSubtitleFontSize(value: unknown): value is SubtitleFontSize {
+  return value === "sm" || value === "md" || value === "lg" || value === "xl";
+}
+
 export type SubtitleAgentState = {
   enabled: boolean;
   targetLang: SubtitleTargetLang;
   status: SubtitleAgentStatus;
+  /** Caption size (SM / MD / LG / XL). Persisted in session. */
+  fontSize: SubtitleFontSize;
   /** Playlist item the current cues belong to (if any). */
   itemId: string | null;
   /** Asset id used for ASR cache (`file` asset id, or `yt_<videoId>` for YouTube). */
@@ -324,6 +340,7 @@ export function emptySubtitleAgentState(
     enabled: false,
     targetLang,
     status: "off",
+    fontSize: "md",
     itemId: null,
     assetId: null,
     sourceLang: null,
@@ -331,6 +348,17 @@ export function emptySubtitleAgentState(
     cues: [],
     hint: null,
     updatedAt: null,
+  };
+}
+
+/** Coerce legacy snapshots missing fontSize → MD. */
+export function normalizeSubtitleAgentState(
+  raw: SubtitleAgentState | null | undefined,
+): SubtitleAgentState {
+  const base = raw ?? emptySubtitleAgentState();
+  return {
+    ...base,
+    fontSize: isSubtitleFontSize(base.fontSize) ? base.fontSize : "md",
   };
 }
 
@@ -544,6 +572,8 @@ export type LiveSubtitleAgentSetMessage = {
   payload: {
     enabled?: boolean;
     targetLang?: SubtitleTargetLang;
+    /** Caption size SM–XL (persisted on session). */
+    fontSize?: SubtitleFontSize;
     /** Optional: process this playlist item (defaults to live, else ignored). */
     itemId?: string;
   };
