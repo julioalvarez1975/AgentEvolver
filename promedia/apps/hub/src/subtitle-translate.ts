@@ -147,10 +147,20 @@ export async function translateCuesLocal(options: {
     return { cues, translated: alreadyEnglish === true && tgt === "en", note: null };
   }
 
-  // If we don't know source lang, assume Spanish (ProMedia default) for Romance targets,
-  // else try en→target when alreadyEnglish.
+  // Unknown source: if Whisper already produced English, translate en→target.
+  // Otherwise keep source cues visible (do NOT assume Spanish — that made
+  // src===tgt for Spanish UI and skipped en→es, leaving wrong-language text;
+  // with empty/garbage EN-forced ASR it looked like "Spanish never appears").
   if (!src) {
-    src = alreadyEnglish ? "en" : "es";
+    if (alreadyEnglish) {
+      src = "en";
+    } else {
+      return {
+        cues,
+        translated: false,
+        note: tgt === "es" ? null : `mt_unavailable:unknown->${tgt}`,
+      };
+    }
   }
 
   if (src === tgt) {

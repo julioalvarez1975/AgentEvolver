@@ -145,8 +145,16 @@ async function fileSha256(filePath: string): Promise<string> {
   return createHash("sha256").update(buf).digest("hex");
 }
 
-function cacheKey(assetId: string, targetLang: SubtitleTargetLang, translateToEn: boolean): string {
-  return `${assetId}_${translateToEn ? "en" : "src"}_${targetLang}`;
+/**
+ * Cache key v2: busts empty/garbage Spanish cues from pre-`-l auto` whisper-cli
+ * runs and from incomplete ggml downloads that slipped past the old 10 MB floor.
+ */
+function cacheKey(
+  assetId: string,
+  targetLang: SubtitleTargetLang,
+  translateToEn: boolean,
+): string {
+  return `${assetId}_${translateToEn ? "en" : "src"}_${targetLang}_v2`;
 }
 
 function normalizeChunks(
@@ -343,6 +351,7 @@ export function asrBackendPreference(): AsrBackend {
 async function transcribeWithTransformers(options: {
   wavPath: string;
   translateToEn: boolean;
+  languageHint?: string | null;
   onStatus?: (status: "downloading" | "transcribing") => void;
 }): Promise<AsrResult> {
   console.log(
@@ -353,11 +362,15 @@ async function transcribeWithTransformers(options: {
   const audio = await wavToFloat32(options.wavPath);
 
   options.onStatus?.("transcribing");
+  const language = options.translateToEn
+    ? "auto"
+    : options.languageHint || "auto";
   const result = await whisper(audio, {
     return_timestamps: true,
     chunk_length_s: 30,
     stride_length_s: 5,
     task: options.translateToEn ? "translate" : "transcribe",
+    language,
     sampling_rate: 16000,
   });
 
@@ -375,7 +388,11 @@ async function transcribeWithTransformers(options: {
 
   return {
     cues,
-    sourceLang: options.translateToEn ? "en" : null,
+    sourceLang: options.translateToEn
+      ? "en"
+      : options.languageHint && options.languageHint !== "auto"
+        ? options.languageHint
+        : null,
     whisperTranslatedToEn: options.translateToEn,
   };
 }
@@ -383,6 +400,7 @@ async function transcribeWithTransformers(options: {
 async function transcribeViaWhisperCpp(options: {
   wavPath: string;
   translateToEn: boolean;
+  languageHint?: string | null;
   assetId: string;
   onStatus?: (status: "downloading" | "transcribing") => void;
 }): Promise<AsrResult> {
@@ -393,12 +411,13 @@ async function transcribeViaWhisperCpp(options: {
   const result = await transcribeWithWhisperCpp({
     wavPath: options.wavPath,
     translateToEn: options.translateToEn,
+    languageHint: options.languageHint,
     workDir,
     onStatus: options.onStatus,
   });
   return {
     cues: result.cues,
-    sourceLang: options.translateToEn ? "en" : null,
+    sourceLang: result.sourceLang,
     whisperTranslatedToEn: result.whisperTranslatedToEn,
   };
 }
@@ -449,12 +468,18 @@ export async function transcribeLocalFile(options: {
   const backend = asrBackendPref();
   let asr: AsrResult;
 
+  // whisper-cli defaults to `-l en` when omitted — always pass auto (or an
+  // explicit hint) so Spanish / non-English speech is not forced through EN.
+  // Detected sourceLang then drives Marian when targetLang differs.
+  const languageHint = "auto";
+
   if (backend === "transformers") {
     // Explicit opt-in only — not used on Mac default path.
     try {
       asr = await transcribeWithTransformers({
         wavPath,
         translateToEn,
+        languageHint,
         onStatus,
       });
     } catch (tfErr) {
@@ -473,6 +498,7 @@ export async function transcribeLocalFile(options: {
       asr = await transcribeViaWhisperCpp({
         wavPath,
         translateToEn,
+        languageHint,
         assetId,
         onStatus,
       });
