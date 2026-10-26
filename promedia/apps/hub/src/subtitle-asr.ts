@@ -15,6 +15,13 @@ import {
   ensureSubtitleDirs,
   subtitleModelsRoot,
 } from "./subtitle-paths.js";
+import {
+  assertWhisperCliOrThrow,
+  transcribeWithWhisperCpp,
+  whisperCliAvailable,
+} from "./subtitle-whisper-cpp.js";
+
+export { whisperCliAvailable };
 
 const { WaveFile } = wavefile as unknown as {
   WaveFile: new (buf?: Buffer | Uint8Array) => {
@@ -280,6 +287,11 @@ async function loadWhisperPipeline(attempt: number): Promise<WhisperPipeline> {
   return pipe as unknown as WhisperPipeline;
 }
 
+function isPathOrBufferError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return /unable to get model file path or buffer|model_path_error/i.test(msg);
+}
+
 async function getWhisper(): Promise<WhisperPipeline> {
   if (!whisperPromise) {
     whisperPromise = (async () => {
@@ -316,6 +328,75 @@ async function getWhisper(): Promise<WhisperPipeline> {
     })();
   }
   return whisperPromise;
+}
+
+type AsrBackend = "auto" | "transformers" | "whisper_cpp";
+
+function asrBackendPref(): AsrBackend {
+  const raw = (process.env.SUBTITLE_ASR_BACKEND || "auto").trim().toLowerCase();
+  if (raw === "transformers" || raw === "whisper_cpp" || raw === "auto") {
+    return raw;
+  }
+  return "auto";
+}
+
+async function transcribeWithTransformers(options: {
+  wavPath: string;
+  translateToEn: boolean;
+  onStatus?: (status: "downloading" | "transcribing") => void;
+}): Promise<AsrResult> {
+  options.onStatus?.("downloading");
+  const whisper = await getWhisper();
+  const audio = await wavToFloat32(options.wavPath);
+
+  options.onStatus?.("transcribing");
+  const result = await whisper(audio, {
+    return_timestamps: true,
+    chunk_length_s: 30,
+    stride_length_s: 5,
+    task: options.translateToEn ? "translate" : "transcribe",
+    sampling_rate: 16000,
+  });
+
+  let cues = normalizeChunks(result.chunks ?? []);
+  if (!cues.length && result.text?.trim()) {
+    cues = [
+      {
+        id: "c0",
+        startMs: 0,
+        endMs: 4000,
+        text: result.text.trim(),
+      },
+    ];
+  }
+
+  return {
+    cues,
+    sourceLang: options.translateToEn ? "en" : null,
+    whisperTranslatedToEn: options.translateToEn,
+  };
+}
+
+async function transcribeViaWhisperCpp(options: {
+  wavPath: string;
+  translateToEn: boolean;
+  assetId: string;
+  onStatus?: (status: "downloading" | "transcribing") => void;
+}): Promise<AsrResult> {
+  await assertWhisperCliOrThrow();
+  const dirs = await ensureSubtitleDirs();
+  const workDir = path.join(dirs.wav, `wcpp_${options.assetId}`);
+  const result = await transcribeWithWhisperCpp({
+    wavPath: options.wavPath,
+    translateToEn: options.translateToEn,
+    workDir,
+    onStatus: options.onStatus,
+  });
+  return {
+    cues: result.cues,
+    sourceLang: options.translateToEn ? "en" : null,
+    whisperTranslatedToEn: result.whisperTranslatedToEn,
+  };
 }
 
 /**
@@ -359,37 +440,107 @@ export async function transcribeLocalFile(options: {
   const wavPath = path.join(dirs.wav, `${assetId}.wav`);
   await extractWav16k(mediaPath, wavPath);
 
-  onStatus?.("downloading");
-  const whisper = await getWhisper();
-  const audio = await wavToFloat32(wavPath);
+  const backend = asrBackendPref();
+  let asr: AsrResult;
 
-  onStatus?.("transcribing");
-  const result = await whisper(audio, {
-    return_timestamps: true,
-    chunk_length_s: 30,
-    stride_length_s: 5,
-    // Whisper multilingual: translate task always emits English.
-    task: translateToEn ? "translate" : "transcribe",
-    sampling_rate: 16000,
-  });
+  // Prefer whisper-cli whenever it is available (macOS brew path). ONNX
+  // transformers.js is secondary — Julio's Mac hits model_path_error reliably.
+  const cliPresent =
+    backend === "whisper_cpp"
+      ? true
+      : backend === "transformers"
+        ? false
+        : await whisperCliAvailable();
 
-  let cues = normalizeChunks(result.chunks ?? []);
-  if (!cues.length && result.text?.trim()) {
-    cues = [
-      {
-        id: "c0",
-        startMs: 0,
-        endMs: 4000,
-        text: result.text.trim(),
-      },
-    ];
+  if (backend === "whisper_cpp" || (backend === "auto" && cliPresent)) {
+    console.log(
+      `[subtitle] ASR backend=whisper_cpp (${backend === "whisper_cpp" ? "forced" : "preferred"})`,
+    );
+    try {
+      asr = await transcribeViaWhisperCpp({
+        wavPath,
+        translateToEn,
+        assetId,
+        onStatus,
+      });
+    } catch (cppErr) {
+      const missing = missingBinHintFromError(cppErr, "whisper_cpp");
+      if (missing) {
+        if (backend === "whisper_cpp") {
+          throw new Error("whisper_cpp_missing");
+        }
+        // auto but binary vanished mid-flight → try transformers once
+        console.warn(
+          "[subtitle] whisper.cpp missing mid-job; trying transformers",
+        );
+      } else {
+        const cppMsg =
+          cppErr instanceof Error ? cppErr.message : String(cppErr);
+        // On auto, if whisper.cpp fails for non-missing reasons, still try
+        // transformers before giving up — unless it is a clear cpp failure.
+        if (
+          backend === "whisper_cpp" ||
+          cppMsg.startsWith("whisper_cpp_failed") ||
+          cppMsg.startsWith("model_download_failed")
+        ) {
+          throw new Error(cppMsg.slice(0, 180));
+        }
+        console.warn(
+          `[subtitle] whisper.cpp failed (${cppMsg}); trying transformers`,
+        );
+      }
+      asr = await transcribeWithTransformers({
+        wavPath,
+        translateToEn,
+        onStatus,
+      }).catch((tfErr) => {
+        throw new Error(classifyWhisperLoadError(tfErr));
+      });
+    }
+  } else {
+    // transformers forced, or auto with no whisper-cli on PATH
+    try {
+      asr = await transcribeWithTransformers({
+        wavPath,
+        translateToEn,
+        onStatus,
+      });
+    } catch (tfErr) {
+      const classified = classifyWhisperLoadError(tfErr);
+      const pathBuf =
+        classified === "model_path_error" || isPathOrBufferError(tfErr);
+
+      if (backend === "transformers" || !pathBuf) {
+        throw new Error(classified);
+      }
+
+      // auto, no cli detected earlier, but path/buffer → try whisper.cpp anyway
+      // (resolve may have missed brew path; assert gives clear hint).
+      console.warn(
+        `[subtitle] transformers failed (${classified}); falling back to whisper.cpp`,
+      );
+      try {
+        asr = await transcribeViaWhisperCpp({
+          wavPath,
+          translateToEn,
+          assetId,
+          onStatus,
+        });
+        console.log("[subtitle] ASR backend=whisper_cpp (fallback OK)");
+      } catch (cppErr) {
+        const missing = missingBinHintFromError(cppErr, "whisper_cpp");
+        if (missing) throw new Error("whisper_cpp_missing");
+        const cppMsg =
+          cppErr instanceof Error ? cppErr.message : String(cppErr);
+        throw new Error(
+          cppMsg.startsWith("whisper_cpp_") ||
+            cppMsg.startsWith("model_download_failed")
+            ? cppMsg.slice(0, 180)
+            : classified,
+        );
+      }
+    }
   }
-
-  const asr: AsrResult = {
-    cues,
-    sourceLang: translateToEn ? "en" : null,
-    whisperTranslatedToEn: translateToEn,
-  };
 
   const payload: CachedAsr = {
     assetId,

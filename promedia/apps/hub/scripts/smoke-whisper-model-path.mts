@@ -64,6 +64,14 @@ async function main(): Promise<void> {
   if (c2 !== "model_download_failed") throw new Error(`c2=${c2}`);
   if (c3 !== "model_download_failed") throw new Error(`c3=${c3}`);
 
+  const clearedMissing = await clearCorruptModelCache(
+    dirs.models,
+    "Xenova/whisper-tiny-definitely-missing",
+  );
+  console.log("clear missing:", clearedMissing);
+  if (clearedMissing.removedModelDir) {
+    throw new Error("clearCorrupt must not wipe a non-existent model dir");
+  }
   const cleared = await clearCorruptModelCache(
     dirs.models,
     "Xenova/whisper-tiny",

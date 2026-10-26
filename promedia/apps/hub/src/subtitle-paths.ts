@@ -115,8 +115,13 @@ async function walkRemoveTmp(dir: string): Promise<number> {
 
 /**
  * Drop incomplete/corrupt Whisper (or MT) downloads so a retry can finish.
- * Removes `.tmp.*` partials under the model folder; if the onnx dir is empty
- * or missing expected weights, removes the whole model cache tree.
+ *
+ * Always removes `.tmp.*` partials. Only deletes the model tree when it
+ * **exists** and looks corrupt (onnx missing / empty / tiny stubs). A missing
+ * model dir is **not** reported as removed — that used to wipe good partials
+ * and log `modelDir=true` on every retry even when nothing was there.
+ *
+ * Never touches `data/models/whisper/` (ggml whisper.cpp fallback).
  */
 export async function clearCorruptModelCache(
   modelsRoot: string,
@@ -126,32 +131,60 @@ export async function clearCorruptModelCache(
   const removedTmp = await walkRemoveTmp(modelsRoot);
 
   let removedModelDir = false;
+  let modelDirExists = false;
+  try {
+    const st = await stat(modelDir);
+    modelDirExists = st.isDirectory();
+  } catch {
+    modelDirExists = false;
+  }
+
+  if (!modelDirExists) {
+    return { removedTmp, removedModelDir: false };
+  }
+
   try {
     const onnxDir = path.join(modelDir, "onnx");
-    let onnxOk = false;
+    let hasUsableOnnx = false;
+    let hasOnlyTinyStubs = false;
     try {
       const files = await readdir(onnxDir);
-      onnxOk = files.some(
+      const onnxFiles = files.filter(
         (f) =>
           f.endsWith(".onnx") &&
           !f.includes(".tmp") &&
           !f.endsWith(".onnx_data"),
       );
-      // Reject empty / tiny stubs left by aborted downloads.
-      if (onnxOk) {
-        for (const f of files) {
-          if (!f.endsWith(".onnx") || f.includes(".tmp")) continue;
-          const st = await stat(path.join(onnxDir, f));
-          if (st.size < 1024) {
-            onnxOk = false;
-            break;
-          }
+      // Keep the tree when ≥1 weight looks complete (≥64KB). A good q8 tiny
+      // encoder is several MB — do not wipe a multi-file download mid-flight.
+      for (const f of onnxFiles) {
+        const st = await stat(path.join(onnxDir, f));
+        if (st.size >= 64 * 1024) {
+          hasUsableOnnx = true;
+          break;
         }
       }
+      hasOnlyTinyStubs = onnxFiles.length > 0 && !hasUsableOnnx;
     } catch {
-      onnxOk = false;
+      // no onnx/ dir
     }
-    if (!onnxOk) {
+
+    if (hasUsableOnnx) {
+      // Partial but healthy download — only .tmp cleanup above.
+      return { removedTmp, removedModelDir: false };
+    }
+
+    // Missing onnx, only stubs, or meta without weights → corrupt layout.
+    let hasContent = hasOnlyTinyStubs;
+    if (!hasContent) {
+      try {
+        const top = await readdir(modelDir);
+        hasContent = top.length > 0;
+      } catch {
+        hasContent = false;
+      }
+    }
+    if (hasContent || removedTmp > 0) {
       await rm(modelDir, { recursive: true, force: true });
       removedModelDir = true;
     }
