@@ -245,7 +245,7 @@ En **macOS** (y en cualquier host) el hub usa **whisper.cpp exclusivamente** cua
 
 **Primera ejecución (descarga de modelos)**
 
-- Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-tiny.bin` a `promedia/data/models/whisper/` (gitignore). Luego offline.
+- Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-tiny.bin` a `promedia/data/models/whisper/` (gitignore). La descarga es atómica (tmp único + rename) y se coalescen jobs concurrentes (un solo fetch; no se pisan `.tmp` a medias). ASR no arranca hasta que el archivo tenga tamaño válido (~70 MB+). El hub pasa `-l auto` a `whisper-cli` (el default del CLI es `en`, que dejaba el español en blanco). Luego offline.
 - Sin whisper-cli: error claro `whisper_cpp_missing` → `brew install whisper-cpp` (no se usa Xenova/ONNX por defecto).
 - Errores claros en Control: `whisper_cpp_missing` / `whisper_cpp_failed` / `model_download_failed`.
 - Caché de cues por asset: `promedia/data/subtitles/cache/`

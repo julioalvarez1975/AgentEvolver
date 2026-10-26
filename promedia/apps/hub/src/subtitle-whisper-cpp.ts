@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, openSync, closeSync } from "node:fs";
 import { access, mkdir, readFile, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -16,8 +16,14 @@ import { ensureSubtitleDirs, subtitleModelsRoot } from "./subtitle-paths.js";
 const DEFAULT_GGML_URL =
   "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin";
 const DEFAULT_GGML_NAME = "ggml-tiny.bin";
-/** Reject truncated downloads under this size (~75MB full tiny). */
-const MIN_GGML_BYTES = 10 * 1024 * 1024;
+/**
+ * Reject truncated downloads. Real `ggml-tiny.bin` is ~74–78 MB; the old 10 MB
+ * floor accepted partial files that then made ASR return empty cues.
+ */
+const DEFAULT_MIN_GGML_BYTES = 70 * 1024 * 1024;
+
+/** In-flight downloads keyed by absolute model path (one fetch per path). */
+const downloadInflight = new Map<string, Promise<string>>();
 
 export function whisperCppModelsDir(modelsRoot?: string): string {
   return path.join(modelsRoot ?? subtitleModelsRoot(), "whisper");
@@ -27,6 +33,26 @@ export function whisperCppModelPath(modelsRoot?: string): string {
   const name =
     process.env.SUBTITLE_WHISPER_CPP_MODEL?.trim() || DEFAULT_GGML_NAME;
   return path.join(whisperCppModelsDir(modelsRoot), name);
+}
+
+/** Minimum accepted ggml size (override with SUBTITLE_WHISPER_CPP_MIN_BYTES for tests). */
+export function whisperCppMinBytes(): number {
+  const raw = process.env.SUBTITLE_WHISPER_CPP_MIN_BYTES?.trim();
+  if (raw) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return Math.floor(n);
+  }
+  return DEFAULT_MIN_GGML_BYTES;
+}
+
+/** @internal test helper — how many coalesced downloads are running. */
+export function whisperCppDownloadInflightCount(): number {
+  return downloadInflight.size;
+}
+
+/** @internal test helper — drop in-flight map (does not abort network). */
+export function resetWhisperCppDownloadInflight(): void {
+  downloadInflight.clear();
 }
 
 export async function whisperCliAvailable(): Promise<boolean> {
@@ -74,18 +100,196 @@ function runCmd(
   });
 }
 
-async function fileLooksComplete(filePath: string): Promise<boolean> {
+export async function fileLooksComplete(filePath: string): Promise<boolean> {
   try {
     const st = await stat(filePath);
-    return st.isFile() && st.size >= MIN_GGML_BYTES;
+    return st.isFile() && st.size >= whisperCppMinBytes();
   } catch {
     return false;
   }
 }
 
 /**
+ * Remove undersized / corrupt ggml leftovers so the next ensure re-downloads.
+ * Returns true when a file was deleted.
+ */
+export async function removeIncompleteWhisperCppModel(
+  filePath: string,
+): Promise<boolean> {
+  try {
+    const st = await stat(filePath);
+    if (!st.isFile()) return false;
+    if (st.size >= whisperCppMinBytes()) return false;
+    console.warn(
+      `[subtitle] whisper.cpp removing incomplete ggml (${st.size} bytes) → ${filePath}`,
+    );
+    await rm(filePath, { force: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Cross-process advisory lock so two hub processes do not race the same ggml.
+ * Best-effort: stale locks older than 30 min are broken.
+ */
+async function withModelDownloadLock<T>(
+  modelPath: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const lockPath = `${modelPath}.lock`;
+  const staleMs = 30 * 60 * 1000;
+  const started = Date.now();
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    let fd: number | null = null;
+    try {
+      fd = openSync(lockPath, "wx");
+      try {
+        return await fn();
+      } finally {
+        try {
+          closeSync(fd);
+        } catch {
+          /* ignore */
+        }
+        await rm(lockPath, { force: true }).catch(() => undefined);
+      }
+    } catch (err) {
+      if (fd != null) {
+        try {
+          closeSync(fd);
+        } catch {
+          /* ignore */
+        }
+      }
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? String((err as { code?: unknown }).code)
+          : "";
+      if (code !== "EEXIST") {
+        throw err;
+      }
+      // Another process holds the lock — wait, or break if stale.
+      try {
+        const st = await stat(lockPath);
+        if (Date.now() - st.mtimeMs > staleMs) {
+          await rm(lockPath, { force: true }).catch(() => undefined);
+          continue;
+        }
+      } catch {
+        // lock vanished — retry acquire
+        continue;
+      }
+      if (Date.now() - started > staleMs) {
+        throw new Error("model_download_failed: whisper.cpp lock timeout");
+      }
+      await new Promise((r) => setTimeout(r, 500));
+      // Peer may have finished the file while we waited.
+      if (await fileLooksComplete(modelPath)) {
+        return modelPath as unknown as T;
+      }
+    }
+  }
+}
+
+async function downloadWhisperCppModelOnce(modelPath: string): Promise<string> {
+  await mkdir(path.dirname(modelPath), { recursive: true });
+
+  // Drop undersized leftovers from older MIN thresholds / killed downloads.
+  await removeIncompleteWhisperCppModel(modelPath);
+  if (await fileLooksComplete(modelPath)) {
+    return modelPath;
+  }
+
+  return withModelDownloadLock(modelPath, async () => {
+    // Re-check under lock — peer may have finished.
+    await removeIncompleteWhisperCppModel(modelPath);
+    if (await fileLooksComplete(modelPath)) {
+      return modelPath;
+    }
+
+    const url =
+      process.env.SUBTITLE_WHISPER_CPP_MODEL_URL?.trim() || DEFAULT_GGML_URL;
+    // Unique tmp so we never `rm` another job's in-progress stream.
+    const tmpPath = `${modelPath}.part-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.tmp`;
+    await rm(tmpPath, { force: true }).catch(() => undefined);
+
+    console.log(`[subtitle] whisper.cpp downloading ggml → ${modelPath}`);
+    let res: Response;
+    try {
+      res = await fetch(url, { redirect: "follow" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`model_download_failed: whisper.cpp ${msg}`.slice(0, 180));
+    }
+    if (!res.ok || !res.body) {
+      throw new Error(
+        `model_download_failed: whisper.cpp HTTP ${res.status}`.slice(0, 180),
+      );
+    }
+
+    const contentLength = Number(res.headers.get("content-length") || 0);
+
+    try {
+      const nodeStream = Readable.fromWeb(
+        res.body as import("node:stream/web").ReadableStream,
+      );
+      await pipeline(nodeStream, createWriteStream(tmpPath));
+    } catch (err) {
+      await rm(tmpPath, { force: true }).catch(() => undefined);
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`model_download_failed: whisper.cpp ${msg}`.slice(0, 180));
+    }
+
+    let stSize = 0;
+    try {
+      stSize = (await stat(tmpPath)).size;
+    } catch {
+      await rm(tmpPath, { force: true }).catch(() => undefined);
+      throw new Error("model_download_failed: whisper.cpp missing temp file");
+    }
+
+    if (contentLength > 0 && stSize !== contentLength) {
+      await rm(tmpPath, { force: true }).catch(() => undefined);
+      throw new Error(
+        `model_download_failed: whisper.cpp size ${stSize} != Content-Length ${contentLength}`.slice(
+          0,
+          180,
+        ),
+      );
+    }
+    if (stSize < whisperCppMinBytes()) {
+      await rm(tmpPath, { force: true }).catch(() => undefined);
+      throw new Error(
+        `model_download_failed: whisper.cpp incomplete download (${stSize} bytes)`.slice(
+          0,
+          180,
+        ),
+      );
+    }
+
+    await rm(modelPath, { force: true }).catch(() => undefined);
+    await rename(tmpPath, modelPath);
+
+    if (!(await fileLooksComplete(modelPath))) {
+      await rm(modelPath, { force: true }).catch(() => undefined);
+      throw new Error("model_download_failed: whisper.cpp rename incomplete");
+    }
+
+    console.log(
+      `[subtitle] whisper.cpp ggml ready (${stSize} bytes) → ${modelPath}`,
+    );
+    return modelPath;
+  });
+}
+
+/**
  * Download ggml tiny once into `data/models/whisper/` (gitignored).
- * Skips when a complete file already exists.
+ * Skips when a complete file already exists. Concurrent callers share one
+ * in-flight promise; cross-process callers serialize on a `.lock` file.
+ * ASR must not start until this resolves with a size-valid model.
  */
 export async function ensureWhisperCppModel(
   onStatus?: (status: "downloading") => void,
@@ -94,60 +298,62 @@ export async function ensureWhisperCppModel(
   const modelPath = whisperCppModelPath(dirs.models);
   await mkdir(path.dirname(modelPath), { recursive: true });
 
+  await removeIncompleteWhisperCppModel(modelPath);
   if (await fileLooksComplete(modelPath)) {
     return modelPath;
   }
 
   onStatus?.("downloading");
-  const url =
-    process.env.SUBTITLE_WHISPER_CPP_MODEL_URL?.trim() || DEFAULT_GGML_URL;
-  const tmpPath = `${modelPath}.tmp`;
-  await rm(tmpPath, { force: true }).catch(() => undefined);
 
-  console.log(`[subtitle] whisper.cpp downloading ggml → ${modelPath}`);
-  let res: Response;
-  try {
-    res = await fetch(url, { redirect: "follow" });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`model_download_failed: whisper.cpp ${msg}`.slice(0, 180));
-  }
-  if (!res.ok || !res.body) {
-    throw new Error(
-      `model_download_failed: whisper.cpp HTTP ${res.status}`.slice(0, 180),
-    );
+  let pending = downloadInflight.get(modelPath);
+  if (!pending) {
+    pending = downloadWhisperCppModelOnce(modelPath).finally(() => {
+      // Only clear if we are still the mapped promise (avoid clobbering a retry).
+      if (downloadInflight.get(modelPath) === pending) {
+        downloadInflight.delete(modelPath);
+      }
+    });
+    downloadInflight.set(modelPath, pending);
   }
 
-  try {
-    const nodeStream = Readable.fromWeb(
-      res.body as import("node:stream/web").ReadableStream,
-    );
-    await pipeline(nodeStream, createWriteStream(tmpPath));
-  } catch (err) {
-    await rm(tmpPath, { force: true }).catch(() => undefined);
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`model_download_failed: whisper.cpp ${msg}`.slice(0, 180));
-  }
-
-  if (!(await fileLooksComplete(tmpPath))) {
-    await rm(tmpPath, { force: true }).catch(() => undefined);
-    throw new Error("model_download_failed: whisper.cpp incomplete download");
-  }
-
-  await rm(modelPath, { force: true }).catch(() => undefined);
-  await rename(tmpPath, modelPath);
-  return modelPath;
+  return pending;
 }
 
-/** Parse whisper-cli JSON (`-oj`) segments into cues. */
-export function parseWhisperCppJson(raw: string): SubtitleCue[] {
+export type WhisperCppParsed = {
+  cues: SubtitleCue[];
+  /** Detected spoken language from whisper-cli JSON (`result.language`), if any. */
+  language: string | null;
+};
+
+/** Map ProMedia / BCP-47-ish tags to whisper-cli `-l` codes. */
+export function whisperCliLanguageArg(
+  languageHint?: string | null,
+): string {
+  // whisper-cli defaults to "en" when `-l` is omitted — that breaks Spanish ASR.
+  // Always pass an explicit code; prefer auto-detect unless a clear hint exists.
+  if (!languageHint) return "auto";
+  const l = languageHint.toLowerCase();
+  if (l === "auto") return "auto";
+  if (l.startsWith("zh")) return "zh";
+  if (l.startsWith("pt")) return "pt";
+  if (l.startsWith("es")) return "es";
+  if (l.startsWith("fr")) return "fr";
+  if (l.startsWith("en")) return "en";
+  // Unknown hint → auto rather than risk forcing English.
+  return "auto";
+}
+
+/** Parse whisper-cli JSON (`-oj`) into cues + detected language. */
+export function parseWhisperCppResult(raw: string): WhisperCppParsed {
   let data: unknown;
   try {
     data = JSON.parse(raw);
   } catch {
-    return [];
+    return { cues: [], language: null };
   }
   const root = data as {
+    result?: { language?: string };
+    params?: { language?: string };
     transcription?: Array<{
       text?: string;
       offsets?: { from?: number; to?: number };
@@ -161,6 +367,15 @@ export function parseWhisperCppJson(raw: string): SubtitleCue[] {
       t1?: number;
     }>;
   };
+
+  const languageRaw =
+    (typeof root.result?.language === "string" && root.result.language) ||
+    null;
+  const language = languageRaw
+    ? whisperCliLanguageArg(languageRaw) === "auto"
+      ? languageRaw.slice(0, 8).toLowerCase()
+      : whisperCliLanguageArg(languageRaw)
+    : null;
 
   const cues: SubtitleCue[] = [];
   let i = 0;
@@ -206,7 +421,12 @@ export function parseWhisperCppJson(raw: string): SubtitleCue[] {
     }
   }
 
-  return cues;
+  return { cues, language };
+}
+
+/** Parse whisper-cli JSON (`-oj`) segments into cues. */
+export function parseWhisperCppJson(raw: string): SubtitleCue[] {
+  return parseWhisperCppResult(raw).cues;
 }
 
 /** Parse WebVTT / SRT-ish timestamp files from whisper-cli. */
@@ -264,19 +484,25 @@ function parseVttClock(clock: string): number | null {
 /**
  * Transcribe a 16 kHz mono WAV with brew `whisper-cli` / whisper.cpp.
  * Throws `whisper_cpp_missing` when the binary is absent.
+ * Waits for a size-valid ggml before spawning ASR (no parallel incomplete downloads).
  */
 export async function transcribeWithWhisperCpp(options: {
   wavPath: string;
   translateToEn: boolean;
+  /** Spoken-language hint for `-l` (e.g. targetLang when same-language captions). */
+  languageHint?: string | null;
   workDir: string;
   onStatus?: (status: "downloading" | "transcribing") => void;
-}): Promise<{ cues: SubtitleCue[]; whisperTranslatedToEn: boolean }> {
+}): Promise<{
+  cues: SubtitleCue[];
+  whisperTranslatedToEn: boolean;
+  sourceLang: string | null;
+}> {
   const bin = resolveWhisperCliBin();
-  let modelPath: string;
-  try {
-    modelPath = await ensureWhisperCppModel((st) => options.onStatus?.(st));
-  } catch (err) {
-    throw err;
+  // Must resolve a complete model before any ASR spawn.
+  const modelPath = await ensureWhisperCppModel((st) => options.onStatus?.(st));
+  if (!(await fileLooksComplete(modelPath))) {
+    throw new Error("model_download_failed: whisper.cpp model not ready");
   }
 
   options.onStatus?.("transcribing");
@@ -286,6 +512,9 @@ export async function transcribeWithWhisperCpp(options: {
   for (const ext of [".json", ".vtt", ".srt", ".txt"]) {
     await rm(`${outBase}${ext}`, { force: true }).catch(() => undefined);
   }
+
+  // whisper-cli defaults `-l en` — must pass auto/es/… or Spanish audio yields empty/garbage.
+  const lang = whisperCliLanguageArg(options.languageHint ?? "auto");
 
   const args = [
     "-m",
@@ -299,6 +528,8 @@ export async function transcribeWithWhisperCpp(options: {
     "-osrt",
     "-nt", // no timestamps in stdout (cleaner)
     "-np", // no prints progress spam when supported; ignored if unknown
+    "-l",
+    lang,
   ];
   if (options.translateToEn) {
     args.push("-tr");
@@ -333,7 +564,7 @@ export async function transcribeWithWhisperCpp(options: {
   if (code !== 0) {
     if (
       /not found|no such file|enoent|unable to find|cannot find/i.test(stderr) ||
-      /whisper-cli|whisper\.cpp/i.test(stderr) && /not found/i.test(stderr)
+      (/whisper-cli|whisper\.cpp/i.test(stderr) && /not found/i.test(stderr))
     ) {
       throw new Error("whisper_cpp_missing");
     }
@@ -344,9 +575,12 @@ export async function transcribeWithWhisperCpp(options: {
   }
 
   let cues: SubtitleCue[] = [];
+  let sourceLang: string | null = null;
   try {
     const jsonRaw = await readFile(`${outBase}.json`, "utf8");
-    cues = parseWhisperCppJson(jsonRaw);
+    const parsed = parseWhisperCppResult(jsonRaw);
+    cues = parsed.cues;
+    sourceLang = parsed.language;
   } catch {
     // fall through
   }
@@ -377,9 +611,14 @@ export async function transcribeWithWhisperCpp(options: {
     }
   }
 
+  if (options.translateToEn) {
+    sourceLang = "en";
+  }
+
   return {
     cues,
     whisperTranslatedToEn: options.translateToEn,
+    sourceLang,
   };
 }
 
