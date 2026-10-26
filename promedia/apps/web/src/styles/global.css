@@ -2415,6 +2415,33 @@ body {
   animation: pm-bg-drift-b 21s ease-in-out infinite alternate;
 }
 
+.pm-stage-bg-abstract-blue {
+  background: #020814;
+}
+.pm-stage-bg-abstract-blue .pm-stage-bg-layer-a {
+  background: radial-gradient(
+    ellipse 70% 55% at 35% 45%,
+    rgba(30, 106, 208, 0.5),
+    transparent 70%
+  );
+  animation: pm-bg-drift-a 20s ease-in-out infinite alternate;
+}
+.pm-stage-bg-abstract-blue .pm-stage-bg-layer-b {
+  background: radial-gradient(
+    ellipse 55% 45% at 70% 55%,
+    rgba(74, 160, 255, 0.35),
+    transparent 65%
+  );
+  animation: pm-bg-drift-b 24s ease-in-out infinite alternate;
+}
+
+/* Pack video sits above CSS fallback layers within .pm-stage-bg-pack */
+.pm-stage-bg-pack .pm-stage-bg-media-el {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
 @keyframes pm-bg-drift-a {
   from {
     transform: translate(-4%, -3%) scale(1);

@@ -51,7 +51,7 @@ export type ThemeOverrides = {
 
 /**
  * Stage background behind projected content (Output + En vivo + Vista previa).
- * Solid uses theme bg color; media uses a built-in CSS pack or a session asset.
+ * Solid uses theme bg color; media uses a built-in looping video pack or a session asset.
  */
 export type ThemeBackgroundMode = "solid" | "media";
 
@@ -59,13 +59,14 @@ export type ThemeBackgroundPackId =
   | "aurora"
   | "embers"
   | "ocean"
-  | "softgrid";
+  | "softgrid"
+  | "abstract-blue";
 
 export type ThemeBackgroundMediaKind = "video" | "image";
 
 export type ThemeBackground = {
   mode: ThemeBackgroundMode;
-  /** Built-in CSS/motion pack (mode=media, no upload). */
+  /** Built-in looping video pack under public/theme-backgrounds/ (mode=media). */
   packId?: ThemeBackgroundPackId | null;
   /** Uploaded session asset id (mode=media). */
   assetId?: string | null;
@@ -83,7 +84,16 @@ export const THEME_BACKGROUND_PACK_IDS: readonly ThemeBackgroundPackId[] = [
   "embers",
   "ocean",
   "softgrid",
+  "abstract-blue",
 ] as const;
+
+/** Vite public/ path for a built-in theme pack looping video. */
+export function themeBackgroundPackSrc(
+  packId: ThemeBackgroundPackId,
+  format: "mp4" | "webm" = "mp4",
+): string {
+  return `/theme-backgrounds/${packId}.${format}`;
+}
 
 export const DEFAULT_THEME_BACKGROUND: ThemeBackground = {
   mode: "solid",
