@@ -40,7 +40,10 @@ import { LinkAddDialog } from "../components/LinkAddDialog";
 import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { SchedulePanel } from "../components/SchedulePanel";
 import { SongEditor } from "../components/SongEditor";
-import { StageBackground } from "../components/StageBackground";
+import {
+  StageBackground,
+  StageDotsOverlay,
+} from "../components/StageBackground";
 import { StatusTip } from "../components/StatusTip";
 import { SubtitleOverlay } from "../components/SubtitleOverlay";
 import { TextItemEditor } from "../components/TextItemEditor";
@@ -178,6 +181,11 @@ export function ControlPage() {
   const themeBackground = normalizeThemeBackground(
     session.snapshot?.live.themeBackground ?? DEFAULT_THEME_BACKGROUND,
   );
+  const dotsOverlay = themeBackground.dotsOverlay === true;
+  /** Dots on the video plane so Preview/Live captions stay above the tile. */
+  const liveVideoPlaneDots = dotsOverlay && liveItem?.type === "video";
+  const previewVideoPlaneDots =
+    dotsOverlay && selectedItem?.type === "video";
   const transitionEffect: TransitionEffect =
     session.snapshot?.live.transitionEffect ?? DEFAULT_TRANSITION_EFFECT;
   const subtitleAgent =
@@ -1540,6 +1548,7 @@ export function ControlPage() {
               <StageBackground
                 background={themeBackground}
                 assetSrc={themeBgAssetSrc}
+                showDots={!liveVideoPlaneDots}
               />
               <span className="stage-overlay-label" aria-hidden="true">
                 {t("control.live")}
@@ -1553,29 +1562,38 @@ export function ControlPage() {
                 </span>
               ) : null}
               {liveItem && LivePanel ? (
-                <LivePanel
-                  item={liveItem}
-                  slideIndex={liveSlideIndex}
-                  assetSrc={liveSrc}
-                  mediaClock={mediaClock}
-                  durationMsHint={liveDurationMs}
-                  onDurationMs={(ms) => rememberDuration(liveItem.id, ms)}
-                  onMediaClockSet={
-                    liveItem.type === "video"
-                      ? (patch) => session.setMediaClock(patch)
-                      : undefined
+                <div
+                  className={
+                    liveVideoPlaneDots
+                      ? "pm-stage-video-plane"
+                      : "pm-stage-item-plane"
                   }
-                  onPrev={
-                    itemHasSlides(liveItem)
-                      ? () => session.setSlide(liveSlideIndex - 1)
-                      : undefined
-                  }
-                  onNext={
-                    itemHasSlides(liveItem)
-                      ? () => session.setSlide(liveSlideIndex + 1)
-                      : undefined
-                  }
-                />
+                >
+                  <LivePanel
+                    item={liveItem}
+                    slideIndex={liveSlideIndex}
+                    assetSrc={liveSrc}
+                    mediaClock={mediaClock}
+                    durationMsHint={liveDurationMs}
+                    onDurationMs={(ms) => rememberDuration(liveItem.id, ms)}
+                    onMediaClockSet={
+                      liveItem.type === "video"
+                        ? (patch) => session.setMediaClock(patch)
+                        : undefined
+                    }
+                    onPrev={
+                      itemHasSlides(liveItem)
+                        ? () => session.setSlide(liveSlideIndex - 1)
+                        : undefined
+                    }
+                    onNext={
+                      itemHasSlides(liveItem)
+                        ? () => session.setSlide(liveSlideIndex + 1)
+                        : undefined
+                    }
+                  />
+                  {liveVideoPlaneDots ? <StageDotsOverlay /> : null}
+                </div>
               ) : (
                 <p>{t("control.liveEmpty")}</p>
               )}
@@ -1654,45 +1672,55 @@ export function ControlPage() {
               <StageBackground
                 background={themeBackground}
                 assetSrc={themeBgAssetSrc}
+                showDots={!previewVideoPlaneDots}
               />
               <span className="stage-overlay-label" aria-hidden="true">
                 {t("control.preview")}
               </span>
               {selectedItem && Preview ? (
-                <Preview
-                  item={selectedItem}
-                  slideIndex={previewSlideIndex}
-                  onSlideIndexChange={setPreviewSlideIndex}
-                  assetSrc={previewSrc}
-                  onFitChange={
-                    selectedItem.type === "image" ||
-                    selectedItem.type === "presentation"
-                      ? onFitChange
-                      : undefined
+                <div
+                  className={
+                    previewVideoPlaneDots
+                      ? "pm-stage-video-plane"
+                      : "pm-stage-item-plane"
                   }
-                  projecting={
-                    selectedItem.type === "video" &&
-                    selectedItem.id === liveItemId
-                  }
-                  mediaClock={
-                    selectedItem.type === "video" &&
-                    selectedItem.id === liveItemId
-                      ? mediaClock
-                      : undefined
-                  }
-                  onMediaClockSet={
-                    selectedItem.type === "video" &&
-                    selectedItem.id === liveItemId
-                      ? (patch) => session.setMediaClock(patch)
-                      : undefined
-                  }
-                  onDurationMs={(ms) =>
-                    rememberDuration(selectedItem.id, ms)
-                  }
-                  durationMsHint={
-                    durationByItemId[selectedItem.id] ?? 0
-                  }
-                />
+                >
+                  <Preview
+                    item={selectedItem}
+                    slideIndex={previewSlideIndex}
+                    onSlideIndexChange={setPreviewSlideIndex}
+                    assetSrc={previewSrc}
+                    onFitChange={
+                      selectedItem.type === "image" ||
+                      selectedItem.type === "presentation"
+                        ? onFitChange
+                        : undefined
+                    }
+                    projecting={
+                      selectedItem.type === "video" &&
+                      selectedItem.id === liveItemId
+                    }
+                    mediaClock={
+                      selectedItem.type === "video" &&
+                      selectedItem.id === liveItemId
+                        ? mediaClock
+                        : undefined
+                    }
+                    onMediaClockSet={
+                      selectedItem.type === "video" &&
+                      selectedItem.id === liveItemId
+                        ? (patch) => session.setMediaClock(patch)
+                        : undefined
+                    }
+                    onDurationMs={(ms) =>
+                      rememberDuration(selectedItem.id, ms)
+                    }
+                    durationMsHint={
+                      durationByItemId[selectedItem.id] ?? 0
+                    }
+                  />
+                  {previewVideoPlaneDots ? <StageDotsOverlay /> : null}
+                </div>
               ) : (
                 <p>{t("control.previewEmpty")}</p>
               )}

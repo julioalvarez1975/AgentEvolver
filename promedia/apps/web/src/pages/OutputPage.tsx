@@ -18,7 +18,10 @@ import {
   normalizeThemeBackground,
 } from "@promedia/shared";
 import { SceneOverlay } from "../components/SceneOverlay";
-import { StageBackground } from "../components/StageBackground";
+import {
+  StageBackground,
+  StageDotsOverlay,
+} from "../components/StageBackground";
 import { SubtitleOverlay } from "../components/SubtitleOverlay";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import { buildAssetUrl } from "../lib/assets";
@@ -71,6 +74,9 @@ export function OutputPage() {
   const themeBackground = normalizeThemeBackground(
     snapshot?.live.themeBackground ?? DEFAULT_THEME_BACKGROUND,
   );
+  const dotsOverlay = themeBackground.dotsOverlay === true;
+  /** Dots on the video plane (inside item layer) so captions stay above. */
+  const videoPlaneDots = dotsOverlay && liveItem?.type === "video";
   const transitionEffect: TransitionEffect =
     snapshot?.live.transitionEffect ?? DEFAULT_TRANSITION_EFFECT;
   const subtitleAgent =
@@ -231,6 +237,7 @@ export function OutputPage() {
         <StageBackground
           background={themeBackground}
           assetSrc={themeBgAssetSrc}
+          showDots={!videoPlaneDots}
         />
         {wsStatus === "connecting" && !hasSession ? (
           <p className="output-waiting">{t(locale, "output.joining")}</p>
@@ -261,6 +268,8 @@ export function OutputPage() {
                     mediaClock={mediaClock}
                   />
                 </div>
+                {/* Video plane only — never a stage sibling above captions. */}
+                {videoPlaneDots ? <StageDotsOverlay /> : null}
               </div>
             ) : sceneMode === "normal" ? (
               <div
