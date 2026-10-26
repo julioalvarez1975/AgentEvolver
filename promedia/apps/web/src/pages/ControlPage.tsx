@@ -986,7 +986,7 @@ export function ControlPage() {
           </div>
         </header>
 
-        {/* Row 2: Proyectar / Biblioteca / idioma / Acerca de / TEMA / GAM */}
+        {/* Row 2: flat tools (peers + flex-wrap) / GAM */}
         <div className="control-toolbar-strip">
           <div className="control-header-cluster">
             <ControlHeaderToolbar

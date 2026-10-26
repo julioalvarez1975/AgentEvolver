@@ -87,8 +87,9 @@ function ToolbarBtn({
 }
 
 /**
- * Control tools strip (below title-only header): Proyectar · Biblioteca · idioma · Acerca de
- * + TEMA zone (escenas + presets + pickers + transitions). Icon above / label below.
+ * Flat Control tools strip (below title-only header): every control is a peer
+ * item in one flex-wrap toolbar — no TEMA zone / clustered wrappers.
+ * Julio will re-group later; do not invent groups here.
  */
 export function ControlHeaderToolbar({
   projectionBusy,
@@ -131,113 +132,102 @@ export function ControlHeaderToolbar({
   );
 
   return (
-    <div className="control-header-toolbar" role="toolbar" aria-label={t("control.toolbar")}>
-      <div className="toolbar-commands" role="group" aria-label={t("control.toolbar")}>
-        <ToolbarBtn
-          disabled={projectionBusy || hubUnreachable}
-          title={t("shortcuts.startProjection")}
-          label={
-            projectionBusy
-              ? t("control.startProjectionBusy")
-              : t("control.project")
-          }
-          icon={<IconProject />}
-          onClick={onProject}
-        />
+    <div
+      className="control-header-toolbar"
+      role="toolbar"
+      aria-label={t("control.toolbar")}
+    >
+      <ToolbarBtn
+        disabled={projectionBusy || hubUnreachable}
+        title={t("shortcuts.startProjection")}
+        label={
+          projectionBusy
+            ? t("control.startProjectionBusy")
+            : t("control.project")
+        }
+        icon={<IconProject />}
+        onClick={onProject}
+      />
 
-        <ToolbarBtn
-          disabled={hubUnreachable}
-          title={t("library.hint")}
-          label={t("library.open")}
-          icon={<IconLibrary />}
-          onClick={onOpenLibrary}
-        />
+      <ToolbarBtn
+        disabled={hubUnreachable}
+        title={t("library.hint")}
+        label={t("library.open")}
+        icon={<IconLibrary />}
+        onClick={onOpenLibrary}
+      />
 
-        <label className="toolbar-lang" title={t("control.language")}>
-          <span className="toolbar-icon-btn-glyph" aria-hidden>
-            <IconLanguage />
-          </span>
-          <select
-            className="toolbar-lang-select"
-            value={locale}
-            aria-label={t("control.language")}
-            onChange={(e) => setLocale(e.target.value as Locale)}
-          >
-            {locales.map((code) => (
-              <option key={code} value={code}>
-                {LOCALE_SHORT[code]}
-              </option>
-            ))}
-          </select>
-          <span className="toolbar-icon-btn-label">{t("control.languageShort")}</span>
-        </label>
-
-        <ToolbarBtn
-          title={t("control.about")}
-          label={t("control.about")}
-          icon={<IconAbout />}
-          onClick={onAbout}
-        />
-
-        {!hasSession && sessionFallback ? (
-          <div className="toolbar-session-fallback">{sessionFallback}</div>
-        ) : null}
-      </div>
-
-      <div
-        className="toolbar-tema-zone"
-        role="group"
-        aria-label={t("theme.title")}
-      >
-        <span className="toolbar-theme-title">{t("theme.title")}</span>
-        <div
-          className="toolbar-scenes"
-          role="group"
-          aria-label={t("control.live")}
+      <label className="toolbar-lang" title={t("control.language")}>
+        <span className="toolbar-icon-btn-glyph" aria-hidden>
+          <IconLanguage />
+        </span>
+        <select
+          className="toolbar-lang-select"
+          value={locale}
+          aria-label={t("control.language")}
+          onChange={(e) => setLocale(e.target.value as Locale)}
         >
-          {sceneBtn(
-            "normal",
-            <IconSceneNormal />,
-            "control.sceneNormal",
-            "shortcuts.sceneNormal",
-            onSceneNormal,
-          )}
-          {sceneBtn(
-            "logo",
-            <IconSceneLogo />,
-            "control.sceneLogo",
-            "shortcuts.sceneLogo",
-            () => onToggleScene("logo"),
-          )}
-          {sceneBtn(
-            "black",
-            <IconSceneBlack />,
-            "control.sceneBlack",
-            "shortcuts.sceneBlack",
-            () => onToggleScene("black"),
-          )}
-          {sceneBtn(
-            "clear",
-            <IconSceneClear />,
-            "control.sceneClear",
-            "shortcuts.sceneClear",
-            () => onToggleScene("clear"),
-          )}
-        </div>
-        <ThemePanel
-          toolbar
-          hideTitle
-          themeId={themeId}
-          themeOverrides={themeOverrides}
-          themeBackground={themeBackground}
-          transitionEffect={transitionEffect}
-          disabled={!canMutate}
-          uploadingBackground={uploadingBackground}
-          backgroundAssets={backgroundAssets}
-          onUploadBackground={onUploadBackground}
-          onChange={onThemeChange}
-        />
-      </div>
+          {locales.map((code) => (
+            <option key={code} value={code}>
+              {LOCALE_SHORT[code]}
+            </option>
+          ))}
+        </select>
+        <span className="toolbar-icon-btn-label">{t("control.languageShort")}</span>
+      </label>
+
+      <ToolbarBtn
+        title={t("control.about")}
+        label={t("control.about")}
+        icon={<IconAbout />}
+        onClick={onAbout}
+      />
+
+      {!hasSession && sessionFallback ? (
+        <div className="toolbar-session-fallback">{sessionFallback}</div>
+      ) : null}
+
+      {sceneBtn(
+        "normal",
+        <IconSceneNormal />,
+        "control.sceneNormal",
+        "shortcuts.sceneNormal",
+        onSceneNormal,
+      )}
+      {sceneBtn(
+        "logo",
+        <IconSceneLogo />,
+        "control.sceneLogo",
+        "shortcuts.sceneLogo",
+        () => onToggleScene("logo"),
+      )}
+      {sceneBtn(
+        "black",
+        <IconSceneBlack />,
+        "control.sceneBlack",
+        "shortcuts.sceneBlack",
+        () => onToggleScene("black"),
+      )}
+      {sceneBtn(
+        "clear",
+        <IconSceneClear />,
+        "control.sceneClear",
+        "shortcuts.sceneClear",
+        () => onToggleScene("clear"),
+      )}
+
+      <ThemePanel
+        toolbar
+        themeId={themeId}
+        themeOverrides={themeOverrides}
+        themeBackground={themeBackground}
+        transitionEffect={transitionEffect}
+        disabled={!canMutate}
+        uploadingBackground={uploadingBackground}
+        backgroundAssets={backgroundAssets}
+        onUploadBackground={onUploadBackground}
+        onChange={onThemeChange}
+      />
     </div>
   );
 }
