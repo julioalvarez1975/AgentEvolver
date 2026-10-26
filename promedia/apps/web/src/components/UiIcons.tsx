@@ -351,6 +351,32 @@ export function IconAbout(props: IconProps) {
   );
 }
 
+/** Local media library (Biblioteca) — bookshelf. */
+export function IconLibrary(props: IconProps) {
+  return (
+    <svg {...svgProps({ ...props, size: props.size ?? 20 })}>
+      <path
+        d="M4 5.5h3.2v13H4A1.5 1.5 0 0 1 2.5 17V7A1.5 1.5 0 0 1 4 5.5Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7.2 5.5h3.5v13H7.2V5.5Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10.7 6.2 19 4.5v14.2l-8.3 1.7V6.2Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function IconTheme(props: IconProps) {
   return (
     <svg {...svgProps({ ...props, size: props.size ?? 20 })}>

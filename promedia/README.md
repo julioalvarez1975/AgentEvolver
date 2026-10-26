@@ -154,6 +154,7 @@ Si el popup está bloqueado, aparece un aviso con enlace **Abrir salida**. El at
 1. **Fila título** — solo marca + **«ProMedia | Control»** (sin botones)
 2. **Barra de herramientas** debajo:
    - **Proyectar** — abre Output + fullscreen (busy: «Iniciando…»)
+   - **Biblioteca** — mediateca local (canciones, biblias, textos, presentaciones, imágenes, vídeos)
    - **Idioma** — ES / EN / PT / FR / ZH
    - **Acerca de** — diálogo con crédito **`@2026 JulioAlvarez75`**
    - Zona **Tema** — escenas + presets + pickers + efectos de transición
@@ -161,13 +162,15 @@ Si el popup está bloqueado, aparece un aviso con enlace **Abrir salida**. El at
 
 ### Guion
 
-- **Añadir** (multiarchivo: imagen, vídeo, PDF/XML/texto) + menú: Enlace/YouTube, Biblia, Texto en blanco, **Crear canción**, **Biblioteca**
+- **Añadir** (multiarchivo: imagen, vídeo, PDF/XML/texto) + menú: Enlace/YouTube, Biblia, Texto en blanco, **Crear canción**, **Biblioteca** (también en la barra de herramientas)
 - Drag ⋮⋮ (y ↑/↓), multi-selección + **Quitar seleccionados**
 - Guardar / Cargar guiones con nombre
 - Botón **En vivo** / doble clic = enviar al live
 - Tipos: texto, imagen, vídeo, YouTube, Biblia, presentación (solo visualización)
 
 ### Biblioteca
+
+Entrada principal: botón **Biblioteca** en la barra de herramientas (junto a **Proyectar**). También en Guion → menú **Añadir**.
 
 Mediateca **local** del hub (no nube en esta fase). Datos en `promedia/data/library/` (gitignore).
 

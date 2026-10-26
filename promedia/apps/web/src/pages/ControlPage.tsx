@@ -969,7 +969,7 @@ export function ControlPage() {
           </div>
         </header>
 
-        {/* Row 2: Proyectar / idioma / Acerca de / TEMA / GAM */}
+        {/* Row 2: Proyectar / Biblioteca / idioma / Acerca de / TEMA / GAM */}
         <div className="control-toolbar-strip">
           <div className="control-header-cluster">
             <ControlHeaderToolbar
@@ -984,6 +984,7 @@ export function ControlPage() {
               transitionEffect={transitionEffect}
               uploadingBackground={uploadingBackground}
               onProject={onStartProjection}
+              onOpenLibrary={openLibrary}
               onSceneNormal={() => session.setSceneMode("normal")}
               onToggleScene={(mode) => toggleSceneMode(mode)}
               onThemeChange={(patch) => session.setTheme(patch)}
