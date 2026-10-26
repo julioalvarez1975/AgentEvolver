@@ -1,6 +1,7 @@
 import {
   DEFAULT_THEME_BACKGROUND,
   normalizeThemeBackground,
+  themeBackgroundPackSrc,
   type ThemeBackground,
 } from "@promedia/shared";
 
@@ -12,7 +13,7 @@ export type StageBackgroundProps = {
 
 /**
  * Full-bleed stage backdrop for Output / En vivo / Vista previa.
- * Solid mode relies on parent `.pm-theme` `--pm-bg`; media uses pack or upload.
+ * Solid mode relies on parent `.pm-theme` `--pm-bg`; media uses pack video or upload.
  * Optional black-dots overlay darkens busy backgrounds for readable light text.
  */
 export function StageBackground({
@@ -31,10 +32,28 @@ export function StageBackground({
 
   return (
     <div className="pm-stage-bg" aria-hidden>
-      {showPack ? (
+      {showPack && bg.packId ? (
         <div className={`pm-stage-bg-pack pm-stage-bg-${bg.packId}`}>
+          {/* CSS layers remain as fallback under the looping pack video. */}
           <div className="pm-stage-bg-layer pm-stage-bg-layer-a" />
           <div className="pm-stage-bg-layer pm-stage-bg-layer-b" />
+          <video
+            key={bg.packId}
+            className="pm-stage-bg-media-el"
+            autoPlay
+            loop
+            muted
+            playsInline
+          >
+            <source
+              src={themeBackgroundPackSrc(bg.packId, "webm")}
+              type="video/webm"
+            />
+            <source
+              src={themeBackgroundPackSrc(bg.packId, "mp4")}
+              type="video/mp4"
+            />
+          </video>
         </div>
       ) : null}
       {showAsset && assetSrc ? (

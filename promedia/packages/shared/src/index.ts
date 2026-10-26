@@ -402,6 +402,7 @@ export {
   normalizeThemeBackground,
   normalizeThemeOverrides,
   resolveTheme,
+  themeBackgroundPackSrc,
   themeToCssVars,
 } from "./themes.js";
 

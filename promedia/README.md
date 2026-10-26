@@ -258,6 +258,8 @@ Env útiles: `SUBTITLE_MODELS_ROOT`, `SUBTITLE_DATA_ROOT`, `SUBTITLE_WHISPER_MOD
 |---------|-------|-------------------------------------|
 | Normal · Logo · Negro · Clear | Oscuro · Claro · Acento (+ fondo/texto/alineación/tamaño) | Ninguna/corte · Difuminado · Blur · Pixelado |
 
+**Fondos animados (packs fijos):** Aurora · Brasas · Océano · Rejilla · Azul abstracto. Son vídeos en bucle (mute) versionados en el repo bajo `apps/web/public/theme-backgrounds/` (MP4 + WebM). Aparecen siempre en el desplegable de fondos; además se pueden **subir** vídeos/imágenes propios (sesión). El patrón de puntos se dibuja encima del vídeo.
+
 Las transiciones aplican al cambiar el ítem **en vivo** en Output.
 
 ### Biblia

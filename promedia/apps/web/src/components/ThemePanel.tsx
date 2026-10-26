@@ -64,6 +64,7 @@ const PACK_LABEL_KEYS: Record<ThemeBackgroundPackId, string> = {
   embers: "theme.bgPackEmbers",
   ocean: "theme.bgPackOcean",
   softgrid: "theme.bgPackSoftgrid",
+  "abstract-blue": "theme.bgPackAbstractBlue",
 };
 
 const SOLID_VALUE = "solid";
