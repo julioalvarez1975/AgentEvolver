@@ -1,4 +1,5 @@
 import type {
+  AudioPlaylistItem,
   HubMessage,
   PlaylistItem,
   SubtitleAgentState,
@@ -22,6 +23,7 @@ import {
   whisperCliAvailable,
 } from "./subtitle-asr.js";
 import { isMissingBinHint, missingBinHintFromError } from "./subtitle-bins.js";
+import { tryLocalCaptionTracks } from "./subtitle-local-tracks.js";
 import { ensureSubtitleDirs } from "./subtitle-paths.js";
 import { translateCuesLocal } from "./subtitle-translate.js";
 import { filterSpeechCues } from "./subtitle-cue-text.js";
@@ -105,13 +107,17 @@ function patchAndBroadcast(
   broadcastSession(session.id, message);
 }
 
+type AvPlaylistItem = VideoPlaylistItem | AudioPlaylistItem;
+
 type ResolveOk = {
   ok: true;
-  item: VideoPlaylistItem;
+  item: AvPlaylistItem;
   assetId: string;
   /** Absolute path once media is local (file or after yt-dlp). */
   mediaPath: string | null;
   youtube: null | { videoId: string; sourceUrl: string };
+  /** Upload basename for sidecar caption lookup (local file/audio only). */
+  originalName: string | null;
 };
 
 type ResolveFail = {
@@ -137,6 +143,30 @@ function resolveMediaSource(
   if (!item) {
     return { ok: false, reason: "no_item", item: null };
   }
+
+  // Guion Audio tab (#76) — same ASR / sidecar path as local video files.
+  if (item.type === "audio") {
+    const assetId = item.payload.assetId;
+    const asset = assetStore.get(session.id, assetId);
+    if (!asset || asset.kind !== "audio") {
+      return { ok: false, reason: "no_asset", item };
+    }
+    let mediaPath: string;
+    try {
+      mediaPath = assetStore.getAdapter().resolvePath(asset.storageKey);
+    } catch {
+      return { ok: false, reason: "missing_file", item };
+    }
+    return {
+      ok: true,
+      item,
+      assetId,
+      mediaPath,
+      youtube: null,
+      originalName: asset.originalName ?? null,
+    };
+  }
+
   if (item.type !== "video") {
     return { ok: false, reason: "not_video", item };
   }
@@ -156,6 +186,7 @@ function resolveMediaSource(
         videoId,
         sourceUrl: sourceUrl || `https://www.youtube.com/watch?v=${videoId}`,
       },
+      originalName: null,
     };
   }
 
@@ -176,6 +207,7 @@ function resolveMediaSource(
     assetId,
     mediaPath,
     youtube: null,
+    originalName: asset.originalName ?? null,
   };
 }
 
@@ -199,6 +231,80 @@ function hintForReason(
     default:
       return "unsupported";
   }
+}
+
+/** Finish job from caption/ASR cues (shared by YT, sidecar, Whisper). */
+async function finishWithCues(options: {
+  sessionId: string;
+  gen: number;
+  itemId: string;
+  assetId: string;
+  cues: import("@promedia/shared").SubtitleCue[];
+  sourceLang: string | null;
+  targetLang: SubtitleTargetLang;
+  alreadyEnglish: boolean;
+  preserveLyricsSource?: boolean;
+  hint?: string | null;
+}): Promise<boolean> {
+  const {
+    sessionId,
+    gen,
+    itemId,
+    assetId,
+    targetLang,
+    alreadyEnglish,
+    preserveLyricsSource,
+  } = options;
+  let cues = filterSpeechCues(options.cues);
+  let translated = alreadyEnglish && targetLang === "en";
+  let hint = options.hint ?? null;
+  let sourceLang = options.sourceLang;
+
+  if (!cues.length) return false;
+
+  if (targetLang !== "en" || !alreadyEnglish) {
+    const live = sessionStore.get(sessionId);
+    if (!live?.live.subtitleAgent?.enabled || !isCurrent(sessionId, gen)) {
+      return false;
+    }
+    patchAndBroadcast(live, { status: "translating" });
+    const mt = await translateCuesLocal({
+      cues,
+      sourceLang,
+      targetLang,
+      alreadyEnglish,
+      preserveLyricsSource: preserveLyricsSource === true,
+    });
+    cues = filterSpeechCues(mt.cues);
+    translated = mt.translated || translated;
+    if (mt.note && !mt.translated) {
+      hint =
+        mt.note === "mt_lyrics_preserved" ||
+        mt.note.startsWith("mt_unavailable")
+          ? "mt_source_only"
+          : mt.note;
+    }
+    if (!sourceLang && alreadyEnglish) {
+      sourceLang = "en";
+    }
+  }
+
+  if (!isCurrent(sessionId, gen)) return false;
+  const liveFinal = sessionStore.get(sessionId);
+  if (!liveFinal?.live.subtitleAgent?.enabled) return false;
+  if (!cues.length) return false;
+
+  clearYtHardFail(sessionId);
+  patchAndBroadcast(liveFinal, {
+    status: "ready",
+    cues,
+    sourceLang,
+    translated,
+    hint,
+    itemId,
+    assetId,
+  });
+  return true;
 }
 
 function isStickyMissingBin(agent: SubtitleAgentState | null | undefined): boolean {
@@ -426,49 +532,19 @@ async function runSubtitleJob(
       if (!isCurrent(sessionId, gen)) return;
 
       if (caps && caps.cues.length > 0) {
-        let cues = filterSpeechCues(caps.cues);
-        let translated = false;
-        let hint: string | null = null;
-        let sourceLang = caps.sourceLang;
-
-        if (cues.length > 0) {
-          patchAndBroadcast(session, { status: "translating" });
-          const mt = await translateCuesLocal({
-            cues,
-            sourceLang,
-            targetLang,
-            alreadyEnglish: sourceLang === "en",
-            // Keep accurate YT lyric text; Marian often mangles song poetry.
-            preserveLyricsSource: true,
-          });
-          cues = filterSpeechCues(mt.cues);
-          translated = mt.translated || translated;
-          if (mt.note && !mt.translated) {
-            hint =
-              mt.note === "mt_lyrics_preserved" ||
-              mt.note.startsWith("mt_unavailable")
-                ? "mt_source_only"
-                : mt.note;
-          }
-
-          if (!isCurrent(sessionId, gen)) return;
-          const liveCaps = sessionStore.get(sessionId);
-          if (!liveCaps?.live.subtitleAgent?.enabled) return;
-
-          if (cues.length > 0) {
-            clearYtHardFail(sessionId);
-            patchAndBroadcast(liveCaps, {
-              status: "ready",
-              cues,
-              sourceLang,
-              translated,
-              hint,
-              itemId: resolved.item.id,
-              assetId: caps.assetId,
-            });
-            return;
-          }
-        }
+        const ok = await finishWithCues({
+          sessionId,
+          gen,
+          itemId: resolved.item.id,
+          assetId: caps.assetId,
+          cues: caps.cues,
+          sourceLang: caps.sourceLang,
+          targetLang,
+          alreadyEnglish: caps.sourceLang === "en",
+          // Keep accurate YT lyric text; Marian often mangles song poetry.
+          preserveLyricsSource: true,
+        });
+        if (ok) return;
         console.warn(
           "[subtitle] YouTube captions had no speech/lyric cues — falling back to Whisper ASR",
         );
@@ -524,6 +600,47 @@ async function runSubtitleJob(
       return;
     }
 
+    // Local alternate agent (no Whisper): sidecars in data/subtitles/sidecars/
+    // or embedded softsubs via ffmpeg. Prefer before ASR — reliable on Mac when
+    // whisper-cli/ggml is missing or music-only ASR returns empty cues.
+    if (!resolved.youtube) {
+      patchAndBroadcast(session, {
+        enabled: true,
+        targetLang,
+        status: "extracting",
+        itemId: resolved.item.id,
+        assetId,
+        hint: "local_captions",
+        cues: [],
+        translated: false,
+        sourceLang: null,
+      });
+      const local = await tryLocalCaptionTracks({
+        assetId,
+        mediaPath,
+        originalName: resolved.originalName,
+      });
+      if (!isCurrent(sessionId, gen)) return;
+      if (local && local.cues.length > 0) {
+        const ok = await finishWithCues({
+          sessionId,
+          gen,
+          itemId: resolved.item.id,
+          assetId,
+          cues: local.cues,
+          sourceLang: local.sourceLang,
+          targetLang,
+          alreadyEnglish: local.sourceLang === "en",
+          preserveLyricsSource: true,
+          hint:
+            local.origin === "sidecar"
+              ? "local_sidecar"
+              : "local_embedded",
+        });
+        if (ok) return;
+      }
+    }
+
     patchAndBroadcast(session, {
       enabled: true,
       targetLang,
@@ -556,55 +673,30 @@ async function runSubtitleJob(
     const liveAfterAsr = sessionStore.get(sessionId);
     if (!liveAfterAsr?.live.subtitleAgent?.enabled) return;
 
-    let cues = filterSpeechCues(asr.cues);
-    let translated = asr.whisperTranslatedToEn && targetLang === "en";
-    let hint: string | null = null;
-    let sourceLang = asr.sourceLang;
+    const okAsr = await finishWithCues({
+      sessionId,
+      gen,
+      itemId: resolved.item.id,
+      assetId,
+      cues: asr.cues,
+      sourceLang: asr.sourceLang,
+      targetLang,
+      alreadyEnglish: asr.whisperTranslatedToEn,
+    });
+    if (okAsr) return;
 
-    if (targetLang !== "en" || !asr.whisperTranslatedToEn) {
-      patchAndBroadcast(liveAfterAsr, { status: "translating" });
-      const mt = await translateCuesLocal({
-        cues,
-        sourceLang,
-        targetLang,
-        alreadyEnglish: asr.whisperTranslatedToEn,
-      });
-      // Filter again — Marian can turn residual `[MUSIC]` into `[MÚSICA]`.
-      cues = filterSpeechCues(mt.cues);
-      translated = mt.translated || translated;
-      if (mt.note && !mt.translated) {
-        hint = mt.note.startsWith("mt_unavailable")
-          ? "mt_source_only"
-          : mt.note;
-      }
-      if (!sourceLang && asr.whisperTranslatedToEn) {
-        sourceLang = "en";
-      }
-    }
-
+    // Job "succeeded" but every cue was filtered (e.g. only [MÚSICA]) or ASR
+    // returned nothing — do NOT show a green "listo" with a blank overlay.
     if (!isCurrent(sessionId, gen)) return;
-    const liveFinal = sessionStore.get(sessionId);
-    if (!liveFinal?.live.subtitleAgent?.enabled) return;
-
-    if (!cues.length) {
-      patchAndBroadcast(liveFinal, {
-        status: "ready",
-        cues: [],
-        sourceLang,
-        translated: false,
-        hint: "no_speech",
-        itemId: resolved.item.id,
-        assetId,
-      });
-      return;
-    }
-
-    patchAndBroadcast(liveFinal, {
-      status: "ready",
-      cues,
-      sourceLang,
-      translated,
-      hint,
+    const liveEmpty = sessionStore.get(sessionId);
+    if (!liveEmpty?.live.subtitleAgent?.enabled) return;
+    const hasWhisper = await whisperCliAvailable();
+    patchAndBroadcast(liveEmpty, {
+      status: "error",
+      cues: [],
+      sourceLang: asr.sourceLang,
+      translated: false,
+      hint: hasWhisper ? "no_speech" : "whisper_cpp_missing",
       itemId: resolved.item.id,
       assetId,
     });

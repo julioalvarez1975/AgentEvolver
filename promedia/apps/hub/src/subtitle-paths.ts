@@ -38,20 +38,24 @@ export async function ensureSubtitleDirs(): Promise<{
   cache: string;
   wav: string;
   youtubeCache: string;
+  /** Operator-drop SRT/VTT sidecars (alternate to Whisper). */
+  sidecars: string;
 }> {
   const data = subtitleDataRoot();
   const models = subtitleModelsRoot();
   const cache = path.join(data, "cache");
   const wav = path.join(data, "wav");
   const youtubeCache = path.join(data, "youtube-cache");
+  const sidecars = path.join(data, "sidecars");
   await mkdir(cache, { recursive: true });
   await mkdir(wav, { recursive: true });
   await mkdir(youtubeCache, { recursive: true });
+  await mkdir(sidecars, { recursive: true });
   await mkdir(models, { recursive: true });
   // Compat for other HF tooling; transformers.js v4 uses env.cacheDir instead.
   process.env.TRANSFORMERS_CACHE = process.env.TRANSFORMERS_CACHE || models;
   process.env.HF_HOME = process.env.HF_HOME || models;
-  return { data, models, cache, wav, youtubeCache };
+  return { data, models, cache, wav, youtubeCache, sidecars };
 }
 
 type TransformersEnvLike = {

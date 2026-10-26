@@ -86,6 +86,17 @@ The club isn't the best place to find a lover
     `unexpected lyric: ${parsed[0]?.text}`,
   );
 
+  // YouTube-style short clocks + cue settings must not yield zero cues.
+  const shortForm = filterSpeechCues(
+    parseWhisperCppVttOrSrt(`WEBVTT
+
+00:00.080 --> 00:02.320 align:start position:0%
+The club isn't the best place to find a lover
+`),
+  );
+  assert(shortForm.length === 1, "short MM:SS.mmm VTT");
+  assert(shortForm[0]!.startMs === 80, `short start ${shortForm[0]!.startMs}`);
+
   assert(
     youtubeCaptionLangFromName("JGw1FRCpL94", "JGw1FRCpL94.en.vtt") === "en",
     "en.vtt lang",

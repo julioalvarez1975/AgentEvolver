@@ -220,9 +220,15 @@ export function ControlPage() {
         if (hint === "mt_source_only") {
           return t("control.subtitleAgentSourceOnly");
         }
+        if (hint === "local_sidecar" || hint === "local_embedded") {
+          return t("control.subtitleAgentLocalTracksReady");
+        }
         return t("control.subtitleAgentReady");
       }
       if (st === "error") {
+        if (hint === "no_speech") {
+          return t("control.subtitleAgentNoSpeech");
+        }
         if (hint === "yt_dlp_missing") {
           return t("control.subtitleAgentYtDlpMissing");
         }
@@ -270,6 +276,9 @@ export function ControlPage() {
         if (hint === "no_item") {
           return t("control.subtitleAgentNoItem");
         }
+        if (hint === "not_local_av") {
+          return t("control.subtitleAgentTextOnly");
+        }
       }
     }
     if (!subtitleFocusItem) {
@@ -279,6 +288,9 @@ export function ControlPage() {
       if (subtitleFocusItem.payload.sourceKind === "youtube") {
         return t("control.subtitleAgentYoutube");
       }
+      return t("control.subtitleAgentTitle");
+    }
+    if (subtitleFocusItem.type === "audio") {
       return t("control.subtitleAgentTitle");
     }
     if (
