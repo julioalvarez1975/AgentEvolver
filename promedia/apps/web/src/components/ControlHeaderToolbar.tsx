@@ -213,52 +213,77 @@ export function ControlHeaderToolbar({
           icon={<IconSubtitles />}
           onClick={() => onToggleSubtitleAgent?.()}
         />
-        <label
-          className="toolbar-subtitle-size"
+        {/* Size + lead stay visible with agent off so Julio can set them first. */}
+        <div
+          className="toolbar-subtitle-seg"
+          role="group"
+          aria-label={t("control.subtitleAgentFontSize")}
           title={t("control.subtitleAgentFontSize")}
         >
-          <select
-            className="toolbar-subtitle-size-select"
-            value={subtitleAgentFontSize}
-            disabled={!canMutate || !onSubtitleFontSizeChange}
+          <span className="toolbar-subtitle-seg-label" aria-hidden>
+            {t("control.subtitleAgentFontSizeShort")}
+          </span>
+          <div
+            className="toolbar-subtitle-seg-btns"
+            role="radiogroup"
             aria-label={t("control.subtitleAgentFontSize")}
-            onChange={(e) => {
-              const next = e.target.value as SubtitleFontSize;
-              if (SUBTITLE_FONT_SIZES.includes(next)) {
-                onSubtitleFontSizeChange?.(next);
-              }
-            }}
           >
-            {SUBTITLE_FONT_SIZES.map((size) => (
-              <option key={size} value={size}>
-                {subtitleSizeLabel[size]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label
-          className="toolbar-subtitle-lead"
+            {SUBTITLE_FONT_SIZES.map((size) => {
+              const selected = subtitleAgentFontSize === size;
+              const tip = `${t("control.subtitleAgentFontSize")}: ${subtitleSizeLabel[size]}`;
+              return (
+                <button
+                  key={size}
+                  type="button"
+                  role="radio"
+                  className={`toolbar-subtitle-seg-btn${selected ? " active" : ""}`}
+                  aria-checked={selected}
+                  aria-label={tip}
+                  title={tip}
+                  disabled={!canMutate || !onSubtitleFontSizeChange}
+                  onClick={() => onSubtitleFontSizeChange?.(size)}
+                >
+                  {subtitleSizeLabel[size]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div
+          className="toolbar-subtitle-seg toolbar-subtitle-lead-seg"
+          role="group"
+          aria-label={t("control.subtitleAgentLeadShort")}
           title={t("control.subtitleAgentLead")}
         >
-          <select
-            className="toolbar-subtitle-lead-select"
-            value={subtitleAgentLeadMs}
-            disabled={!canMutate || !onSubtitleLeadMsChange}
+          <span className="toolbar-subtitle-seg-label" aria-hidden>
+            {t("control.subtitleAgentLeadShort")}
+          </span>
+          <div
+            className="toolbar-subtitle-seg-btns"
+            role="radiogroup"
             aria-label={t("control.subtitleAgentLead")}
-            onChange={(e) => {
-              const next = Number(e.target.value) as SubtitleLeadMs;
-              if (SUBTITLE_LEAD_MS_OPTIONS.includes(next)) {
-                onSubtitleLeadMsChange?.(next);
-              }
-            }}
           >
-            {SUBTITLE_LEAD_MS_OPTIONS.map((ms) => (
-              <option key={ms} value={ms}>
-                {subtitleLeadLabel[ms]}
-              </option>
-            ))}
-          </select>
-        </label>
+            {SUBTITLE_LEAD_MS_OPTIONS.map((ms) => {
+              const selected = subtitleAgentLeadMs === ms;
+              const tip = `${t("control.subtitleAgentLeadShort")}: ${subtitleLeadLabel[ms]}`;
+              return (
+                <button
+                  key={ms}
+                  type="button"
+                  role="radio"
+                  className={`toolbar-subtitle-seg-btn${selected ? " active" : ""}`}
+                  aria-checked={selected}
+                  aria-label={tip}
+                  title={tip}
+                  disabled={!canMutate || !onSubtitleLeadMsChange}
+                  onClick={() => onSubtitleLeadMsChange?.(ms)}
+                >
+                  {subtitleLeadLabel[ms]}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         {depsError ? (
           <StatusTip
             className="toolbar-subtitle-agent-error"
