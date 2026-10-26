@@ -1469,8 +1469,8 @@ body {
   height: 100%;
 }
 
-/* Text / image / presentation / bible sit above the dots pattern.
-   Video stays at z-index 1 so dots darken the playing media. */
+/* Video plane is z-index 1 (dots live inside it). Non-video content sits
+   above the stage-bg dots tile (z −1) without needing an elevated overlay. */
 .output-item-layer[data-content="text"],
 .output-item-layer[data-content="bible"],
 .output-item-layer[data-content="image"],
@@ -1478,21 +1478,49 @@ body {
   z-index: 3;
 }
 
-/* Control Preview / Live: same stacking vs elevated dots. */
-.zone-stage > .video-preview,
-.zone-stage > .video-live-panel {
-  position: relative;
+/* Control Preview / Live: video plane wraps the panel + dots; captions stay out. */
+.zone-stage > .pm-stage-video-plane,
+.zone-stage > .pm-stage-item-plane {
+  position: absolute;
+  inset: 0;
   z-index: 1;
+  min-height: 0;
+  pointer-events: none;
 }
 
-.zone-stage > .text-preview,
-.zone-stage > .text-live-panel,
-.zone-stage > .image-preview,
-.zone-stage > .image-live-panel,
-.zone-stage > .presentation-preview,
-.zone-stage > .presentation-live-panel {
-  position: relative;
+.zone-stage > .pm-stage-video-plane {
+  isolation: isolate;
+}
+
+.zone-stage > .pm-stage-item-plane {
   z-index: 3;
+}
+
+.pm-stage-video-plane > *,
+.pm-stage-item-plane > * {
+  pointer-events: auto;
+}
+
+.pm-stage-video-plane > .video-preview,
+.pm-stage-video-plane > .video-live-panel,
+.pm-stage-item-plane > .text-preview,
+.pm-stage-item-plane > .text-live-panel,
+.pm-stage-item-plane > .image-preview,
+.pm-stage-item-plane > .image-live-panel,
+.pm-stage-item-plane > .presentation-preview,
+.pm-stage-item-plane > .presentation-live-panel,
+.pm-stage-item-plane > .video-preview,
+.pm-stage-item-plane > .video-live-panel {
+  position: relative;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Dots above media inside the video plane only (never above captions). */
+.pm-stage-video-plane > .pm-stage-bg-dots,
+.output-item-layer > .pm-stage-bg-dots {
+  z-index: 1;
 }
 
 /* Isolation so stage bg z-index:-1 stays inside the stage, not under the page. */
@@ -1599,13 +1627,15 @@ body {
 }
 
 /* Local AI captions — cancionero look (FittedTextStage / text-output), upper
-   stage above video. Under scene overlays (z 5); above dots (z 2) and video (z 1). */
+   stage above video. Under scene overlays (z 5); above the video plane (z 1)
+   that owns the dots tile — captions never sit under the pattern. */
 .subtitle-overlay {
   position: absolute;
   left: 0;
   right: 0;
   top: 0;
   z-index: 4;
+  isolation: isolate;
   display: flex;
   align-items: stretch;
   justify-content: center;
@@ -2664,12 +2694,13 @@ body {
 
 /* Black dots pattern — same as CEOSA .cb-slideshow:after (native 2×2 PNG tile).
    No background-size: tile at intrinsic 2px density like favoritos/css/style2.css.
-   Elevated above playlist video/YouTube (z-index 1) and pack bg (z-index -1);
-   below captions (4) and scene overlays (5). */
+   Lives either inside `.pm-stage-bg` (under content) or on the video plane
+   (above media, still under `.subtitle-overlay`). Never a stage sibling that
+   can paint over captions. */
 .pm-stage-bg-dots {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 1;
   pointer-events: none;
   background: transparent url("/theme-bg-dots-tile.png") repeat top left;
 }

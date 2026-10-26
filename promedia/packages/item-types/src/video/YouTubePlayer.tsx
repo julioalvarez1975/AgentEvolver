@@ -19,7 +19,29 @@ type YtPlayer = {
   mute: () => void;
   unMute: () => void;
   destroy: () => void;
+  /** Hide YouTube's own CC — ProMedia owns captions above the dots plane. */
+  unloadModule?: (module: string) => void;
+  setOption?: (module: string, option: string, value: unknown) => void;
 };
+
+/** Drop in-player captions so theme dots never speckles YouTube CC under our overlay. */
+function disableYouTubeCaptions(player: YtPlayer): void {
+  try {
+    player.unloadModule?.("captions");
+  } catch {
+    // ignore
+  }
+  try {
+    player.unloadModule?.("cc");
+  } catch {
+    // ignore
+  }
+  try {
+    player.setOption?.("captions", "track", {});
+  } catch {
+    // ignore
+  }
+}
 
 declare global {
   interface Window {
@@ -264,6 +286,9 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
               modestbranding: 1,
               playsinline: 1,
               enablejsapi: 1,
+              // ProMedia SubtitleOverlay owns cues; keep YT CC out of the video plane.
+              cc_load_policy: 0,
+              iv_load_policy: 3,
               ...(origin ? { origin } : {}),
               loop: loop ? 1 : 0,
               playlist: loop ? videoId : (undefined as unknown as string),
@@ -281,11 +306,15 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
                 } else {
                   e.target.unMute();
                 }
+                disableYouTubeCaptions(e.target);
                 setReady(true);
                 onReadyChange?.(true);
               },
               onStateChange: (e) => {
                 if (e.data === YT_PLAYING) {
+                  if (playerRef.current) {
+                    disableYouTubeCaptions(playerRef.current);
+                  }
                   onPlayingChange?.(true);
                   failStreakRef.current = 0;
                   if (!softMutedRef.current && !mutedRef.current) {
