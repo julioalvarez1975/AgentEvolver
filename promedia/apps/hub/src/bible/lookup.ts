@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { projectionTextSlides } from "@promedia/shared";
 import { getBookById, type BibleBook } from "./books.js";
 import { lookupFallback } from "./fallback.js";
 import { formatReferenceEs } from "./parse.js";
@@ -243,16 +244,23 @@ export async function lookupPassage(opts: {
   }
 }
 
-/** Build playlist-ready slides (one verse per slide). */
+/** Build playlist-ready slides (one verse per slide; multi-line body → 4-line chunks). */
 export function passageToSlides(result: BiblePassageResult): Array<{
   id: string;
   lines: string[];
 }> {
-  return result.verses.map((v) => ({
-    id: newSlideId(),
-    lines: [
-      `${result.bookName} ${result.chapter}:${v.verse}`,
-      v.text,
-    ],
-  }));
+  const raw = result.verses.map((v) => {
+    const bodyLines = String(v.text ?? "")
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .map((line) => line.trimEnd());
+    return {
+      id: newSlideId(),
+      lines: [
+        `${result.bookName} ${result.chapter}:${v.verse}`,
+        ...(bodyLines.length > 0 ? bodyLines : [""]),
+      ],
+    };
+  });
+  return projectionTextSlides(raw);
 }
