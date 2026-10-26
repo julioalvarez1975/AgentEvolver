@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { Fragment, useRef } from "react";
 import {
   DEFAULT_THEME_BACKGROUND,
   DEFAULT_THEME_ID,
@@ -37,10 +37,8 @@ export type ThemePanelProps = {
   disabled?: boolean;
   /** Compact header strip (presets + editor in one dense block). */
   compact?: boolean;
-  /** Single toolbar row: presets as icon+label + essential picks. */
+  /** Flat toolbar peers: presets + picks as sibling items (no TEMA card/zone). */
   toolbar?: boolean;
-  /** When true, omit the inline TEMA label (parent zone already shows it). */
-  hideTitle?: boolean;
   /** Session-uploaded backgrounds to list in the background dropdown. */
   backgroundAssets?: ThemeBackgroundAssetOption[];
   /** Upload background video/image (session asset). */
@@ -98,7 +96,6 @@ export function ThemePanel({
   disabled,
   compact,
   toolbar,
-  hideTitle,
   backgroundAssets = [],
   onUploadBackground,
   uploadingBackground,
@@ -204,11 +201,8 @@ export function ThemePanel({
   };
 
   const transitionSelect = (
-    <label
-      className={toolbar ? "theme-transition-label" : undefined}
-      title={t("theme.transition")}
-    >
-      {!toolbar ? t("theme.transition") : null}
+    <label className="toolbar-tool" title={t("theme.transition")}>
+      {t("theme.transition")}
       <select
         value={effect}
         disabled={disabled}
@@ -228,21 +222,35 @@ export function ThemePanel({
     </label>
   );
 
-  const presets = (
-    <div
-      className="theme-presets"
-      role="group"
-      aria-label={t("theme.title")}
-    >
-      {THEME_PRESETS.map((preset) => {
-        const shortcutKey =
-          preset.id === "oscuro"
-            ? "shortcuts.themeOscuro"
-            : preset.id === "claro"
-              ? "shortcuts.themeClaro"
-              : "shortcuts.themeAcento";
-        const tip = t(shortcutKey);
-        if (toolbar) {
+  const fileInput = (
+    <input
+      ref={fileRef}
+      type="file"
+      accept="video/mp4,video/webm,video/quicktime,image/jpeg,image/png,image/webp,image/gif"
+      hidden
+      disabled={disabled || !onUploadBackground}
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        e.target.value = "";
+        if (file && onUploadBackground) {
+          void onUploadBackground(file);
+        }
+      }}
+    />
+  );
+
+  /* Flat toolbar: every control is a peer — no TEMA card / nested groups. */
+  if (toolbar) {
+    return (
+      <Fragment>
+        {THEME_PRESETS.map((preset) => {
+          const shortcutKey =
+            preset.id === "oscuro"
+              ? "shortcuts.themeOscuro"
+              : preset.id === "claro"
+                ? "shortcuts.themeClaro"
+                : "shortcuts.themeAcento";
+          const tip = t(shortcutKey);
           return (
             <button
               key={preset.id}
@@ -264,7 +272,152 @@ export function ThemePanel({
               </span>
             </button>
           );
-        }
+        })}
+
+        <label className="toolbar-tool" title={t("theme.fg")}>
+          <input
+            type="color"
+            value={/^#[0-9a-fA-F]{6}$/.test(values.fg) ? values.fg : "#f2f5f8"}
+            disabled={disabled}
+            aria-label={t("theme.fg")}
+            onChange={(e) => patchOverride({ fg: e.target.value })}
+          />
+        </label>
+
+        <label className="toolbar-tool" title={t("theme.align")}>
+          <select
+            value={values.align}
+            disabled={disabled}
+            aria-label={t("theme.align")}
+            onChange={(e) =>
+              patchOverride({ align: e.target.value as TextAlign })
+            }
+          >
+            <option value="left">{t("text.alignLeft")}</option>
+            <option value="center">{t("text.alignCenter")}</option>
+            <option value="right">{t("text.alignRight")}</option>
+          </select>
+        </label>
+
+        <label className="toolbar-tool" title={t("theme.fontSize")}>
+          <select
+            value={values.fontSize}
+            disabled={disabled}
+            aria-label={t("theme.fontSize")}
+            onChange={(e) =>
+              patchOverride({ fontSize: e.target.value as ThemeFontSize })
+            }
+          >
+            <option value="sm">SM</option>
+            <option value="md">MD</option>
+            <option value="lg">LG</option>
+            <option value="xl">XL</option>
+          </select>
+        </label>
+
+        <label className="toolbar-tool theme-transition-label" title={t("theme.transition")}>
+          <select
+            value={effect}
+            disabled={disabled}
+            aria-label={t("theme.transition")}
+            onChange={(e) =>
+              onChange({
+                transitionEffect: e.target.value as TransitionEffect,
+              })
+            }
+          >
+            {TRANSITION_EFFECTS.map((id) => (
+              <option key={id} value={id}>
+                {t(TRANSITION_LABEL_KEYS[id])}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {themeOverrides ? (
+          <button
+            type="button"
+            className="btn btn-ghost theme-toolbar-reset"
+            disabled={disabled}
+            onClick={() => onChange({ themeOverrides: null })}
+            title={t("theme.resetOverrides")}
+          >
+            ↺
+          </button>
+        ) : null}
+
+        <label className="toolbar-tool theme-bg-select-label" title={t("theme.bg")}>
+          <select
+            className="theme-bg-select"
+            value={selectValue}
+            disabled={disabled}
+            aria-label={t("theme.bg")}
+            onChange={(e) => onBackgroundSelect(e.target.value)}
+          >
+            <option value={SOLID_VALUE}>{t("theme.bgSolid")}</option>
+            {THEME_BACKGROUND_PACK_IDS.map((id) => (
+              <option key={id} value={packValue(id)}>
+                {t(PACK_LABEL_KEYS[id])}
+              </option>
+            ))}
+            {assetOptions.map((asset) => (
+              <option key={asset.assetId} value={assetValue(asset.assetId)}>
+                {asset.label || t("theme.bgUploadActive")}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {bg.mode === "solid" ? (
+          <label className="toolbar-tool theme-bg-color" title={t("theme.bg")}>
+            <input
+              type="color"
+              value={/^#[0-9a-fA-F]{6}$/.test(values.bg) ? values.bg : "#0a0e14"}
+              disabled={disabled}
+              aria-label={t("theme.bg")}
+              onChange={(e) => patchOverride({ bg: e.target.value })}
+            />
+          </label>
+        ) : null}
+
+        {fileInput}
+        <button
+          type="button"
+          className="btn btn-ghost theme-bg-upload-btn"
+          disabled={disabled || !onUploadBackground || uploadingBackground}
+          title={t("theme.bgUpload")}
+          onClick={() => fileRef.current?.click()}
+        >
+          {uploadingBackground ? t("theme.bgUploading") : t("theme.bgUpload")}
+        </button>
+
+        <label className="toolbar-tool theme-bg-dots-toggle" title={t("theme.bgDotsHint")}>
+          <input
+            type="checkbox"
+            checked={bg.dotsOverlay === true}
+            disabled={disabled}
+            onChange={(e) => patchBackground({ dotsOverlay: e.target.checked })}
+          />
+          <span>{t("theme.bgDots")}</span>
+        </label>
+      </Fragment>
+    );
+  }
+
+  const presets = (
+    <div
+      className="theme-presets"
+      role="group"
+      aria-label={t("theme.title")}
+    >
+      {THEME_PRESETS.map((preset) => {
+        const shortcutKey =
+          preset.id === "oscuro"
+            ? "shortcuts.themeOscuro"
+            : preset.id === "claro"
+              ? "shortcuts.themeClaro"
+              : "shortcuts.themeAcento";
+        const tip = t(shortcutKey);
         return (
           <button
             key={preset.id}
@@ -284,7 +437,7 @@ export function ThemePanel({
           </button>
         );
       })}
-      {themeOverrides && !toolbar ? (
+      {themeOverrides ? (
         <button
           type="button"
           className="btn btn-ghost"
@@ -300,19 +453,12 @@ export function ThemePanel({
 
   const backgroundControls = (
     <div
-      className={
-        toolbar
-          ? "theme-bg-controls theme-bg-controls-toolbar"
-          : "theme-bg-controls"
-      }
+      className="theme-bg-controls"
       role="group"
       aria-label={t("theme.bg")}
     >
-      <label
-        className="theme-bg-select-label"
-        title={t("theme.bg")}
-      >
-        {!toolbar ? t("theme.bg") : null}
+      <label className="theme-bg-select-label" title={t("theme.bg")}>
+        {t("theme.bg")}
         <select
           className="theme-bg-select"
           value={selectValue}
@@ -347,20 +493,7 @@ export function ThemePanel({
       ) : null}
 
       <div className="theme-bg-actions">
-        <input
-          ref={fileRef}
-          type="file"
-          accept="video/mp4,video/webm,video/quicktime,image/jpeg,image/png,image/webp,image/gif"
-          hidden
-          disabled={disabled || !onUploadBackground}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            e.target.value = "";
-            if (file && onUploadBackground) {
-              void onUploadBackground(file);
-            }
-          }}
-        />
+        {fileInput}
         <button
           type="button"
           className="btn btn-ghost theme-bg-upload-btn"
@@ -384,9 +517,9 @@ export function ThemePanel({
   );
 
   const editor = (
-    <div className={toolbar ? "theme-editor theme-editor-toolbar" : "theme-editor"}>
+    <div className="theme-editor">
       <label title={t("theme.fg")}>
-        {!toolbar ? t("theme.fg") : null}
+        {t("theme.fg")}
         <input
           type="color"
           value={/^#[0-9a-fA-F]{6}$/.test(values.fg) ? values.fg : "#f2f5f8"}
@@ -396,7 +529,7 @@ export function ThemePanel({
         />
       </label>
       <label title={t("theme.align")}>
-        {!toolbar ? t("theme.align") : null}
+        {t("theme.align")}
         <select
           value={values.align}
           disabled={disabled}
@@ -410,85 +543,38 @@ export function ThemePanel({
           <option value="right">{t("text.alignRight")}</option>
         </select>
       </label>
-      {!toolbar ? (
-        <>
-          <label>
-            {t("theme.fontFamily")}
-            <select
-              value={values.fontFamily}
-              disabled={disabled}
-              onChange={(e) =>
-                patchOverride({
-                  fontFamily: e.target.value as ThemeFontFamily,
-                })
-              }
-            >
-              <option value="sans">{t("theme.fontSans")}</option>
-              <option value="serif">{t("theme.fontSerif")}</option>
-            </select>
-          </label>
-          <label>
-            {t("theme.fontSize")}
-            <select
-              value={values.fontSize}
-              disabled={disabled}
-              onChange={(e) =>
-                patchOverride({ fontSize: e.target.value as ThemeFontSize })
-              }
-            >
-              <option value="sm">SM</option>
-              <option value="md">MD</option>
-              <option value="lg">LG</option>
-              <option value="xl">XL</option>
-            </select>
-          </label>
-        </>
-      ) : (
-        <label title={t("theme.fontSize")}>
-          <select
-            value={values.fontSize}
-            disabled={disabled}
-            aria-label={t("theme.fontSize")}
-            onChange={(e) =>
-              patchOverride({ fontSize: e.target.value as ThemeFontSize })
-            }
-          >
-            <option value="sm">SM</option>
-            <option value="md">MD</option>
-            <option value="lg">LG</option>
-            <option value="xl">XL</option>
-          </select>
-        </label>
-      )}
-      {toolbar ? transitionSelect : null}
-      {toolbar && themeOverrides ? (
-        <button
-          type="button"
-          className="btn btn-ghost theme-toolbar-reset"
+      <label>
+        {t("theme.fontFamily")}
+        <select
+          value={values.fontFamily}
           disabled={disabled}
-          onClick={() => onChange({ themeOverrides: null })}
-          title={t("theme.resetOverrides")}
+          onChange={(e) =>
+            patchOverride({
+              fontFamily: e.target.value as ThemeFontFamily,
+            })
+          }
         >
-          ↺
-        </button>
-      ) : null}
+          <option value="sans">{t("theme.fontSans")}</option>
+          <option value="serif">{t("theme.fontSerif")}</option>
+        </select>
+      </label>
+      <label>
+        {t("theme.fontSize")}
+        <select
+          value={values.fontSize}
+          disabled={disabled}
+          onChange={(e) =>
+            patchOverride({ fontSize: e.target.value as ThemeFontSize })
+          }
+        >
+          <option value="sm">SM</option>
+          <option value="md">MD</option>
+          <option value="lg">LG</option>
+          <option value="xl">XL</option>
+        </select>
+      </label>
     </div>
   );
-
-  if (toolbar) {
-    return (
-      <div className="theme-panel theme-panel-toolbar">
-        {!hideTitle ? (
-          <span className="toolbar-theme-title" aria-hidden>
-            {t("theme.title")}
-          </span>
-        ) : null}
-        {presets}
-        {editor}
-        {backgroundControls}
-      </div>
-    );
-  }
 
   return (
     <div className={compact ? "theme-panel theme-panel-compact" : "theme-panel"}>
