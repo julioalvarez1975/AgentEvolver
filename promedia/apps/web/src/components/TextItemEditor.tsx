@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useLocale } from "../locale/LocaleContext";
 import type { TextAlign, TextPayload, TextSlide } from "@promedia/shared";
+import { projectionTextSlides } from "@promedia/shared";
 import { cryptoRandomId } from "@promedia/item-types";
 import {
   TEXT_IMPORT_MAX_BYTES,
@@ -111,7 +112,10 @@ export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProp
     onSave({
       title: title.trim() || undefined,
       align,
-      slides: slides.map((s) => ({ id: s.id, lines: s.lines })),
+      // Split slides with >4 lines so Output/Live ←/→ match projection chunks.
+      slides: projectionTextSlides(
+        slides.map((s) => ({ id: s.id, lines: s.lines })),
+      ),
     });
   };
 

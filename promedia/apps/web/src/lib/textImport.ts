@@ -1,4 +1,5 @@
 import type { TextSlide } from "@promedia/shared";
+import { projectionTextSlides, TEXT_PROJECTION_LINES } from "@promedia/shared";
 import { cryptoRandomId } from "@promedia/item-types";
 import { hubHttpBase } from "./hub";
 
@@ -6,6 +7,8 @@ import { hubHttpBase } from "./hub";
 export const TEXT_IMPORT_MAX_BYTES = 8 * 1024 * 1024;
 export const TEXT_IMPORT_MAX_SLIDES = 200;
 export const TEXT_IMPORT_MAX_CHARS_PER_SLIDE = 900;
+/** Projection shows this many lines per slide (←/→ advances chunks). */
+export { TEXT_PROJECTION_LINES };
 
 export type TextImportResult = {
   title?: string;
@@ -85,15 +88,15 @@ export function chunkTextToSlides(
     flush();
   }
 
-  const truncated = chunks.length > maxSlides;
-  const limited = truncated ? chunks.slice(0, maxSlides) : chunks;
-  return {
-    slides: limited.map((text) => ({
-      id: cryptoRandomId(),
-      lines: text.split("\n"),
-    })),
-    truncated,
-  };
+  const rawSlides = chunks.map((text) => ({
+    id: cryptoRandomId(),
+    lines: text.split("\n"),
+  }));
+  // Enforce ≤4 lines per slide so import matches Output/Live ←/→ chunks.
+  const projected = projectionTextSlides(rawSlides);
+  const truncated = projected.length > maxSlides || chunks.length > maxSlides;
+  const slides = truncated ? projected.slice(0, maxSlides) : projected;
+  return { slides, truncated };
 }
 
 function extractXmlText(xml: string): string {

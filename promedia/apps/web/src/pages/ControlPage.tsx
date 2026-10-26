@@ -20,6 +20,7 @@ import {
   DEFAULT_THEME_ID,
   DEFAULT_TRANSITION_EFFECT,
   itemHasSlides,
+  itemProjectionSlideCount,
 } from "@promedia/shared";
 import { AboutDialog } from "../components/AboutDialog";
 import { BibleDialog } from "../components/BibleDialog";
@@ -716,9 +717,7 @@ export function ControlPage() {
 
   const slideCount =
     selectedItem && itemHasSlides(selectedItem)
-      ? (selectedItem.type === "text" || selectedItem.type === "bible"
-          ? selectedItem.payload.slides.length
-          : 0)
+      ? itemProjectionSlideCount(selectedItem)
       : 0;
 
   const previewGoPrev = () => {

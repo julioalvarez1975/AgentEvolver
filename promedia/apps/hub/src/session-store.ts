@@ -22,6 +22,7 @@ import {
   isSceneMode,
   isThemeId,
   isTransitionEffect,
+  itemProjectionSlideCount,
   normalizeThemeOverrides,
 } from "@promedia/shared";
 import { validatePlaylistItem } from "@promedia/item-types/validate";
@@ -438,7 +439,7 @@ export class SessionStore {
     if (!item || (item.type !== "text" && item.type !== "bible")) {
       return { error: "no_live_item" };
     }
-    const max = Math.max(item.payload.slides.length - 1, 0);
+    const max = Math.max(itemProjectionSlideCount(item) - 1, 0);
     const clamped = Math.min(Math.max(Math.trunc(index), 0), max);
     session.live.currentSlideIndex = clamped;
     return this.bumpUpdated(session);

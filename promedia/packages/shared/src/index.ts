@@ -430,3 +430,55 @@ export function itemLabel(item: PlaylistItem): string {
 export function itemHasSlides(item: PlaylistItem): boolean {
   return item.type === "text" || item.type === "bible";
 }
+
+/**
+ * Max lines shown at once on Output / Preview / Live text stages.
+ * Longer slides are split into chunks so ←/→ advances by 4 lines.
+ */
+export const TEXT_PROJECTION_LINES = 4;
+
+/** Split a line list into chunks of at most `linesPerChunk` (default 4). */
+export function chunkTextLines(
+  lines: string[],
+  linesPerChunk: number = TEXT_PROJECTION_LINES,
+): string[][] {
+  const limit = Math.max(1, Math.trunc(linesPerChunk));
+  const source = lines.length > 0 ? lines.map((line) => String(line)) : [""];
+  const chunks: string[][] = [];
+  for (let i = 0; i < source.length; i += limit) {
+    chunks.push(source.slice(i, i + limit));
+  }
+  return chunks;
+}
+
+/**
+ * Expand text/bible slides so each has ≤4 lines for projection navigation.
+ * Preserves intentional slide boundaries; splits only when a slide is longer.
+ */
+export function projectionTextSlides(
+  slides: TextSlide[],
+  linesPerChunk: number = TEXT_PROJECTION_LINES,
+): TextSlide[] {
+  if (!Array.isArray(slides) || slides.length < 1) {
+    return [{ id: "empty", lines: [""] }];
+  }
+  const out: TextSlide[] = [];
+  for (const slide of slides) {
+    const parts = chunkTextLines(slide.lines ?? [], linesPerChunk);
+    parts.forEach((lines, partIndex) => {
+      out.push({
+        id: partIndex === 0 ? slide.id : `${slide.id}__${partIndex}`,
+        lines,
+      });
+    });
+  }
+  return out.length > 0 ? out : [{ id: "empty", lines: [""] }];
+}
+
+/** Slide count used by ←/→ for text and bible items (after 4-line chunking). */
+export function itemProjectionSlideCount(item: PlaylistItem): number {
+  if (item.type !== "text" && item.type !== "bible") {
+    return 0;
+  }
+  return projectionTextSlides(item.payload.slides).length;
+}

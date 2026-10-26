@@ -2247,20 +2247,29 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   justify-content: center;
   padding: 0.75rem;
   min-height: 8rem;
-  text-align: var(--pm-align, center);
+  text-align: center;
   color: var(--pm-fg, #f2f5f8);
   font-family: var(--pm-font-family, system-ui, sans-serif);
 }
 
 .text-line {
-  margin: 0.15rem 0;
-  font-size: calc(var(--pm-font-size, 1.15rem) * 0.45);
+  margin: 0.12em 0;
+  width: 100%;
+  max-width: 36rem;
+  /* Theme size as floor; scale so ~4 lines dominate the preview/live stage. */
+  font-size: max(
+    calc(var(--pm-font-size, 1.15rem) * 0.42),
+    clamp(0.95rem, 3.8vh, 1.65rem)
+  );
   font-family: inherit;
+  font-weight: 600;
+  line-height: 1.25;
   color: inherit;
+  text-align: center;
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -2274,28 +2283,39 @@ body {
   font-size: 0.85rem;
 }
 
+/* Full-bleed centered text on Output (≤4 lines per slide). */
 .text-output {
+  box-sizing: border-box;
   width: 100%;
-  max-width: 56rem;
-  min-height: 40vh;
+  height: 100%;
+  max-width: none;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 2rem;
-  text-align: var(--pm-align, center);
+  padding: 6vh 5vw;
+  text-align: center;
   color: var(--pm-fg, #f2f5f8);
   font-family: var(--pm-font-family, system-ui, sans-serif);
 }
 
 .text-output-line {
-  margin: 0.35rem 0;
-  font-size: var(--pm-font-size, clamp(1.75rem, 4.5vw, 3.25rem));
+  margin: 0.12em 0;
+  width: 100%;
+  max-width: min(92vw, 28em);
+  /* Theme --pm-font-size as base; vh floor so ~4 lines fill the projection. */
+  font-size: max(
+    var(--pm-font-size, clamp(1.75rem, 4.5vw, 3.25rem)),
+    min(10.5vh, 7.5vw)
+  );
   font-family: inherit;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.22;
   white-space: pre-wrap;
   word-break: break-word;
   color: inherit;
+  text-align: center;
 }
 
 /* —— Themes (subtarea 8) —— */

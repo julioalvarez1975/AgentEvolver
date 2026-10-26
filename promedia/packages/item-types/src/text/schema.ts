@@ -4,6 +4,7 @@ import type {
   TextPlaylistItem,
   TextSlide,
 } from "@promedia/shared";
+import { projectionTextSlides } from "@promedia/shared";
 
 const ALIGNS: ReadonlySet<TextAlign> = new Set(["left", "center", "right"]);
 
@@ -56,13 +57,16 @@ export function isTextPlaylistItem(value: unknown): value is TextPlaylistItem {
 }
 
 export function normalizeTextPayload(payload: TextPayload): TextPayload {
-  return {
-    title: payload.title?.trim() ? payload.title.trim() : undefined,
-    align: payload.align ?? "center",
-    slides: payload.slides.map((slide) => ({
+  const slides = projectionTextSlides(
+    payload.slides.map((slide) => ({
       id: slide.id,
       lines: slide.lines.map((line) => String(line)),
     })),
+  );
+  return {
+    title: payload.title?.trim() ? payload.title.trim() : undefined,
+    align: payload.align ?? "center",
+    slides,
   };
 }
 

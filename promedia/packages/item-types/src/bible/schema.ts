@@ -1,4 +1,5 @@
 import type { BiblePayload, BiblePlaylistItem, TextAlign } from "@promedia/shared";
+import { projectionTextSlides } from "@promedia/shared";
 import { isTextSlide } from "../text/schema.js";
 
 const ALIGNS: ReadonlySet<TextAlign> = new Set(["left", "center", "right"]);
@@ -86,9 +87,11 @@ export function normalizeBiblePayload(payload: BiblePayload): BiblePayload {
     copyright: payload.copyright?.trim() || undefined,
     fromCache: payload.fromCache === true ? true : undefined,
     align: payload.align ?? "center",
-    slides: payload.slides.map((slide) => ({
-      id: slide.id,
-      lines: slide.lines.map((line) => String(line)),
-    })),
+    slides: projectionTextSlides(
+      payload.slides.map((slide) => ({
+        id: slide.id,
+        lines: slide.lines.map((line) => String(line)),
+      })),
+    ),
   };
 }
