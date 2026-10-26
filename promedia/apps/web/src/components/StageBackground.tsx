@@ -14,7 +14,10 @@ export type StageBackgroundProps = {
 /**
  * Full-bleed stage backdrop for Output / En vivo / Vista previa.
  * Solid mode relies on parent `.pm-theme` `--pm-bg`; media uses pack video or upload.
- * Optional black-dots overlay darkens busy backgrounds for readable light text.
+ *
+ * Dot pattern is a sibling overlay (`.pm-stage-bg-dots`) with elevated z-index so it
+ * sits above playlist video/YouTube and below subtitles — not trapped under
+ * `.pm-stage-bg` (z-index: -1).
  */
 export function StageBackground({
   background,
@@ -31,48 +34,53 @@ export function StageBackground({
   }
 
   return (
-    <div className="pm-stage-bg" aria-hidden>
-      {showPack && bg.packId ? (
-        <div className={`pm-stage-bg-pack pm-stage-bg-${bg.packId}`}>
-          {/* CSS layers remain as fallback under the looping pack video. */}
-          <div className="pm-stage-bg-layer pm-stage-bg-layer-a" />
-          <div className="pm-stage-bg-layer pm-stage-bg-layer-b" />
-          <video
-            key={bg.packId}
-            className="pm-stage-bg-media-el"
-            autoPlay
-            loop
-            muted
-            playsInline
-          >
-            <source
-              src={themeBackgroundPackSrc(bg.packId, "webm")}
-              type="video/webm"
-            />
-            <source
-              src={themeBackgroundPackSrc(bg.packId, "mp4")}
-              type="video/mp4"
-            />
-          </video>
+    <>
+      {showPack || showAsset ? (
+        <div className="pm-stage-bg" aria-hidden>
+          {showPack && bg.packId ? (
+            <div className={`pm-stage-bg-pack pm-stage-bg-${bg.packId}`}>
+              {/* CSS layers remain as fallback under the looping pack video. */}
+              <div className="pm-stage-bg-layer pm-stage-bg-layer-a" />
+              <div className="pm-stage-bg-layer pm-stage-bg-layer-b" />
+              <video
+                key={bg.packId}
+                className="pm-stage-bg-media-el"
+                autoPlay
+                loop
+                muted
+                playsInline
+              >
+                <source
+                  src={themeBackgroundPackSrc(bg.packId, "webm")}
+                  type="video/webm"
+                />
+                <source
+                  src={themeBackgroundPackSrc(bg.packId, "mp4")}
+                  type="video/mp4"
+                />
+              </video>
+            </div>
+          ) : null}
+          {showAsset && assetSrc ? (
+            <div className="pm-stage-bg-media">
+              {bg.mediaKind === "image" ? (
+                <img className="pm-stage-bg-media-el" src={assetSrc} alt="" />
+              ) : (
+                <video
+                  className="pm-stage-bg-media-el"
+                  src={assetSrc}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                />
+              )}
+            </div>
+          ) : null}
         </div>
       ) : null}
-      {showAsset && assetSrc ? (
-        <div className="pm-stage-bg-media">
-          {bg.mediaKind === "image" ? (
-            <img className="pm-stage-bg-media-el" src={assetSrc} alt="" />
-          ) : (
-            <video
-              className="pm-stage-bg-media-el"
-              src={assetSrc}
-              autoPlay
-              loop
-              muted
-              playsInline
-            />
-          )}
-        </div>
-      ) : null}
-      {showDots ? <div className="pm-stage-bg-dots" /> : null}
-    </div>
+      {/* Elevated: above video/YouTube item layer, below captions / scene. */}
+      {showDots ? <div className="pm-stage-bg-dots" aria-hidden /> : null}
+    </>
   );
 }

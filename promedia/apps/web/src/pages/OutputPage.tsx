@@ -245,6 +245,7 @@ export function OutputPage() {
               <div
                 key={liveItemKey}
                 className={`output-item-layer${txClass}`}
+                data-content={liveItem.type}
                 style={
                   {
                     "--pm-tx-ms": `${TRANSITION_DURATION_MS}ms`,

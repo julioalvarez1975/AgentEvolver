@@ -286,5 +286,10 @@
   "control.subtitleAgentWorking": "A processar legendas no hub (local)…",
   "control.subtitleAgentReady": "Legendas prontas",
   "control.subtitleAgentSourceOnly": "ASR pronto; tradução local indisponível — a mostrar idioma de origem",
-  "control.subtitleAgentError": "Erro do agente de legendas"
+  "control.subtitleAgentError": "Erro do agente de legendas",
+  "control.subtitleAgentFontSize": "Tamanho das legendas",
+  "control.subtitleAgentFontSizeSm": "SM",
+  "control.subtitleAgentFontSizeMd": "MD",
+  "control.subtitleAgentFontSizeLg": "LG",
+  "control.subtitleAgentFontSizeXl": "XL"
 }

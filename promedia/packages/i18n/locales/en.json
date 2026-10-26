@@ -286,5 +286,10 @@
   "control.subtitleAgentWorking": "Processing subtitles on the hub (local)…",
   "control.subtitleAgentReady": "Subtitles ready",
   "control.subtitleAgentSourceOnly": "ASR ready; local MT unavailable for this pair — showing source language",
-  "control.subtitleAgentError": "Subtitle agent error"
+  "control.subtitleAgentError": "Subtitle agent error",
+  "control.subtitleAgentFontSize": "Subtitle size",
+  "control.subtitleAgentFontSizeSm": "SM",
+  "control.subtitleAgentFontSizeMd": "MD",
+  "control.subtitleAgentFontSizeLg": "LG",
+  "control.subtitleAgentFontSizeXl": "XL"
 }

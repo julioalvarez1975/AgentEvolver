@@ -4,6 +4,7 @@ import {
   cueAtPositionMs,
   effectiveMediaClockPositionMs,
   emptySubtitleAgentState,
+  isSubtitleFontSize,
 } from "@promedia/shared";
 
 export type SubtitleOverlayProps = {
@@ -30,6 +31,7 @@ export function SubtitleOverlay({
   itemId,
 }: SubtitleOverlayProps) {
   const state = agent ?? emptySubtitleAgentState();
+  const fontSize = isSubtitleFontSize(state.fontSize) ? state.fontSize : "md";
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -73,7 +75,11 @@ export function SubtitleOverlay({
   }
 
   return (
-    <div className="subtitle-overlay" aria-live="polite">
+    <div
+      className="subtitle-overlay"
+      data-size={fontSize}
+      aria-live="polite"
+    >
       <p className="subtitle-overlay-line">{cue.text}</p>
     </div>
   );

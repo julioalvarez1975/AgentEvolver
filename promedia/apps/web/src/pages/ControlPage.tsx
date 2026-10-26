@@ -23,6 +23,7 @@ import {
   DEFAULT_THEME_ID,
   DEFAULT_TRANSITION_EFFECT,
   emptySubtitleAgentState,
+  isSubtitleFontSize,
   isSubtitleTargetLang,
   itemHasSlides,
   itemProjectionSlideCount,
@@ -1145,6 +1146,11 @@ export function ControlPage() {
               onUploadBackground={onUploadThemeBackground}
               onAbout={() => setAboutOpen(true)}
               subtitleAgentEnabled={subtitleAgent.enabled}
+              subtitleAgentFontSize={
+                isSubtitleFontSize(subtitleAgent.fontSize)
+                  ? subtitleAgent.fontSize
+                  : "md"
+              }
               subtitleAgentTitle={subtitleAgentTitle}
               subtitleAgentErrorMessage={
                 subtitleAgent.enabled &&
@@ -1162,6 +1168,9 @@ export function ControlPage() {
                   itemId:
                     (liveItemId || selectedItemId || undefined) ?? undefined,
                 });
+              }}
+              onSubtitleFontSizeChange={(fontSize) => {
+                session.setSubtitleAgent({ fontSize });
               }}
               sessionFallback={
                 <>
