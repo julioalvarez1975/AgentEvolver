@@ -256,6 +256,101 @@ export type MediaClock = {
   updatedAt: string;
 };
 
+/** Target languages for the local subtitle agent (Phase 1). */
+export type SubtitleTargetLang = "es" | "en" | "pt" | "fr" | "zh-CN";
+
+export const SUBTITLE_TARGET_LANGS: readonly SubtitleTargetLang[] = [
+  "es",
+  "en",
+  "pt",
+  "fr",
+  "zh-CN",
+] as const;
+
+export function isSubtitleTargetLang(
+  value: unknown,
+): value is SubtitleTargetLang {
+  return (
+    typeof value === "string" &&
+    (SUBTITLE_TARGET_LANGS as readonly string[]).includes(value)
+  );
+}
+
+/** One timed caption cue (ms relative to media start). */
+export type SubtitleCue = {
+  id: string;
+  startMs: number;
+  endMs: number;
+  text: string;
+};
+
+/**
+ * Local AI subtitle agent state (Phase 1 — offline ASR + optional local MT).
+ * Broadcast on every session.updated so Preview and Output stay in sync.
+ */
+export type SubtitleAgentStatus =
+  | "off"
+  | "idle"
+  | "downloading"
+  | "extracting"
+  | "transcribing"
+  | "translating"
+  | "ready"
+  | "unsupported"
+  | "error";
+
+export type SubtitleAgentState = {
+  enabled: boolean;
+  targetLang: SubtitleTargetLang;
+  status: SubtitleAgentStatus;
+  /** Playlist item the current cues belong to (if any). */
+  itemId: string | null;
+  /** Asset id used for ASR (local file only). */
+  assetId: string | null;
+  /** Detected / source language of ASR (BCP-47-ish: es, en, …). */
+  sourceLang: string | null;
+  /** True when cue text was machine-translated to targetLang. */
+  translated: boolean;
+  cues: SubtitleCue[];
+  /** Operator-facing hint (YouTube disabled, text-only song, error, …). */
+  hint: string | null;
+  updatedAt: string | null;
+};
+
+export function emptySubtitleAgentState(
+  targetLang: SubtitleTargetLang = "es",
+): SubtitleAgentState {
+  return {
+    enabled: false,
+    targetLang,
+    status: "off",
+    itemId: null,
+    assetId: null,
+    sourceLang: null,
+    translated: false,
+    cues: [],
+    hint: null,
+    updatedAt: null,
+  };
+}
+
+/** Active cue at mediaClock position (inclusive start, exclusive end). */
+export function cueAtPositionMs(
+  cues: readonly SubtitleCue[],
+  positionMs: number,
+): SubtitleCue | null {
+  if (!cues.length || !Number.isFinite(positionMs)) {
+    return null;
+  }
+  const t = Math.max(0, positionMs);
+  for (const cue of cues) {
+    if (t >= cue.startMs && t < cue.endMs) {
+      return cue;
+    }
+  }
+  return null;
+}
+
 /** Visual overlay on Output; does not clear live item (subtarea 7). */
 export type SceneMode = "normal" | "logo" | "black" | "clear";
 
@@ -334,6 +429,8 @@ export type SessionLiveState = {
   /** CSS transition on Output when live item changes. */
   transitionEffect: TransitionEffect;
   mediaClock: MediaClock | null;
+  /** Local offline subtitle agent (Phase 1). */
+  subtitleAgent: SubtitleAgentState;
 };
 
 export type SessionSnapshot = {
@@ -441,6 +538,16 @@ export type LiveMediaClockSetMessage = {
   payload: { playing: boolean; positionMs?: number };
 };
 
+export type LiveSubtitleAgentSetMessage = {
+  type: "live.subtitleAgent.set";
+  payload: {
+    enabled?: boolean;
+    targetLang?: SubtitleTargetLang;
+    /** Optional: process this playlist item (defaults to live, else ignored). */
+    itemId?: string;
+  };
+};
+
 export type LiveSetSceneModeMessage = {
   type: "live.setSceneMode";
   payload: { sceneMode: SceneMode };
@@ -468,6 +575,7 @@ export type ClientToHubMessage =
   | LiveClearMessage
   | LiveSetSlideMessage
   | LiveMediaClockSetMessage
+  | LiveSubtitleAgentSetMessage
   | LiveSetSceneModeMessage
   | LiveSetThemeMessage;
 
@@ -501,7 +609,7 @@ export type JoinSessionResponse = {
   snapshot: SessionSnapshot;
 };
 
-export const SHARED_PACKAGE_VERSION = "0.0.14-mvp" as const;
+export const SHARED_PACKAGE_VERSION = "0.0.15-mvp" as const;
 
 export function emptyLiveState(): SessionLiveState {
   return {
@@ -513,6 +621,7 @@ export function emptyLiveState(): SessionLiveState {
     themeBackground: { ...DEFAULT_THEME_BACKGROUND },
     transitionEffect: DEFAULT_TRANSITION_EFFECT,
     mediaClock: null,
+    subtitleAgent: emptySubtitleAgentState(),
   };
 }
 

@@ -267,5 +267,16 @@
   "library.songHint": "Cancioneiros Quelea (.qsp) e XML ficam só neste computador (data/library/). Não vão para o Git. Depois de importar, adicione-os ao Roteiro como texto.",
   "library.songImportResult": "Importada(s) {n} canção(ões){updated}{skipped}.",
   "library.songFolderResult": "Importada(s) {n} canção(ões){updated}{skipped}.",
-  "bible.localBadge": "local"
+  "bible.localBadge": "local",
+  "control.subtitleAgent": "Agente legendas",
+  "control.subtitleAgentTitle": "Ativar legendas locais (ASR offline). Só ficheiros do hub — sem YouTube na fase 1.",
+  "control.subtitleAgentLang": "Idioma das legendas",
+  "control.subtitleAgentLangShort": "Subs",
+  "control.subtitleAgentYoutube": "Só ficheiros locais na fase 1",
+  "control.subtitleAgentTextOnly": "Sem áudio — canção ou texto sem faixa",
+  "control.subtitleAgentNoItem": "Escolha um vídeo ou áudio local",
+  "control.subtitleAgentWorking": "A processar legendas no hub (local)…",
+  "control.subtitleAgentReady": "Legendas prontas",
+  "control.subtitleAgentSourceOnly": "ASR pronto; tradução local indisponível — a mostrar idioma de origem",
+  "control.subtitleAgentError": "Erro do agente de legendas"
 }

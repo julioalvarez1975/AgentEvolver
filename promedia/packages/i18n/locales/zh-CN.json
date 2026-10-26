@@ -267,5 +267,16 @@
   "library.songHint": "Quelea 歌本（.qsp）和 XML 仅保存在本机（data/library/），不会提交到 Git。导入后可加入脚本作为文本投影。",
   "library.songImportResult": "已导入 {n} 首歌曲{updated}{skipped}。",
   "library.songFolderResult": "已导入 {n} 首歌曲{updated}{skipped}。",
-  "bible.localBadge": "本地"
+  "bible.localBadge": "本地",
+  "control.subtitleAgent": "字幕助手",
+  "control.subtitleAgentTitle": "启用本地字幕（离线语音识别）。仅限本机文件 — 第一阶段不支持 YouTube。",
+  "control.subtitleAgentLang": "字幕语言",
+  "control.subtitleAgentLangShort": "字幕",
+  "control.subtitleAgentYoutube": "第一阶段仅支持本地文件",
+  "control.subtitleAgentTextOnly": "无音频 — 纯文本歌曲或条目",
+  "control.subtitleAgentNoItem": "请选择本地视频或音频",
+  "control.subtitleAgentWorking": "正在集线器本地处理字幕…",
+  "control.subtitleAgentReady": "字幕已就绪",
+  "control.subtitleAgentSourceOnly": "语音识别完成；本地翻译不可用 — 显示源语言",
+  "control.subtitleAgentError": "字幕助手错误"
 }

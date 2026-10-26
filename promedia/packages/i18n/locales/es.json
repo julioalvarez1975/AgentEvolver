@@ -267,5 +267,16 @@
   "library.songHint": "Cancioneros Quelea (.qsp) y XML se guardan solo en este equipo (data/library/). No se suben a Git. Tras importar, añadilos al Guion como texto.",
   "library.songImportResult": "Importadas {n} canción(es){updated}{skipped}.",
   "library.songFolderResult": "Importadas {n} canción(es){updated}{skipped}.",
-  "bible.localBadge": "local"
+  "bible.localBadge": "local",
+  "control.subtitleAgent": "Agente subtítulos",
+  "control.subtitleAgentTitle": "Activar subtítulos locales (ASR offline). Solo vídeo/audio de archivos del hub — no YouTube en fase 1.",
+  "control.subtitleAgentLang": "Idioma de subtítulos",
+  "control.subtitleAgentLangShort": "Subs",
+  "control.subtitleAgentYoutube": "Solo archivos locales en fase 1",
+  "control.subtitleAgentTextOnly": "Sin audio — canción o texto sin pista",
+  "control.subtitleAgentNoItem": "Elegí un vídeo o audio local del guion",
+  "control.subtitleAgentWorking": "Procesando subtítulos en el hub (local)…",
+  "control.subtitleAgentReady": "Subtítulos listos",
+  "control.subtitleAgentSourceOnly": "ASR listo; traducción local no disponible para este par — mostrando idioma de origen",
+  "control.subtitleAgentError": "Error del agente de subtítulos"
 }

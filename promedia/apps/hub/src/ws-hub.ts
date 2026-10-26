@@ -12,11 +12,16 @@ import type {
 } from "@promedia/shared";
 import {
   isSceneMode,
+  isSubtitleTargetLang,
   isThemeId,
   isTransitionEffect,
   normalizeThemeBackground,
   normalizeThemeOverrides,
 } from "@promedia/shared";
+import {
+  maybeRefreshSubtitleAgent,
+  setSubtitleAgent,
+} from "./subtitle-agent.js";
 import { sessionStore, type SessionRecord } from "./session-store.js";
 
 type ClientConn = {
@@ -145,6 +150,47 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
         type: "live.mediaClock.set",
         payload: { playing: p.playing, positionMs },
       };
+    }
+    if (type === "live.subtitleAgent.set") {
+      const p = payload as {
+        enabled?: unknown;
+        targetLang?: unknown;
+        itemId?: unknown;
+      } | undefined;
+      if (!p) {
+        return null;
+      }
+      const out: {
+        enabled?: boolean;
+        targetLang?: import("@promedia/shared").SubtitleTargetLang;
+        itemId?: string;
+      } = {};
+      if (p.enabled !== undefined) {
+        if (typeof p.enabled !== "boolean") {
+          return null;
+        }
+        out.enabled = p.enabled;
+      }
+      if (p.targetLang !== undefined) {
+        if (!isSubtitleTargetLang(p.targetLang)) {
+          return null;
+        }
+        out.targetLang = p.targetLang;
+      }
+      if (p.itemId !== undefined) {
+        if (typeof p.itemId !== "string") {
+          return null;
+        }
+        out.itemId = p.itemId;
+      }
+      if (
+        out.enabled === undefined &&
+        out.targetLang === undefined &&
+        out.itemId === undefined
+      ) {
+        return null;
+      }
+      return { type: "live.subtitleAgent.set", payload: out };
     }
     if (type === "live.setSceneMode") {
       const sceneMode = (payload as { sceneMode?: unknown } | undefined)?.sceneMode;
@@ -397,9 +443,14 @@ export class WsHub {
           sessionStore.reorder(session, msg.payload.orderedIds),
         );
         return;
-      case "live.go":
-        this.applyResult(conn, session, sessionStore.goLive(session, msg.payload.itemId));
+      case "live.go": {
+        const goResult = sessionStore.goLive(session, msg.payload.itemId);
+        this.applyResult(conn, session, goResult);
+        if (!("error" in goResult)) {
+          maybeRefreshSubtitleAgent(session);
+        }
         return;
+      }
       case "live.clear":
         this.applyResult(conn, session, sessionStore.clearLive(session));
         return;
@@ -415,6 +466,13 @@ export class WsHub {
           conn,
           session,
           sessionStore.setMediaClock(session, msg.payload),
+        );
+        return;
+      case "live.subtitleAgent.set":
+        this.applyResult(
+          conn,
+          session,
+          setSubtitleAgent(session, msg.payload),
         );
         return;
       case "live.setSceneMode":

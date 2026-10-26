@@ -6,6 +6,7 @@ import { SHARED_PACKAGE_VERSION } from "@promedia/shared";
 import { setSessionBroadcaster } from "./broadcast.js";
 import { ensureLibraryLayout } from "./library-store.js";
 import { createApiRoutes } from "./routes.js";
+import { ensureSubtitleDirs } from "./subtitle-paths.js";
 import { WsHub } from "./ws-hub.js";
 
 const app = new Hono();
@@ -22,6 +23,16 @@ try {
 } catch (err) {
   console.error(
     "[hub] WARN: no se pudo crear la carpeta de biblioteca:",
+    err instanceof Error ? err.message : err,
+  );
+}
+
+try {
+  const sub = await ensureSubtitleDirs();
+  console.log(`[hub] subtitle models/cache: ${sub.models}`);
+} catch (err) {
+  console.error(
+    "[hub] WARN: no se pudo crear data/models (subtítulos):",
     err instanceof Error ? err.message : err,
   );
 }

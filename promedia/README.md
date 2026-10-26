@@ -152,12 +152,13 @@ Si el popup está bloqueado, aparece un aviso con enlace **Abrir salida**. El at
 ### Cabecera
 
 1. **Fila título** — solo marca + **«ProMedia | Control»** (sin botones)
-2. **Barra de herramientas** debajo:
+2. **Barra de herramientas** debajo (peers planos; sin grupos fijos):
    - **Proyectar** — abre Output + fullscreen (busy: «Iniciando…»)
    - **Biblioteca** — mediateca local (canciones, biblias, textos, presentaciones, imágenes, vídeos)
-   - **Idioma** — ES / EN / PT / FR / ZH
+   - **Agente subtítulos** — ASR local offline (fase 1); con el agente activo aparece un selector de idioma de subtítulos (ES/EN/PT/FR/ZH)
+   - **Idioma** — UI ES / EN / PT / FR / ZH
    - **Acerca de** — diálogo con crédito **`@2026 JulioAlvarez75`**
-   - Zona **Tema** — escenas + presets + pickers + efectos de transición
+   - Escenas + **Tema** — presets, fondos, efectos de transición
    - Banner **Google Ad Manager** (derecha; placeholder si no hay env)
 
 ### Guion
@@ -214,6 +215,42 @@ También: `node scripts/import-bibles.mjs` (crea `bibles/import` si falta y llam
 - Columna derecha: **Vista previa** (toolbar: anterior / siguiente / **En vivo**)
 - Preview ≠ live hasta **En vivo**
 - Transporte de vídeo: play/pausa, ±10 s, inicio/fin, scrubber (tiempos en overlay); mute opcional en preview
+- Con **Agente subtítulos** activo, las cues sincronizadas con `mediaClock` se ven en **Vista previa**, **En vivo** y **Output**
+
+### Agente de subtítulos (IA local, fase 1)
+
+Subtítulos automáticos **100 % locales** (sin API keys ni STT/MT en la nube).
+
+**Cómo usarlo**
+
+1. Arrancá ProMedia (`pnpm dev` / launcher) y abrí **Control**
+2. Añadí un **vídeo o audio de archivo local** al Guion (subida / Biblioteca → Vídeos). **YouTube no** en fase 1
+3. Pulsá **Agente subtítulos** en la barra de herramientas (queda activo)
+4. Elegí el **idioma de subtítulos** (ES / EN / PT / FR / ZH) en el selector que aparece al lado
+5. Poné el ítem **En vivo** (o dejalo seleccionado en Vista previa): el hub extrae audio con `ffmpeg`, corre **Whisper tiny** local y opcionalmente traduce con modelos Marian/OPUS locales
+6. Las captions aparecen abajo al centro en Vista previa y en la ventana **Output**, alineadas al mismo `mediaClock`
+
+**Primera ejecución (descarga de modelos)**
+
+- Los pesos ONNX de Whisper (y de traducción, si aplica) se descargan **una vez** a `promedia/data/models/` (gitignore; no van al repo)
+- Caché de cues por asset: `promedia/data/subtitles/cache/`
+- WAV temporal: `promedia/data/subtitles/wav/`
+- Requiere **`ffmpeg`** en el PATH (o `FFMPEG_PATH`)
+- Modelo ASR por defecto: `Xenova/whisper-tiny` (override: `SUBTITLE_WHISPER_MODEL`)
+
+**Traducción (enfoque por etapas)**
+
+- **(A)** Siempre: cues ASR con marcas de tiempo (idioma de origen / Whisper)
+- **(B)** Si hay modelo Marian local para el par (o vía inglés), el hub traduce a `targetLang`
+- Si no hay modelo para el par: se muestran las cues de origen y un aviso `mt_source_only` (sin inventar traducción)
+
+**Límites fase 1**
+
+- Solo **archivos locales** servidos por el hub (`sourceKind: file`). YouTube / URLs remotas: tooltip «solo archivos locales en fase 1» — no se simula
+- Canciones de Biblioteca **solo texto** (sin pista de audio): el agente no hace STT (aviso)
+- Primera transcripción puede tardar (descarga + CPU); las siguientes del mismo archivo usan caché
+
+Env útiles: `SUBTITLE_MODELS_ROOT`, `SUBTITLE_DATA_ROOT`, `SUBTITLE_WHISPER_MODEL`, `FFMPEG_PATH`, `TRANSFORMERS_CACHE`
 
 ### Tema (zona TEMA)
 
@@ -259,6 +296,7 @@ En desarrollo el **WebSocket** va directo al hub (`ws://<host>:8787`); REST por 
 - Pantalla completa en el proyector / 2.º display
 - Sincroniza reproducción con **`mediaClock`** del hub (play/pausa/seek desde Control)
 - **YouTube:** una sola iframe en Output (Preview/En vivo muestran thumb + transporte; no segundo embed)
+- **Subtítulos** (agente activo): overlay inferior sincronizado con `mediaClock` (mismo instante que Vista previa)
 - Escenas Logo / Negro / Clear son overlays (no cortan el reloj de medios)
 - Query útiles: `?code=…`, `?token=…`, `?autofullscreen=1`
 
@@ -277,6 +315,9 @@ Ver `.env.example`. Las más relevantes:
 | `PROMEDIA_MODE` | `lan` (default) / `cloud` / `portable` |
 | `MEDIA_ADAPTER` / `MEDIA_ROOT` / `PLAYLISTS_PATH` | Storage local |
 | `S3_*` | Stub S3-compatible (fallback a disco si incompleto) |
+| `SUBTITLE_MODELS_ROOT` / `SUBTITLE_DATA_ROOT` | Modelos Whisper/MT y caché de cues (default `data/models`, `data/subtitles`) |
+| `SUBTITLE_WHISPER_MODEL` | Modelo ASR local (default `Xenova/whisper-tiny`) |
+| `FFMPEG_PATH` | Binario ffmpeg para extraer audio (default `ffmpeg`) |
 
 Tamaños GAM del header: 970×90, 728×90, 320×50, 320×100 (+ fluid).
 
@@ -308,6 +349,7 @@ cd promedia
 - Guion multi-tipo con drag, multi-select, guardar/cargar
 - Texto: import PDF (hub), XML, `.txt`/`.md` → slides
 - Preview ≠ live; transporte vídeo + `mediaClock`
+- **Agente subtítulos** local (Whisper tiny + MT opcional; solo archivos)
 - Escenas, temas, transiciones 0,5 s en Output
 - i18n ES · EN · PT · FR · ZH
 - Banner GAM opcional en Control
@@ -326,6 +368,7 @@ Ver `scripts/qa-church-event.md`.
 
 ## Límites conocidos
 
+- **Subtítulos fase 1:** solo archivos locales; YouTube/remoto deshabilitado a propósito; primera corrida descarga modelos a `data/models/` (CPU, puede tardar)
 - Assets de archivo son **por sesión**; al cargar un guion guardado, ítems de archivo sin asset se omiten (texto/YouTube sí)
 - Adapter S3 = stub (escribe en disco hasta cablear SDK completo)
 - Multi-monitor / fullscreen depende del navegador (Chrome Window Management; Safari/Firefox suelen exigir arrastrar + clic)
