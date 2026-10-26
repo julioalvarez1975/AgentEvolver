@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useLocale } from "../locale/LocaleContext";
 import type { PlaylistItem } from "@promedia/shared";
 import { itemLabel } from "@promedia/shared";
@@ -7,12 +7,7 @@ import {
   scheduleKindOf,
   type ScheduleKind,
 } from "./ScheduleTypeIcon";
-import {
-  IconAddFiles,
-  IconChevronDown,
-  IconFolderOpen,
-  IconSave,
-} from "./UiIcons";
+import { IconAddFiles, IconFolderOpen, IconSave } from "./UiIcons";
 
 export type SchedulePanelProps = {
   items: PlaylistItem[];
@@ -30,9 +25,9 @@ export type SchedulePanelProps = {
   onRemoveChecked: () => void;
   onGoLive: (id: string) => void;
   onEditText: (id: string) => void;
-  /** Primary «+»: open native multi-file picker. */
+  /** Compact «+»: open native multi-file picker. */
   onAddFiles: () => void;
-  /** Split menu: YouTube / generic link. */
+  /** Tab action: YouTube / generic link. */
   onAddLink: () => void;
   onAddBible: () => void;
   onAddTextBlank: () => void;
@@ -63,7 +58,7 @@ function kindLabelKey(kind: ScheduleKind): string {
 /**
  * Left schedule column — denser list patterned after Quelea «Guion»
  * and EasyWorship Schedule (type icons, reorder, per-item go-live).
- * Toolbar: one unified «+» (files + chooser) + load/save icons.
+ * Toolbar: add solapas (action tabs) + files / load / save icons.
  */
 export function SchedulePanel({
   items,
@@ -98,37 +93,10 @@ export function SchedulePanel({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [fileDragOver, setFileDragOver] = useState(false);
-  const [chooserOpen, setChooserOpen] = useState(false);
   const dragIdRef = useRef<string | null>(null);
-  const chooserRef = useRef<HTMLDivElement>(null);
 
   const addDisabled = !sessionReady || uploading;
   const sorted = items;
-
-  useEffect(() => {
-    if (!chooserOpen) {
-      return;
-    }
-    const onDoc = (e: MouseEvent) => {
-      if (
-        chooserRef.current &&
-        !chooserRef.current.contains(e.target as Node)
-      ) {
-        setChooserOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setChooserOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [chooserOpen]);
 
   const applyReorder = (fromId: string, toId: string) => {
     if (fromId === toId || !canMutate) {
@@ -217,96 +185,73 @@ export function SchedulePanel({
         role="toolbar"
         aria-label={t("playlist.addMenu")}
       >
-        <div className="schedule-split" ref={chooserRef}>
+        <div
+          className="schedule-add-tabs"
+          role="group"
+          aria-label={t("playlist.addTabs")}
+        >
           <button
             type="button"
-            className="schedule-primary-add"
+            className="schedule-add-tab"
             disabled={addDisabled}
-            title={t("playlist.addFilesTip")}
-            aria-label={t("playlist.addFilesTip")}
-            onClick={onAddFiles}
+            title={t("playlist.addLink")}
+            onClick={onAddLink}
           >
-            <IconAddFiles className="schedule-icon-svg" size={18} />
-            <span>{t("playlist.add")}</span>
+            <ScheduleTypeIcon kind="youtube" />
+            <span>{t("playlist.addLink")}</span>
           </button>
           <button
             type="button"
-            className="schedule-primary-chevron"
+            className="schedule-add-tab"
             disabled={addDisabled}
-            aria-expanded={chooserOpen}
-            aria-haspopup="menu"
-            title={t("playlist.addMoreTip")}
-            aria-label={t("playlist.addMoreTip")}
-            onClick={() => setChooserOpen((o) => !o)}
+            title={t("itemTypes.bible")}
+            onClick={onAddBible}
           >
-            <IconChevronDown className="schedule-icon-svg" size={14} />
+            <ScheduleTypeIcon kind="bible" />
+            <span>{t("itemTypes.bible")}</span>
           </button>
-          {chooserOpen ? (
-            <div className="schedule-chooser" role="menu">
-              <button
-                type="button"
-                role="menuitem"
-                className="schedule-chooser-item"
-                onClick={() => {
-                  setChooserOpen(false);
-                  onAddLink();
-                }}
-              >
-                <ScheduleTypeIcon kind="youtube" />
-                {t("playlist.addLink")}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="schedule-chooser-item"
-                onClick={() => {
-                  setChooserOpen(false);
-                  onAddBible();
-                }}
-              >
-                <ScheduleTypeIcon kind="bible" />
-                {t("itemTypes.bible")}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="schedule-chooser-item"
-                onClick={() => {
-                  setChooserOpen(false);
-                  onAddTextBlank();
-                }}
-              >
-                <ScheduleTypeIcon kind="text" />
-                {t("text.blankManual")}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="schedule-chooser-item"
-                onClick={() => {
-                  setChooserOpen(false);
-                  onCreateSong();
-                }}
-              >
-                <ScheduleTypeIcon kind="text" />
-                {t("library.createSong")}
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="schedule-chooser-item"
-                onClick={() => {
-                  setChooserOpen(false);
-                  onOpenLibrary();
-                }}
-              >
-                <ScheduleTypeIcon kind="image" />
-                {t("library.open")}
-              </button>
-            </div>
-          ) : null}
+          <button
+            type="button"
+            className="schedule-add-tab"
+            disabled={addDisabled}
+            title={t("text.blankManual")}
+            onClick={onAddTextBlank}
+          >
+            <ScheduleTypeIcon kind="text" />
+            <span>{t("text.blankManual")}</span>
+          </button>
+          <button
+            type="button"
+            className="schedule-add-tab"
+            disabled={addDisabled}
+            title={t("library.createSong")}
+            onClick={onCreateSong}
+          >
+            <ScheduleTypeIcon kind="text" />
+            <span>{t("library.createSong")}</span>
+          </button>
+          <button
+            type="button"
+            className="schedule-add-tab"
+            disabled={addDisabled}
+            title={t("library.open")}
+            onClick={onOpenLibrary}
+          >
+            <ScheduleTypeIcon kind="image" />
+            <span>{t("library.open")}</span>
+          </button>
         </div>
 
+        <button
+          type="button"
+          className="schedule-icon-btn"
+          disabled={addDisabled}
+          title={t("playlist.addFilesTip")}
+          aria-label={t("playlist.addFilesTip")}
+          onClick={onAddFiles}
+        >
+          <IconAddFiles className="schedule-icon-svg" size={18} />
+        </button>
         <button
           type="button"
           className="schedule-icon-btn"
