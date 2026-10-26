@@ -1,57 +1,94 @@
 # ProMedia
 
-Proyección multimedia para **culto y evento**. Monorepo MVP en `promedia/` (la raíz del repo es AgentEvolver).
+Proyección multimedia para **culto y evento**. Ventana **Control** (operador) + ventana **Output** (pantalla completa en el 2.º monitor / proyector). Monorepo en `promedia/` (la raíz del repo es AgentEvolver).
 
-## Cómo arrancar (Julio — Control + Output)
+## Arquitectura
 
-**Importante:** hay que estar **dentro de la carpeta `promedia`**, no en `~` ni en la raíz del repo sola.
+| Pieza | Rol |
+|-------|-----|
+| `apps/web` | SPA **Vite + React** — rutas `/control`, `/output`, `/` |
+| `apps/hub` | **Hono** + WebSocket — sesiones, assets, Biblia, playlists |
+| `@promedia/shared` | Protocolo, temas, transiciones, tipos de sesión |
+| `@promedia/item-types` | Registry Preview / En vivo / Output (texto, imagen, vídeo, YouTube, Biblia) |
+| `@promedia/media` | Almacenamiento local (disco) + adapter S3 stub |
+| `@promedia/i18n` | Locales **ES · EN · PT · FR · ZH** |
+
+```text
+promedia/
+  apps/web/          # Control + Output
+  apps/hub/          # API :8787 + WS
+  packages/shared/
+  packages/item-types/
+  packages/media/
+  packages/i18n/
+  scripts/dev.mjs    # pnpm dev (hub + web)
+  portable/          # empaquetado runnable
+```
+
+| Servicio | Puerto | URL típica |
+|----------|--------|------------|
+| **Hub** (API + WS) | **8787** | http://localhost:8787 |
+| **Web** (Vite) | **5173+** | http://localhost:5173 (o 5174–5178 si 5173 está ocupado) |
+
+Abrí siempre **`/control`**, no `/` (la Home es solo un enlace mínimo).
+
+---
+
+## Cómo arrancar
+
+**Importante:** trabajá **dentro de `promedia/`**, no en `~` ni solo en la raíz del repo.
 
 ### Mac — doble clic (Finder)
 
-1. Abrí Finder → carpeta del repo → **`promedia`**
-2. Doble clic en **`start-mac.command`** o **`Abrir-ProMedia.command`** (mismo arranque; el segundo es un atajo con nombre claro para el Escritorio)
-3. Si macOS pregunta, clic derecho → **Abrir** la primera vez
-4. Dejá la ventana Terminal abierta; al estar listos hub+web, el script **abre Control** (`/control`, nunca la Home `/`) en el puerto real de Vite (5173–5178)
-5. Si copiaste **`Abrir-ProMedia.command`** al Escritorio y ves la UI vieja: tras `git pull`, **volvé a copiar** el atajo desde esta carpeta `promedia/` (debe apuntar a este repo, no a un clone viejo)
-6. Enlaces fijos (si el navegador no se abrió solo): **`open-control.html`** (prueba 5173–5178) o **`ProMedia-Control.url`** → `/control` (por defecto :5173)
+1. Finder → carpeta del repo → **`promedia`**
+2. Doble clic en **`start-mac.command`** o **`Abrir-ProMedia.command`** (mismo arranque; el segundo es atajo con nombre claro)
+3. Primera vez en macOS: clic derecho → **Abrir**
+4. Dejá la Terminal abierta; al estar listos hub+web, el script abre **Control** (`/control`) en el puerto real de Vite
+5. Si copiaste el atajo al Escritorio y ves UI vieja: tras `git pull`, **volvé a copiar** `Abrir-ProMedia.command` desde esta carpeta
+6. Enlaces fijos: **`open-control.html`** (prueba 5173–5178) o **`ProMedia-Control.url`**
 
 ### Windows — doble clic (Explorador)
 
-1. Abrí el Explorador → carpeta del repo → **`promedia`**
-2. Doble clic en **`start-windows.bat`** o **`Abrir-ProMedia.bat`** (mismo arranque; el `.bat` llama a **`start-windows.ps1`**)
-3. Dejá la ventana abierta; al estar listos hub+web, se **abre Control** (puerto real 5173–5178)
-4. Requisitos: Node.js 20+ y `npm install -g pnpm` (una vez). Si falta `node_modules`, el script corre `pnpm install`
-5. Enlaces fijos: **`ProMedia-Control.url`** o **`open-control.html`** (mismo que en Mac)
+1. Explorador → **`promedia`**
+2. Doble clic en **`start-windows.bat`** o **`Abrir-ProMedia.bat`** (llaman a **`start-windows.ps1`**)
+3. Requisitos: Node.js 20+ y `npm install -g pnpm` (una vez). Si falta `node_modules`, el script corre `pnpm install`
+4. Abre **Control** en el puerto real (5173–5178)
 
 ### Linux — doble clic / terminal
 
-1. En la carpeta **`promedia`**, la primera vez: `chmod +x start-linux.sh Abrir-ProMedia.sh`
-2. Doble clic en **`start-linux.sh`** / **`Abrir-ProMedia.sh`**, o en terminal: `./start-linux.sh`
-3. Atajo de escritorio: **`ProMedia.desktop`** (doble clic desde `promedia/`, o copialo al Escritorio y editá `Exec`/`Path` con la ruta absoluta). En GNOME: “Permitir iniciar” / Mark as Trusted la primera vez
-4. Misma lógica: libera 8787 y Vite 5173–5178 si son ProMedia, `pnpm install` si hace falta, `pnpm dev`, abre **Control** (`/control`)
+1. En **`promedia/`**, la primera vez: `chmod +x start-linux.sh Abrir-ProMedia.sh`
+2. Doble clic o `./start-linux.sh` / `./Abrir-ProMedia.sh`
+3. Atajo: **`ProMedia.desktop`** (editá `Exec`/`Path` si lo copiás al Escritorio; en GNOME: “Permitir iniciar” / Mark as Trusted)
+4. Misma lógica: lock, `pnpm install` si hace falta, `pnpm dev`, abre **`/control`**
 
 ### Terminal (cualquier SO)
 
 ```bash
 cd /ruta/a/AgentEvolver/promedia
-pnpm install   # solo la primera vez (o si falta node_modules)
+pnpm install   # primera vez (o si falta node_modules)
 pnpm dev
 ```
 
-Ejemplo si el repo está en el Escritorio del Mac:
+Ejemplo (Mac, Escritorio):
 
 ```bash
 cd ~/Desktop/AgentEvolver/promedia && pnpm dev
 ```
 
-`pnpm dev` usa **concurrently** y etiqueta los logs `[hub]` / `[web]`. Espera a que
-**este** hub loguee `listening` y `/health` responda; si el hub no arranca o el puerto
-está ocupado por una instancia vieja, **falla en voz alta** (no declara “ready” con un
-hub fantasma). Imprime la URL **real** de Vite (`Local: http://localhost:PUERTO`);
-si 5173 está ocupado, puede ser **5174/5175** — abrí esa, no asumas 5173.
+`pnpm dev` usa **concurrently** con logs `[hub]` / `[web]`. Espera a que **este** hub loguee `listening` y `/health` responda; imprime la URL **real** de Vite. Si 5173 está ocupado, puede ser **5174+** — usá esa URL, no asumas 5173.
 
-**Una sola instancia.** No abras dos `pnpm dev` / dos launchers a la vez.
-Si ves `EADDRINUSE` o “puerto ya está en uso”, cerrá la ventana anterior o:
+### Una sola instancia
+
+No abras dos `pnpm dev` / dos launchers a la vez.
+
+Los launchers usan un lock (`.promedia-dev.lock`):
+
+- **Primera** instancia: puede liberar puertos ProMedia en 8787 y 5173–5178, luego arranca
+- **Segunda** instancia: **no** mata puertos (evita SIGTERM 143 sobre Vite) y te avisa que ya hay una corriendo
+
+`pnpm dev` solo tumba el proceso hermano si hay **failure** (no si Vite sale 0 tras un SIGTERM externo).
+
+Si ves `EADDRINUSE` / “puerto ya está en uso”:
 
 ```bash
 # Mac / Linux
@@ -67,25 +104,13 @@ netstat -ano -p tcp | findstr :5173
 taskkill /PID <PID> /F
 ```
 
-Los launchers (`start-mac.command`, `start-windows.ps1` / `.bat`, `start-linux.sh`) intentan
-cerrar listeners node/promedia en **8787** y **5173–5178** antes de arrancar
-(“Cerrando instancia anterior en puerto X…”), esperan a que **`/control`**
-responda (o leen `.promedia-ready-url` que escribe `pnpm dev`) y recién ahí abren el navegador.
-
-| Servicio | URL | Puerto |
-|----------|-----|--------|
-| **Web (Control / Output)** | http://localhost:5173 (u otro si Vite lo cambia) | **5173+** |
-| **Hub (API + WS)** | http://localhost:8787 | **8787** |
-
-Comprueba el hub:
+Comprobar el hub:
 
 ```bash
 curl -s http://localhost:8787/health
 ```
 
 ### Fallback: dos terminales
-
-Si `pnpm dev` falla o prefieres procesos separados (siempre desde `promedia/`):
 
 ```bash
 cd /ruta/a/AgentEvolver/promedia
@@ -97,24 +122,7 @@ pnpm dev:hub
 pnpm dev:web
 ```
 
-Luego `curl -s http://localhost:8787/health` debe devolver JSON `ok: true`.
-Sin hub, Control muestra: *“El hub no está corriendo…”* con botón para reintentar.
-
-### Ver Control y Output
-
-1. Abre **http://localhost:5173/control** (o la URL real que imprima Vite)
-2. Al cargar (hub sano), Control **crea o reanuda** la sesión sola — el pie debe decir **WS conectado**
-3. Pulsa **Iniciar proyección** (CTA principal, un clic): abre/enfoca **Salida**, intenta colocarla en el **2.º monitor** (Chrome: Window Management / `getScreenDetails` si hay permiso) y pide **pantalla completa**
-4. Si el navegador no puede forzar el otro monitor o el fullscreen sin gesto, arrastra la ventana al proyector y pulsa **Pantalla completa** / F11 en Salida
-5. **Abrir salida** sigue disponible (abre/enfoca sin re-crear sesión)
-6. Añade texto / imagen / vídeo / YouTube → **Go Live**
-
-**Límite del navegador:** no se puede abrir el popup de Salida ni pedir el 2.º monitor sin un gesto del usuario (y a veces sin permiso). Por eso el arranque automático prepara la sesión/WS; el clic en **Iniciar proyección** completa ventanas + fullscreen.
-
-Atajos en Control (fuera de inputs): `G` Go Live · `O` Abrir salida · `L`/`B`/`C`/`N` escenas · `1`/`2`/`3` temas · `←`/`→` slides.
-
-En desarrollo el navegador conecta el **WebSocket directo al hub** (`ws://<host>:8787`);
-REST sigue por el proxy de Vite (`/api`). El hub debe estar en marcha.
+Sin hub, Control muestra que el hub no está corriendo (con reintento).
 
 ### Solo hub + smoke
 
@@ -123,43 +131,152 @@ pnpm --filter @promedia/hub start   # :8787
 node scripts/smoke-hub-ws.mjs
 ```
 
-## Qué incluye el MVP
+---
 
-- Sesión + WS + código corto / enlace opaco
-- Guion: texto, imagen, vídeo (mp4/webm/mov), YouTube público, **Biblia** (versículos)
-- Columna Guion: **Guardar / Cargar**, multi-selección + **Quitar seleccionados**, lista con scroll
-- Texto: importar **PDF** (parse en hub), **XML** o **.txt/.md** a slides (límites en UI); editor manual intacto
-- Preview ≠ live hasta Go Live; `mediaClock` sync
-- Scene modes: normal / logo / negro / clear
-- Temas: Oscuro / Claro / Acento + editor simple
-- Guardar / cargar playlists con nombre (SavedPlaylist)
-- Modo cloud vía env (`PROMEDIA_MODE`, adapter S3 stub con fallback local)
-- i18n ES · EN · PT · FR · ZH-Hans (cadenas base)
+## Flujo operador (Control → Output)
 
-### Biblia (versículos en el Guion)
+1. Abrí **http://localhost:PUERTO/control** (o dejá que el launcher lo abra)
+2. Con hub sano, Control **crea o reanuda** la sesión — el pie debe decir **WS conectado**
+3. Pulsá **Proyectar** (barra de herramientas): abre/enfoca **Salida**, intenta el **2.º monitor** (Chrome: Window Management) y pide **pantalla completa**
+4. Si el navegador no puede forzar monitor/fullscreen: arrastrá Salida al proyector y usá **Pantalla completa** / F11
+5. Armá el **Guion** → seleccioná un ítem → **En vivo** (o doble clic / `G`)
 
-Botón **Biblia** en la barra del Guion: elegí libro / capítulo / rango de versículos o buscá por referencia (`Juan 3:16-17`), más selector de **versión**. Se inserta como ítem de tipo `bible` (slides de texto; Enviar en vivo / Output como texto).
+**Límite del navegador:** popup de Salida y 2.º monitor requieren gesto del usuario (y a veces permiso). Por eso la sesión/WS se preparan solas; **Proyectar** completa ventanas + fullscreen.
 
-| Id | Nombre | Idioma | Fuente API | Licencia |
-|----|--------|--------|------------|----------|
-| `rvr1909` | Reina-Valera 1909 (RV1909) | ES (por defecto) | [Midvash](https://api.midvash.com) | Dominio público |
-| `pdt` | Palabra de Dios para ti | ES | Midvash | CC BY 4.0 (mostrar atribución) |
+Si el popup está bloqueado, aparece un aviso con enlace **Abrir salida**. El atajo `O` también abre/enfoca Salida (sin botón dedicado en la toolbar).
+
+---
+
+## Control UI (actual)
+
+### Cabecera
+
+1. **Fila título** — solo marca + **«ProMedia | Control»** (sin botones)
+2. **Barra de herramientas** debajo:
+   - **Proyectar** — abre Output + fullscreen (busy: «Iniciando…»)
+   - **Idioma** — ES / EN / PT / FR / ZH
+   - **Acerca de** — diálogo con crédito **`@2026 JulioAlvarez75`**
+   - Zona **Tema** — escenas + presets + pickers + efectos de transición
+   - Banner **Google Ad Manager** (derecha; placeholder si no hay env)
+
+### Guion
+
+- **Añadir** (multiarchivo: imagen, vídeo, PDF/XML/texto) + menú: Enlace/YouTube, Biblia, Texto en blanco
+- Drag ⋮⋮ (y ↑/↓), multi-selección + **Quitar seleccionados**
+- Guardar / Cargar guiones con nombre
+- Botón **En vivo** / doble clic = enviar al live
+- Tipos: texto, imagen, vídeo, YouTube, Biblia
+
+### Vista previa + En vivo
+
+- Columna izquierda: **Guion** + monitor **En vivo**
+- Columna derecha: **Vista previa** (toolbar: anterior / siguiente / **En vivo**)
+- Preview ≠ live hasta **En vivo**
+- Transporte de vídeo: play/pausa, ±10 s, inicio/fin, scrubber (tiempos en overlay); mute opcional en preview
+
+### Tema (zona TEMA)
+
+| Escenas | Temas | Transiciones en Output (0,5 s fijo) |
+|---------|-------|-------------------------------------|
+| Normal · Logo · Negro · Clear | Oscuro · Claro · Acento (+ fondo/texto/alineación/tamaño) | Ninguna/corte · Difuminado · Blur · Pixelado |
+
+Las transiciones aplican al cambiar el ítem **en vivo** en Output.
+
+### Biblia
+
+Botón **Biblia** en el Guion: libro/capítulo/rango o referencia (`Juan 3:16-17`) + versión.
+
+| Id | Nombre | Idioma | Fuente | Licencia |
+|----|--------|--------|--------|----------|
+| `rvr1909` | Reina-Valera 1909 | ES (por defecto) | [Midvash](https://api.midvash.com) | Dominio público |
+| `pdt` | Palabra de Dios para ti | ES | Midvash | CC BY 4.0 |
 | `kjv` | King James Version | EN | [bible-api.com](https://bible-api.com) | Public domain |
 | `asv` | American Standard Version | EN | bible-api.com | Public domain |
 
-**RVR1960 no está incluida:** sigue bajo copyright (Sociedades Bíblicas / UBS) y las APIs libres que usamos no la redistribuyen legalmente. Usá **RV1909** como opción española de dominio público.
+**RVR1960 no está incluida** (copyright). Fallback local mínimo si falla la API (no es canon offline completo).
 
-Si la API falla: mensaje claro en el diálogo. Hay un **subconjunto local mínimo** (p. ej. Juan 3:16-17 en RV1909/KJV) como fallback; no es un canon offline completo.
+### Atajos (fuera de inputs)
+
+| Tecla | Acción |
+|-------|--------|
+| `G` | Enviar en vivo (ítem seleccionado) |
+| `O` | Abrir / enfocar Salida |
+| `L` / `B` / `C` | Logo / Negro / Clear |
+| `N` o `Esc` | Escena normal |
+| `1` / `2` / `3` | Temas Oscuro / Claro / Acento |
+| `←` / `→` | Slide anterior / siguiente (ítem live de texto/Biblia) |
+
+**Proyectar** no tiene atajo de teclado — solo el botón de la toolbar.
+
+En desarrollo el **WebSocket** va directo al hub (`ws://<host>:8787`); REST por proxy Vite (`/api`).
+
+---
+
+## Output
+
+- Pantalla completa en el proyector / 2.º display
+- Sincroniza reproducción con **`mediaClock`** del hub (play/pausa/seek desde Control)
+- **YouTube:** una sola iframe en Output (Preview/En vivo muestran thumb + transporte; no segundo embed)
+- Escenas Logo / Negro / Clear son overlays (no cortan el reloj de medios)
+- Query útiles: `?code=…`, `?token=…`, `?autofullscreen=1`
+
+---
+
+## Variables de entorno
+
+Ver `.env.example`. Las más relevantes:
+
+| Variable | Uso |
+|----------|-----|
+| `PORT` | Puerto del hub (default **8787**) |
+| `VITE_HUB_URL` / `VITE_HUB_WS_URL` | Override REST/WS (en DEV el WS suele ir a `:8787` directo) |
+| `VITE_GAM_NETWORK_CODE` | Código de red Google Ad Manager |
+| `VITE_GAM_AD_UNIT` | Ad unit del banner en Control (hace falta **ambas** GAM; si faltan → placeholder) |
+| `PROMEDIA_MODE` | `lan` (default) / `cloud` / `portable` |
+| `MEDIA_ADAPTER` / `MEDIA_ROOT` / `PLAYLISTS_PATH` | Storage local |
+| `S3_*` | Stub S3-compatible (fallback a disco si incompleto) |
+
+Tamaños GAM del header: 970×90, 728×90, 320×50, 320×100 (+ fluid).
+
+---
+
+## Actualizar y troubleshooting
+
+```bash
+cd /ruta/a/AgentEvolver
+git pull
+cd promedia
+# Si el launcher del Escritorio es copia vieja, volvé a copiar Abrir-ProMedia.*
+```
+
+| Problema | Qué hacer |
+|----------|-----------|
+| UI vieja / Home en vez de Control | Abrí **`/control`**; no uses solo `/`. Hard refresh: **Cmd+Shift+R** (Mac) / **Ctrl+Shift+R** |
+| Puerto ocupado | Matá el PID (tabla arriba) o cerrá la Terminal anterior |
+| Vite no es 5173 | Leé la URL `Local:` en la Terminal o el archivo `.promedia-ready-url` |
+| Hub caído | `curl -s http://localhost:8787/health` — debe ser JSON `ok: true` |
+| Segunda ventana del launcher | Esperado: lock; no mata Vite (fix SIGTERM 143) |
+| Popup bloqueado | Permití popups o usá el enlace **Abrir salida** / atajo `O` |
+
+---
+
+## Qué incluye el producto (resumen)
+
+- Sesión + WS + código corto / enlace opaco
+- Guion multi-tipo con drag, multi-select, guardar/cargar
+- Texto: import PDF (hub), XML, `.txt`/`.md` → slides
+- Preview ≠ live; transporte vídeo + `mediaClock`
+- Escenas, temas, transiciones 0,5 s en Output
+- i18n ES · EN · PT · FR · ZH
+- Banner GAM opcional en Control
 
 ## Deploy dual
 
 | Modo | Cómo |
 |------|------|
 | **LAN / Docker** | `docker compose -f docker/compose.yml up --build` |
-| **Cloud env** | `PROMEDIA_MODE=cloud` + opcional `MEDIA_ADAPTER=s3` + `S3_*` (stub → fallback disco si incompleto) |
-| **Portable** | Ver `portable/README.md` — `pnpm build` + script de empaquetado |
-
-Env útiles: `PORT`, `MEDIA_ROOT`, `PLAYLISTS_PATH`, `PROMEDIA_MODE`, `MEDIA_ADAPTER`, `S3_BUCKET`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`.
+| **Cloud** | `PROMEDIA_MODE=cloud` + opcional `MEDIA_ADAPTER=s3` + `S3_*` |
+| **Portable** | Ver `portable/README.md` — `pnpm build` + `./portable/pack.sh` |
 
 ## QA iglesia / evento
 
@@ -167,7 +284,7 @@ Ver `scripts/qa-church-event.md`.
 
 ## Límites conocidos
 
-- Assets de archivo son **por sesión**; al cargar una playlist guardada, ítems de archivo sin asset se omiten (texto/YouTube sí).
-- Adapter S3 = stub (escribe en disco local hasta cablear SDK completo); LAN siempre funciona.
-- **Multi-monitor / fullscreen:** depende del navegador. Chrome puede usar la Window Management API; Safari/Firefox suelen exigir arrastrar la ventana y un clic en pantalla completa. Los popups bloqueados muestran la URL de Salida.
-- Biblia: sin canon offline completo (solo subconjunto de emergencia + APIs). Sin Stage / remoto / import Quelea (fase 2).
+- Assets de archivo son **por sesión**; al cargar un guion guardado, ítems de archivo sin asset se omiten (texto/YouTube sí)
+- Adapter S3 = stub (escribe en disco hasta cablear SDK completo)
+- Multi-monitor / fullscreen depende del navegador (Chrome Window Management; Safari/Firefox suelen exigir arrastrar + clic)
+- Biblia: sin canon offline completo; sin Stage / remoto / import Quelea (fase 2)

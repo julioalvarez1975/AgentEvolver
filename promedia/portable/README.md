@@ -1,6 +1,7 @@
 # ProMedia — carpeta portable
 
 Empaquetado runnable (hub + web) para PCs sin instalar un servidor de hosting.
+Para el flujo completo (Control, **Proyectar**, Guion, Output), ver el README principal en `promedia/README.md`.
 
 ## Empaquetar (MVP)
 
@@ -34,6 +35,6 @@ Por defecto:
 - Hub: `http://localhost:8787` (`PROMEDIA_MODE=portable`)
 - Web: servir `web/` con cualquier static server, p. ej.  
   `npx --yes serve web -l 5173`  
-  o abrir el hub documentado en el script.
+  Luego abrí **`http://localhost:5173/control`** (no la Home `/`).
 
-LAN sigue siendo el camino preferido con `pnpm dev` en el monorepo.
+LAN sigue siendo el camino preferido con `pnpm dev` / `Abrir-ProMedia.*` en el monorepo.
