@@ -7,10 +7,21 @@ export type FittedTextStageProps = {
   lineKey: string;
   className?: string;
   lineClassName?: string;
+  /**
+   * Max font as a fraction of the shell content height (default 0.4).
+   * Subtitle SM–XL biases this so XL targets larger type, still capped by fit.
+   */
+  heightFrac?: number;
+  /** Absolute px ceiling for auto-fit (default 220). */
+  hardCapPx?: number;
 };
 
 /** Soft text-shadow can bleed a few px past glyph bounds. */
 const WIDTH_SAFETY_PX = 4;
+
+const DEFAULT_HEIGHT_FRAC = 0.4;
+const DEFAULT_WIDTH_FRAC = 0.22;
+const DEFAULT_HARD_CAP_PX = 220;
 
 type WrapMode = "nowrap" | "wrap";
 
@@ -79,6 +90,8 @@ export function FittedTextStage({
   lineKey,
   className = "text-output",
   lineClassName = "text-output-line",
+  heightFrac = DEFAULT_HEIGHT_FRAC,
+  hardCapPx = DEFAULT_HARD_CAP_PX,
 }: FittedTextStageProps) {
   const shellRef = useRef<HTMLDivElement>(null);
   const blockRef = useRef<HTMLDivElement>(null);
@@ -90,6 +103,14 @@ export function FittedTextStage({
     .slice(0, TEXT_PROJECTION_LINES);
   const displayLines = safeLines.length > 0 ? safeLines : [""];
   const linesSignature = displayLines.join("\n");
+  const heightFracSafe =
+    Number.isFinite(heightFrac) && heightFrac > 0
+      ? Math.min(0.85, Math.max(0.12, heightFrac))
+      : DEFAULT_HEIGHT_FRAC;
+  const hardCapSafe =
+    Number.isFinite(hardCapPx) && hardCapPx >= 10
+      ? Math.min(320, Math.max(10, hardCapPx))
+      : DEFAULT_HARD_CAP_PX;
 
   useLayoutEffect(() => {
     const shell = shellRef.current;
@@ -115,7 +136,11 @@ export function FittedTextStage({
       const minPx = 10;
       const maxPx = Math.max(
         minPx,
-        Math.min(availH * 0.4, availW * 0.22, 220),
+        Math.min(
+          availH * heightFracSafe,
+          availW * DEFAULT_WIDTH_FRAC,
+          hardCapSafe,
+        ),
       );
 
       const binarySearch = (mode: WrapMode): number => {
@@ -173,7 +198,7 @@ export function FittedTextStage({
     });
     ro.observe(shell);
     return () => ro.disconnect();
-  }, [linesSignature, lineKey]);
+  }, [linesSignature, lineKey, heightFracSafe, hardCapSafe]);
 
   return (
     <div
