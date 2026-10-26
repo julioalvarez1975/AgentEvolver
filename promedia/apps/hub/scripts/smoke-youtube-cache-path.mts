@@ -6,6 +6,7 @@ import {
   subtitleDataRoot,
 } from "../src/subtitle-paths.ts";
 import {
+  classifyYoutubeError,
   findCachedAudio,
   youtubeYtDlpOutputArgs,
 } from "../src/subtitle-youtube.ts";
@@ -40,12 +41,19 @@ async function main(): Promise<void> {
   }
 
   const id = "3sur4BmjQt8";
-  const fake = path.join(dirs.youtubeCache, `${id}.m4a`);
-  await writeFile(fake, "smoke");
-  const found = await findCachedAudio(dirs.youtubeCache, id);
-  console.log("findCachedAudio:", found);
-  if (found !== fake) throw new Error("glob resolve failed");
-  await rm(fake);
+  const fakeM4a = path.join(dirs.youtubeCache, `${id}.m4a`);
+  const fakeWav = path.join(dirs.youtubeCache, `${id}.wav`);
+  // Prefer wav over m4a when both exist; skip tiny/empty partials (<64 bytes).
+  await writeFile(fakeM4a, "x".repeat(80));
+  let found = await findCachedAudio(dirs.youtubeCache, id);
+  console.log("findCachedAudio m4a:", found);
+  if (found !== fakeM4a) throw new Error("glob resolve failed (m4a)");
+  await writeFile(fakeWav, "y".repeat(80));
+  found = await findCachedAudio(dirs.youtubeCache, id);
+  console.log("findCachedAudio prefers wav:", found);
+  if (found !== fakeWav) throw new Error("glob resolve failed (wav preferred)");
+  await rm(fakeM4a);
+  await rm(fakeWav);
 
   process.chdir(path.join(root, "apps", "hub"));
   const dirs2 = await ensureSubtitleDirs();
@@ -54,6 +62,23 @@ async function main(): Promise<void> {
   if (dirs2.youtubeCache !== dirs.youtubeCache) {
     throw new Error("path drifted after chdir");
   }
+
+  // ffmpeg postprocessor ENOENT must not look like a cache mkdir bug.
+  const ffmpegGone = classifyYoutubeError(
+    "ERROR: Postprocessing: ffprobe and ffmpeg not found. Please install or provide the path using --ffmpeg-location",
+  );
+  console.log("classify ffmpeg missing:", ffmpegGone);
+  if (ffmpegGone !== "ffmpeg_missing") {
+    throw new Error(`expected ffmpeg_missing, got ${ffmpegGone}`);
+  }
+  const renameOnly = classifyYoutubeError(
+    "ERROR: unable to rename file: [Errno 2] No such file or directory",
+  );
+  console.log("classify cache path:", renameOnly);
+  if (renameOnly !== "youtube_cache_path_error") {
+    throw new Error(`expected youtube_cache_path_error, got ${renameOnly}`);
+  }
+
   console.log("SMOKE_OK");
 }
 
