@@ -29,10 +29,11 @@ try {
 
 try {
   const sub = await ensureSubtitleDirs();
-  console.log(`[hub] subtitle models/cache: ${sub.models}`);
+  console.log(`[hub] subtitle models: ${sub.models}`);
+  console.log(`[hub] youtube-cache: ${sub.youtubeCache}`);
 } catch (err) {
   console.error(
-    "[hub] WARN: no se pudo crear data/models (subtítulos):",
+    "[hub] WARN: no se pudo crear data/models|youtube-cache (subtítulos):",
     err instanceof Error ? err.message : err,
   );
 }
