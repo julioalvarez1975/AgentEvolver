@@ -15,7 +15,7 @@ import {
   ensureSubtitleDirs,
   subtitleModelsRoot,
 } from "./subtitle-paths.js";
-import { filterSpeechCues, speechCueRatio } from "./subtitle-cue-text.js";
+import { filterSpeechCues } from "./subtitle-cue-text.js";
 import { shapeLyricLikeCues } from "./subtitle-lyric-shape.js";
 import {
   assertWhisperCliOrThrow,
@@ -148,15 +148,15 @@ async function fileSha256(filePath: string): Promise<string> {
 }
 
 /**
- * Cache key v5: busts pre–lyric-shape Whisper caches (v4 had base + `-l auto`
- * but long late paragraphs). Forces re-ASR with `-ml`/`-sow` + cancionero shape.
+ * Cache key v6: native agent — whisper `-l <targetLang>` (not auto) and no
+ * translate-from-English retry for non-EN UI. Busts v5 auto/Marian-era caches.
  */
 function cacheKey(
   assetId: string,
   targetLang: SubtitleTargetLang,
   translateToEn: boolean,
 ): string {
-  return `${assetId}_${translateToEn ? "en" : "src"}_${targetLang}_v5`;
+  return `${assetId}_${translateToEn ? "en" : "src"}_${targetLang}_v6`;
 }
 
 function normalizeChunks(
@@ -473,18 +473,19 @@ export async function transcribeLocalFile(options: {
   const backend = asrBackendPref();
   let asr: AsrResult;
 
-  // whisper-cli defaults to `-l en` when omitted — always pass auto (or an
-  // explicit hint) so Spanish / non-English speech is not forced through EN.
-  // Detected sourceLang then drives Marian when targetLang differs.
-  const languageHint = "auto";
+  // Native agent: transcribe in the UI/target language (`-l es` for Spanish),
+  // never force English then Marian. whisper-cli defaults to `-l en` when
+  // omitted — always pass an explicit code.
+  const languageHint = translateToEn ? "en" : targetLang;
 
   async function runAsr(forceTranslateToEn: boolean): Promise<AsrResult> {
+    const hint = forceTranslateToEn ? "en" : languageHint;
     if (backend === "transformers") {
       try {
         return await transcribeWithTransformers({
           wavPath,
           translateToEn: forceTranslateToEn,
-          languageHint,
+          languageHint: hint,
           onStatus,
         });
       } catch (tfErr) {
@@ -503,7 +504,7 @@ export async function transcribeLocalFile(options: {
       return await transcribeViaWhisperCpp({
         wavPath,
         translateToEn: forceTranslateToEn,
-        languageHint,
+        languageHint: hint,
         assetId,
         onStatus,
       });
@@ -519,29 +520,8 @@ export async function transcribeLocalFile(options: {
 
   asr = await runAsr(translateToEn);
 
-  // English UI with `-tr` already produced lyrics for songs where plain
-  // transcribe only emitted `[MUSIC]`. When the Spanish (or other) UI gets
-  // music labels / empty after filter, retry once with translate→EN so Marian
-  // can turn real English lyrics into the target language.
-  if (
-    !translateToEn &&
-    (asr.cues.length === 0 || speechCueRatio(asr.cues) < 0.25)
-  ) {
-    console.warn(
-      `[subtitle] ASR yielded ${asr.cues.length} speech cues — retrying with Whisper -tr (translate→EN) for lyrics`,
-    );
-    try {
-      const retry = await runAsr(true);
-      if (retry.cues.length > asr.cues.length) {
-        asr = retry;
-      }
-    } catch (retryErr) {
-      console.warn(
-        "[subtitle] Whisper -tr lyrics retry failed:",
-        retryErr instanceof Error ? retryErr.message : retryErr,
-      );
-    }
-  }
+  // No `-tr` (translate→EN) retry for non-English UI — that path fed Marian
+  // and mangled Spanish lyrics. Prefer captions; ASR stays `-l <targetLang>`.
 
   asr = {
     ...asr,

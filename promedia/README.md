@@ -169,7 +169,7 @@ Si el popup está bloqueado, aparece un aviso con enlace **Abrir salida**. El at
 2. **Barra de herramientas** debajo (peers planos; sin grupos fijos):
    - **Proyectar** — abre Output + fullscreen (busy: «Iniciando…»)
    - **Biblioteca** — mediateca local (canciones, biblias, textos, presentaciones, imágenes, vídeos)
-   - **Agente subtítulos** — ASR local offline (archivos o YouTube vía yt-dlp); el idioma de subtítulos sigue el selector Idioma
+   - **Subtítulos nativos** — captions YouTube/SRT tal cual o Whisper `-l` en el idioma de Control
    - **Idioma** — UI ES / EN / PT / FR / ZH
    - **Acerca de** — diálogo con crédito **`@2026 JulioAlvarez75`**
    - Escenas + **Tema** — presets, fondos, efectos de transición
@@ -229,11 +229,11 @@ También: `node scripts/import-bibles.mjs` (crea `bibles/import` si falta y llam
 - Columna derecha: **Vista previa** (toolbar: anterior / siguiente / **En vivo**)
 - Preview ≠ live hasta **En vivo**
 - Transporte de vídeo: play/pausa, ±10 s, inicio/fin, scrubber (tiempos en overlay); mute opcional en preview
-- Con **Agente subtítulos** activo, las cues sincronizadas con `mediaClock` se ven en **Vista previa**, **En vivo** y **Output**
+- Con **Subtítulos nativos** activo, las cues sincronizadas con `mediaClock` se ven en **Vista previa**, **En vivo** y **Output**
 
-### Agente de subtítulos (IA local)
+### Subtítulos nativos (agente por defecto)
 
-Subtítulos automáticos **100 % locales** (sin API keys ni STT/MT en la nube). YouTube: el hub intenta **captions manuales/auto** con `yt-dlp` (idioma de Control); si faltan, descarga audio y corre Whisper local (el iframe de YouTube sigue solo en Output).
+**Nuevo agente** (reemplaza el stack Whisper+Marian parcheado): captions oficiales / SRT-VTT **tal cual** (tiempos y letra), sin Marian ni reloj artificial. 100 % local. YouTube: `yt-dlp` pide la pista del idioma de Control (manual ≫ auto); si faltan, audio + Whisper **`-l <idioma>`** (p. ej. `-l es`). El iframe de YouTube sigue solo en Output.
 
 **Dependencias en el PATH (Mac)**
 
@@ -251,38 +251,34 @@ Sin depender de `whisper-cli` / ggml, Julio puede usar **pistas con tiempo** que
 
 1. Copiá un archivo `.srt` o `.vtt` a `promedia/data/subtitles/sidecars/`
 2. Nombralo como el medio subido (p. ej. `MiCancion.mp4` → `MiCancion.srt` / `MiCancion.vtt`) **o** `{assetId}.vtt`
-3. Activá **Agente subtítulos** + **En vivo** — el hub carga la pista antes de Whisper
+3. Activá **Subtítulos nativos** + **En vivo** — el hub carga la pista antes de Whisper
 4. También se leen **softsubs embebidos** del contenedor (ffmpeg/ffprobe) cuando existan
 
-YouTube con captions oficiales/auto sigue siendo el camino más fiable para canciones (sin Whisper).
+YouTube con captions oficiales en el idioma de Control es el camino de referencia (p. ej. *Cuán grande es Él* `G6P1VnEPvjg`).
 
 **Cómo usarlo**
 
 1. Arrancá ProMedia (`pnpm dev` / launcher) y abrí **Control**
 2. Añadí un **vídeo/audio local** (pestaña Audio del Guion incluida) o un **YouTube** público al Guion
-3. Pulsá **Agente subtítulos** en la barra (junto a **Proyectar** / **Idioma**; queda activo). El idioma de subtítulos **sigue el selector Idioma** de Control (ES / EN / PT / FR / ZH)
-4. Poné el ítem **En vivo** (las cues se sincronizan con `mediaClock` en Vista previa / En vivo / Output). Prioridad **letra real**, no etiquetas de sonido:
-   - YouTube: primero captions **manuales/oficiales** (letra) con `yt-dlp` en el idioma de Control (`es` / `es-419`…); si la caché solo tiene auto, se vuelve a pedir la pista manual; si no hay captions, bestaudio → Whisper
-   - Local: sidecar SRT/VTT o softsubs embebidos → si faltan, `ffmpeg` → WAV → **whisper.cpp** (`whisper-cli` + **ggml-base** ~142 MB; `-l auto`, `-ml 48 -sow` para líneas tipo cancionero, `-sns` si el CLI lo soporta; si solo salen `[MUSIC]`/`[MÚSICA]`, reintento con `-tr` + MT)
-   - Se filtran etiquetas no-speech (`[MUSIC]`, `[MÚSICA]`, etc.) antes de mostrar; un job vacío ya **no** se marca como «listo» (hint `no_speech` / error claro)
-5. Las captions aparecen **arriba del vídeo** (estilo cancionero / `FittedTextStage`), alineadas al mismo `mediaClock`, con anticipación configurable (−3…0 s, default −2 s) para leer la letra antes de cantarla. Tamaño SM–XL y anticipación van junto al botón **Agente subtítulos**. Canciones de Biblioteca con diapositivas ←/→ siguen siendo manuales (la anticipación solo aplica a cues con tiempo del agente).
+3. Pulsá **Subtítulos nativos** en la barra (junto a **Proyectar** / **Idioma**; queda activo). El idioma **sigue el selector Idioma** de Control (ES / EN / PT / FR / ZH)
+4. Poné el ítem **En vivo**. Prioridad **letra real** del idioma de Control:
+   - YouTube: captions **manuales/oficiales** (luego auto) **solo** en el idioma de Control (`es` / `es-419`…) — tiempos y texto **sin reshape ni Marian**; si no hay pista en ese idioma, bestaudio → Whisper `-l es` (no translate-from-EN)
+   - Local: sidecar SRT/VTT o softsubs → si faltan, `ffmpeg` → WAV → **whisper.cpp** (`whisper-cli` + **ggml-base**; `-l <idioma de Control>`, `-ml 48 -sow`)
+   - Se filtran etiquetas no-speech (`[MUSIC]`, `[MÚSICA]`, etc.); un job vacío → hint `no_speech`
+5. Overlay: estilo cancionero; **default Adelante = 0** (sync con clocks oficiales). Captions nativos usan `timingMode=exact` (sin intro-hold). ASR fallback usa assisted + intro-hold. Tamaño SM–XL junto al botón.
 
 **Primera ejecución (descarga de modelos)**
 
-- Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-base.bin` (~142 MB) a `promedia/data/models/whisper/` (gitignore). Más preciso que `ggml-tiny` (~75 MB); override `SUBTITLE_WHISPER_CPP_MODEL=ggml-tiny.bin` si hace falta. La descarga es atómica (tmp único + rename) y se coalescen jobs concurrentes. ASR no arranca hasta tamaño válido (~140 MB+ para base). El hub pasa `-l auto`, `-ml 48 -sow` (líneas cortas tipo letra oficial) y `-sns` cuando el CLI lo acepta. Luego offline. Referencia de calidad: captions **manuales** de YouTube (p. ej. *Cuán grande es Él* `G6P1VnEPvjg`).
-- Sin whisper-cli: error claro `whisper_cpp_missing` → `brew install whisper-cpp` (no se usa Xenova/ONNX por defecto).
-- Errores claros en Control: `whisper_cpp_missing` / `whisper_cpp_failed` / `model_download_failed`.
-- Caché de cues por asset: `promedia/data/subtitles/cache/`
-- WAV temporal: `promedia/data/subtitles/wav/`
-- Audio YouTube cacheado: `promedia/data/subtitles/youtube-cache/` (gitignore; no commitear)
-- Requiere **`ffmpeg`** + **`whisper-cli`** (o `FFMPEG_PATH` / `WHISPER_CPP_PATH`); YouTube también **`yt-dlp`**
-- Backend: `SUBTITLE_ASR_BACKEND=auto|whisper_cpp|transformers` (default `auto` = solo whisper-cli; `transformers` es opt-in)
+- Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-base.bin` (~142 MB) a `promedia/data/models/whisper/` (gitignore). Override `SUBTITLE_WHISPER_CPP_MODEL=ggml-tiny.bin` si hace falta. El hub pasa `-l <idioma de Control>` (no `auto`), `-ml 48 -sow`. Caché ASR **`_v6`** (borrar `data/subtitles/cache` tras actualizar). Referencia: captions manuales ES de `G6P1VnEPvjg`.
+- Sin whisper-cli: error `whisper_cpp_missing` → `brew install whisper-cpp` (no Xenova por defecto).
+- Caché: `data/subtitles/cache/`, `wav/`, `youtube-cache/` (gitignore)
+- Requiere **`ffmpeg`** + **`whisper-cli`**; YouTube también **`yt-dlp`**
+- Backend: `SUBTITLE_ASR_BACKEND=auto|whisper_cpp|transformers` (default `auto` = solo whisper-cli)
 
-**Traducción (enfoque por etapas)**
+**Traducción**
 
-- **(A)** Siempre: cues ASR con marcas de tiempo (idioma de origen / Whisper)
-- **(B)** Si hay modelo Marian local para el par (o vía inglés), el hub traduce a `targetLang`
-- Si no hay modelo para el par: se muestran las cues de origen y un aviso `mt_source_only` (sin inventar traducción)
+- Captions / sidecar en el idioma de Control: **nunca** Marian (ni ES→ES ni EN→ES sobre letra oficial)
+- ASR mismo idioma: sin MT. Marian solo si hiciera falta un par cruzado (legado; el agente nativo lo evita)
 
 **Límites**
 
@@ -396,7 +392,7 @@ cd promedia
 - Guion multi-tipo con drag, multi-select, guardar/cargar
 - Texto: import PDF (hub), XML, `.txt`/`.md` → slides
 - Preview ≠ live; transporte vídeo + `mediaClock`
-- **Agente subtítulos** local (whisper.cpp ggml-base + MT opcional; archivos o YouTube vía yt-dlp)
+- **Subtítulos nativos** (captions oficiales / SRT; Whisper `-l` fallback; sin Marian sobre letra)
 - Escenas, temas, transiciones 0,5 s en Output
 - i18n ES · EN · PT · FR · ZH
 - Banner GAM opcional en Control

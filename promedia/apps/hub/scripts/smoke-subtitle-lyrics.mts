@@ -19,6 +19,7 @@ import {
 import {
   mergeMicroLyricCues,
   normalizeLyricPunctuation,
+  preserveNativeCaptionCues,
   shapeLyricLikeCues,
   splitLongLyricText,
 } from "../src/subtitle-lyric-shape.ts";
@@ -181,6 +182,8 @@ The club isn't the best place to find a lover
   const expanded = expandCaptionPreferLangs(["es"]);
   assert(expanded[0] === "es" || expanded.includes("es"), "expand keeps es");
   assert(expanded.includes("es-419"), "expand Spanish regional");
+  // Native agent must NOT auto-append English (that fed Marian on missing ES).
+  assert(!expanded.includes("en"), "expand es must not force en fallback");
 
   // Gold-standard hymn lines (Cuán grande es Él density) stay short + timed.
   const hymn: SubtitleCue[] = [
@@ -228,21 +231,38 @@ The club isn't the best place to find a lover
       text: "Mi corazón entona la canción",
     },
   ];
+  // Native path: clocks + wording unchanged (no tighten / capitalize).
+  const nativeHymn = preserveNativeCaptionCues(hymn);
+  assert(nativeHymn.length === hymn.length, "native keeps cue count");
+  assert(
+    nativeHymn[0]!.startMs === 12_000 && nativeHymn[0]!.text === "Señor mi Dios",
+    "native preserves first cue clock+text",
+  );
+  assert(
+    cueAtPositionWithLeadMs(nativeHymn, 0, 0, { holdIntro: false }) === null,
+    "exact timing: blank before first official startMs",
+  );
+  assert(
+    cueAtPositionWithLeadMs(nativeHymn, 12_500, 0, { holdIntro: false })?.text ===
+      "Señor mi Dios",
+    "exact timing: first lyric at official window",
+  );
+
   const shapedHymn = shapeLyricLikeCues(hymn);
   assert(shapedHymn.length >= 6, `hymn cues kept, got ${shapedHymn.length}`);
   assert(
     shapedHymn[0]!.text.toLowerCase().includes("señor"),
     `hymn wording: ${shapedHymn[0]?.text}`,
   );
-  // Intro-hold (#80) still sees first lyric before startMs.
+  // Assisted ASR path still uses intro-hold.
   assert(
-    cueAtPositionWithLeadMs(shapedHymn, 0, 0)?.text
+    cueAtPositionWithLeadMs(shapedHymn, 0, 0, { holdIntro: true })?.text
       .toLowerCase()
       .includes("señor"),
-    "intro-hold still shows first hymn line at t=0",
+    "assisted intro-hold shows first hymn line at t=0",
   );
   assert(
-    cueAtPositionWithLeadMs(shapedHymn, 0, -2000)?.text
+    cueAtPositionWithLeadMs(shapedHymn, 0, -2000, { holdIntro: true })?.text
       .toLowerCase()
       .includes("señor"),
     "Adelante −2 still works with shaped cues",

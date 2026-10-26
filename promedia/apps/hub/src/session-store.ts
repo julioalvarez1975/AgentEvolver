@@ -24,6 +24,7 @@ import {
   emptyPlaylist,
   emptySubtitleAgentState,
   isSubtitleFontSize,
+  isSubtitleTimingMode,
   normalizeSubtitleLeadMs,
   isSceneMode,
   isThemeId,
@@ -187,11 +188,15 @@ export class SessionStore {
         typeof agent.leadMs === "number" &&
         Number.isFinite(agent.leadMs) &&
         agent.leadMs === normalizeSubtitleLeadMs(agent.leadMs);
-      if (!fontOk || !leadOk) {
+      const timingOk = isSubtitleTimingMode(
+        (agent as { timingMode?: unknown }).timingMode,
+      );
+      if (!fontOk || !leadOk || !timingOk) {
         session.live.subtitleAgent = {
           ...agent,
           fontSize: fontOk ? agent.fontSize : "md",
           leadMs: normalizeSubtitleLeadMs(agent.leadMs),
+          timingMode: timingOk ? agent.timingMode : "exact",
         };
       }
     }

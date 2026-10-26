@@ -6,6 +6,7 @@ import type {
   SubtitleFontSize,
   SubtitleLeadMs,
   SubtitleTargetLang,
+  SubtitleTimingMode,
   VideoPlaylistItem,
 } from "@promedia/shared";
 import {
@@ -27,7 +28,11 @@ import { tryLocalCaptionTracks } from "./subtitle-local-tracks.js";
 import { ensureSubtitleDirs } from "./subtitle-paths.js";
 import { translateCuesLocal } from "./subtitle-translate.js";
 import { filterSpeechCues } from "./subtitle-cue-text.js";
-import { shapeLyricLikeCues } from "./subtitle-lyric-shape.js";
+import { cuesLikelyInLanguage } from "./subtitle-lang-detect.js";
+import {
+  preserveNativeCaptionCues,
+  shapeLyricLikeCues,
+} from "./subtitle-lyric-shape.js";
 import {
   ensureYoutubeAudio,
   expandCaptionPreferLangs,
@@ -36,6 +41,14 @@ import {
 } from "./subtitle-youtube.js";
 import type { SessionRecord } from "./session-store.js";
 import { sessionStore } from "./session-store.js";
+
+/** Cap lang tag to 2-letter base (`es-419` → `es`). */
+function langBase(lang: string | null | undefined): string | null {
+  if (!lang) return null;
+  const l = lang.toLowerCase();
+  if (l.startsWith("zh")) return "zh";
+  return l.slice(0, 2);
+}
 
 /** In-flight jobs keyed by sessionId — cancel by generation bump. */
 const jobGeneration = new Map<string, number>();
@@ -235,7 +248,12 @@ function hintForReason(
   }
 }
 
-/** Finish job from caption/ASR cues (shared by YT, sidecar, Whisper). */
+/**
+ * Finish job from caption/ASR cues.
+ *
+ * Native path (YouTube/sidecar matching UI lang): keep clocks + words as-is,
+ * never Marian, exact timing (no intro-hold). ASR fallback may shape + assist.
+ */
 async function finishWithCues(options: {
   sessionId: string;
   gen: number;
@@ -245,8 +263,11 @@ async function finishWithCues(options: {
   sourceLang: string | null;
   targetLang: SubtitleTargetLang;
   alreadyEnglish: boolean;
+  /** Official captions / sidecar — skip shape + MT when lang matches UI. */
+  nativeTrack?: boolean;
   preserveLyricsSource?: boolean;
   hint?: string | null;
+  timingMode?: SubtitleTimingMode;
 }): Promise<boolean> {
   const {
     sessionId,
@@ -256,15 +277,30 @@ async function finishWithCues(options: {
     targetLang,
     alreadyEnglish,
     preserveLyricsSource,
+    nativeTrack,
   } = options;
-  let cues = shapeLyricLikeCues(filterSpeechCues(options.cues));
+  const speech = filterSpeechCues(options.cues);
+  let cues = nativeTrack
+    ? preserveNativeCaptionCues(speech)
+    : shapeLyricLikeCues(speech);
   let translated = alreadyEnglish && targetLang === "en";
   let hint = options.hint ?? null;
   let sourceLang = options.sourceLang;
+  const srcBase = langBase(sourceLang) || (alreadyEnglish ? "en" : null);
+  const tgtBase = langBase(targetLang) || targetLang;
+  const sameLang =
+    (srcBase !== null && srcBase === tgtBase) ||
+    (speech.length > 0 && cuesLikelyInLanguage(speech, tgtBase));
+
+  // Native matching-lang captions: never Marian, never reshape timings again.
+  const skipMt =
+    nativeTrack === true ||
+    sameLang ||
+    (preserveLyricsSource === true && sameLang);
 
   if (!cues.length) return false;
 
-  if (targetLang !== "en" || !alreadyEnglish) {
+  if (!skipMt && (targetLang !== "en" || !alreadyEnglish)) {
     const live = sessionStore.get(sessionId);
     if (!live?.live.subtitleAgent?.enabled || !isCurrent(sessionId, gen)) {
       return false;
@@ -275,6 +311,7 @@ async function finishWithCues(options: {
       sourceLang,
       targetLang,
       alreadyEnglish,
+      // Cross-lang only reaches here; preserve still blocks Marian on lyrics.
       preserveLyricsSource: preserveLyricsSource === true,
     });
     cues = shapeLyricLikeCues(filterSpeechCues(mt.cues));
@@ -289,6 +326,8 @@ async function finishWithCues(options: {
     if (!sourceLang && alreadyEnglish) {
       sourceLang = "en";
     }
+  } else if (sameLang && !sourceLang) {
+    sourceLang = tgtBase;
   }
 
   if (!isCurrent(sessionId, gen)) return false;
@@ -296,13 +335,21 @@ async function finishWithCues(options: {
   if (!liveFinal?.live.subtitleAgent?.enabled) return false;
   if (!cues.length) return false;
 
+  const timingMode: SubtitleTimingMode =
+    options.timingMode ?? (nativeTrack ? "exact" : "assisted");
+
+  if (nativeTrack && !hint) {
+    hint = "native_captions";
+  }
+
   clearYtHardFail(sessionId);
   patchAndBroadcast(liveFinal, {
     status: "ready",
     cues,
     sourceLang,
     translated,
-    hint,
+    timingMode,
+    hint: hint ?? (nativeTrack ? "native_captions" : null),
     itemId,
     assetId,
   });
@@ -521,9 +568,9 @@ async function runSubtitleJob(
         sourceLang: null,
       });
 
-      // Prefer YouTube **manual** lyric captions (then auto) matching app
-      // language over Whisper — official tracks are the gold standard.
-      const preferLangs = expandCaptionPreferLangs([targetLang, "en"]);
+      // Native agent: only captions matching UI language (no EN→Marian fallback).
+      // Missing matching track → Whisper `-l <targetLang>` below.
+      const preferLangs = expandCaptionPreferLangs([targetLang]);
       const caps = await tryYoutubeCaptions({
         videoId: resolved.youtube.videoId,
         sourceUrl: resolved.youtube.sourceUrl,
@@ -532,21 +579,35 @@ async function runSubtitleJob(
       if (!isCurrent(sessionId, gen)) return;
 
       if (caps && caps.cues.length > 0) {
-        const ok = await finishWithCues({
-          sessionId,
-          gen,
-          itemId: resolved.item.id,
-          assetId: caps.assetId,
-          cues: caps.cues,
-          sourceLang: caps.sourceLang,
-          targetLang,
-          alreadyEnglish: caps.sourceLang === "en",
-          // Keep accurate YT lyric text; Marian often mangles song poetry.
-          preserveLyricsSource: true,
-        });
-        if (ok) return;
+        const capBase = langBase(caps.sourceLang);
+        const tgt = langBase(targetLang);
+        // Only accept tracks that match the UI language (es/es-419…).
+        if (capBase && tgt && capBase === tgt) {
+          const ok = await finishWithCues({
+            sessionId,
+            gen,
+            itemId: resolved.item.id,
+            assetId: caps.assetId,
+            cues: caps.cues,
+            sourceLang: caps.sourceLang,
+            targetLang,
+            alreadyEnglish: false,
+            nativeTrack: true,
+            preserveLyricsSource: true,
+            timingMode: "exact",
+            hint:
+              caps.trackKind === "manual"
+                ? "native_captions"
+                : "native_captions_auto",
+          });
+          if (ok) return;
+        } else {
+          console.warn(
+            `[subtitle] skipping cross-lang YouTube captions (${caps.sourceLang}) for UI=${targetLang} — ASR -l ${targetLang}`,
+          );
+        }
         console.warn(
-          "[subtitle] YouTube captions had no speech/lyric cues — falling back to Whisper ASR",
+          "[subtitle] YouTube captions unused — falling back to Whisper ASR in target language",
         );
       }
 
@@ -622,22 +683,34 @@ async function runSubtitleJob(
       });
       if (!isCurrent(sessionId, gen)) return;
       if (local && local.cues.length > 0) {
-        const ok = await finishWithCues({
-          sessionId,
-          gen,
-          itemId: resolved.item.id,
-          assetId,
-          cues: local.cues,
-          sourceLang: local.sourceLang,
-          targetLang,
-          alreadyEnglish: local.sourceLang === "en",
-          preserveLyricsSource: true,
-          hint:
-            local.origin === "sidecar"
-              ? "local_sidecar"
-              : "local_embedded",
-        });
-        if (ok) return;
+        const localBase = langBase(local.sourceLang);
+        const tgt = langBase(targetLang);
+        const langMatches =
+          !local.sourceLang ||
+          !localBase ||
+          !tgt ||
+          localBase === tgt ||
+          cuesLikelyInLanguage(local.cues, tgt);
+        if (langMatches) {
+          const ok = await finishWithCues({
+            sessionId,
+            gen,
+            itemId: resolved.item.id,
+            assetId,
+            cues: local.cues,
+            sourceLang: local.sourceLang ?? tgt,
+            targetLang,
+            alreadyEnglish: false,
+            nativeTrack: true,
+            preserveLyricsSource: true,
+            timingMode: "exact",
+            hint:
+              local.origin === "sidecar"
+                ? "local_sidecar"
+                : "local_embedded",
+          });
+          if (ok) return;
+        }
       }
     }
 
@@ -679,9 +752,14 @@ async function runSubtitleJob(
       itemId: resolved.item.id,
       assetId,
       cues: asr.cues,
-      sourceLang: asr.sourceLang,
+      sourceLang: asr.sourceLang ?? (asr.whisperTranslatedToEn ? "en" : targetLang),
       targetLang,
       alreadyEnglish: asr.whisperTranslatedToEn,
+      // ASR fallback: shape + assisted intro-hold; skip Marian when same lang.
+      nativeTrack: false,
+      preserveLyricsSource: false,
+      timingMode: "assisted",
+      hint: "asr_fallback",
     });
     if (okAsr) return;
 

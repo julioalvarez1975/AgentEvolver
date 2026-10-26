@@ -352,9 +352,31 @@ export const SUBTITLE_LEAD_MS_OPTIONS: readonly SubtitleLeadMs[] = [
 ] as const;
 
 /**
- * Default stays at 2s early (−2) — previous UX defaulted to a lead, not sync.
+ * Native caption agent default: sync with cue clocks (YouTube/sidecar as-is).
+ * Operators can still pick Adelante −3…−0.5 via the toolbar.
  */
-export const DEFAULT_SUBTITLE_LEAD_MS: SubtitleLeadMs = -2000;
+export const DEFAULT_SUBTITLE_LEAD_MS: SubtitleLeadMs = 0;
+
+/**
+ * How the overlay maps mediaClock → cue.
+ * - `exact`: cue windows as stored (official captions / no intro-hold).
+ * - `assisted`: intro-hold first lyric through musical lead-in (ASR fallback).
+ */
+export type SubtitleTimingMode = "exact" | "assisted";
+
+export const SUBTITLE_TIMING_MODES: readonly SubtitleTimingMode[] = [
+  "exact",
+  "assisted",
+] as const;
+
+export function isSubtitleTimingMode(
+  value: unknown,
+): value is SubtitleTimingMode {
+  return (
+    typeof value === "string" &&
+    (SUBTITLE_TIMING_MODES as readonly string[]).includes(value)
+  );
+}
 
 export function isSubtitleLeadMs(value: unknown): value is SubtitleLeadMs {
   return (
@@ -400,6 +422,11 @@ export type SubtitleAgentState = {
    * Only affects agent ASR/YouTube cues — not manual song slides.
    */
   leadMs: SubtitleLeadMs;
+  /**
+   * `exact` = native captions (YouTube/sidecar clocks as-is, no intro-hold).
+   * `assisted` = ASR fallback (intro-hold through musical intro).
+   */
+  timingMode: SubtitleTimingMode;
   /** Playlist item the current cues belong to (if any). */
   itemId: string | null;
   /** Asset id used for ASR cache (`file` asset id, or `yt_<videoId>` for YouTube). */
@@ -423,6 +450,7 @@ export function emptySubtitleAgentState(
     status: "off",
     fontSize: "md",
     leadMs: DEFAULT_SUBTITLE_LEAD_MS,
+    timingMode: "exact",
     itemId: null,
     assetId: null,
     sourceLang: null,
@@ -433,7 +461,7 @@ export function emptySubtitleAgentState(
   };
 }
 
-/** Coerce legacy snapshots missing fontSize / leadMs. */
+/** Coerce legacy snapshots missing fontSize / leadMs / timingMode. */
 export function normalizeSubtitleAgentState(
   raw: SubtitleAgentState | null | undefined,
 ): SubtitleAgentState {
@@ -444,6 +472,11 @@ export function normalizeSubtitleAgentState(
     leadMs: normalizeSubtitleLeadMs(
       (base as { leadMs?: unknown }).leadMs,
     ),
+    timingMode: isSubtitleTimingMode(
+      (base as { timingMode?: unknown }).timingMode,
+    )
+      ? (base as { timingMode: SubtitleTimingMode }).timingMode
+      : "exact",
   };
 }
 
@@ -464,20 +497,30 @@ export function cueAtPositionMs(
   return null;
 }
 
+export type CueLeadLookupOptions = {
+  /**
+   * When true (assisted ASR), hold the first lyric from t=0 through its
+   * startMs. When false (native captions), only show cues inside their
+   * real windows — matches official YouTube lyric timing.
+   */
+  holdIntro?: boolean;
+};
+
 /**
  * Cue for display with signed offset: lookup at `positionMs - leadMs`.
  * Negative leadMs (adelante) advances the cue so the line is readable before
  * the sung words (timed agent cues only).
  *
- * Intro hold: before the first timed cue (musical intro / filtered [MÚSICA]
- * labels), keep showing that first lyric from media start so the line appears
- * with (or slightly ahead of, via Adelante) the theme — not many seconds late.
+ * Intro hold (assisted only): before the first timed cue (musical intro /
+ * filtered [MÚSICA] labels), keep showing that first lyric from media start.
+ * Native / exact mode skips this so clocks match uploaded captions.
  * Gaps after the first cue stay blank (no fill-forward).
  */
 export function cueAtPositionWithLeadMs(
   cues: readonly SubtitleCue[],
   positionMs: number,
   leadMs: number,
+  options?: CueLeadLookupOptions,
 ): SubtitleCue | null {
   const offset =
     typeof leadMs === "number" && Number.isFinite(leadMs)
@@ -489,6 +532,10 @@ export function cueAtPositionWithLeadMs(
     return hit;
   }
   if (!cues.length || !Number.isFinite(lookup)) {
+    return null;
+  }
+  const holdIntro = options?.holdIntro !== false;
+  if (!holdIntro) {
     return null;
   }
   const first = cues[0]!;

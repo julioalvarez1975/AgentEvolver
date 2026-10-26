@@ -231,8 +231,26 @@ export function tightenLyricCueStarts(cues: SubtitleCue[]): SubtitleCue[] {
 }
 
 /**
- * Shape ASR / auto-caption cues toward official lyric-track density.
- * Manual tracks that already look like lyrics only get punctuation polish.
+ * Official / sidecar captions for the **native** agent: keep VTT/SRT clocks
+ * and wording as-is. Only drop non-speech labels and light space cleanup —
+ * never merge/split/tighten (those shift times vs YouTube lyric videos).
+ */
+export function preserveNativeCaptionCues(cues: SubtitleCue[]): SubtitleCue[] {
+  const speech = speechOnly(cues);
+  if (!speech.length) return [];
+  return reId(
+    speech.map((c) => ({
+      ...c,
+      // Clean tags/entities only — do not capitalize or re-punctuate lyrics.
+      text: cleanCueText(c.text),
+    })),
+  );
+}
+
+/**
+ * Shape ASR / weak auto-caption fallbacks toward lyric-track density.
+ * Native matching-lang tracks must use {@link preserveNativeCaptionCues}
+ * instead — do not call this on official YouTube manuals.
  */
 export function shapeLyricLikeCues(cues: SubtitleCue[]): SubtitleCue[] {
   const speech = speechOnly(cues);

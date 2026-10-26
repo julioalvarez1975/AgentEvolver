@@ -43,9 +43,9 @@ const SUBTITLE_FIT_BY_SIZE: Record<
  * Upper-stage projection captions (cancionero look via FittedTextStage).
  * Soft-wrap ≤5 lines, largest type that fits (no width overflow), theme shadow,
  * centered H+V inside the upper band. Timing prefers hub mediaClock; negative
- * `leadMs` (adelante) shows the cue early; intro-hold keeps the first lyric on
- * screen from media start through any musical lead-in. Manual ←/→ song slides
- * do not use this path.
+ * `leadMs` (adelante) shows the cue early. Assisted timingMode holds the first
+ * lyric through musical lead-in; exact (native captions) uses cue windows only.
+ * Manual ←/→ song slides do not use this path.
  */
 export function SubtitleOverlay({
   agent,
@@ -56,6 +56,7 @@ export function SubtitleOverlay({
   const state = agent ?? emptySubtitleAgentState();
   const fontSize = isSubtitleFontSize(state.fontSize) ? state.fontSize : "md";
   const leadMs = normalizeSubtitleLeadMs(state.leadMs);
+  const holdIntro = state.timingMode !== "exact";
   const fit = SUBTITLE_FIT_BY_SIZE[fontSize];
   const [nowMs, setNowMs] = useState(() => Date.now());
 
@@ -96,7 +97,9 @@ export function SubtitleOverlay({
       return null;
     }
 
-    return cueAtPositionWithLeadMs(state.cues, positionMs, leadMs);
+    return cueAtPositionWithLeadMs(state.cues, positionMs, leadMs, {
+      holdIntro,
+    });
   }, [
     state.enabled,
     state.itemId,
@@ -107,6 +110,7 @@ export function SubtitleOverlay({
     localPositionMs,
     nowMs,
     leadMs,
+    holdIntro,
   ]);
 
   const displayLines = useMemo(() => {

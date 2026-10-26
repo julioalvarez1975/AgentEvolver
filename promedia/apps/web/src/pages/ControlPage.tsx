@@ -220,8 +220,17 @@ export function ControlPage() {
         if (hint === "mt_source_only") {
           return t("control.subtitleAgentSourceOnly");
         }
+        if (
+          hint === "native_captions" ||
+          hint === "native_captions_auto"
+        ) {
+          return t("control.subtitleAgentNativeReady");
+        }
         if (hint === "local_sidecar" || hint === "local_embedded") {
           return t("control.subtitleAgentLocalTracksReady");
+        }
+        if (hint === "asr_fallback") {
+          return t("control.subtitleAgentAsrReady");
         }
         return t("control.subtitleAgentReady");
       }

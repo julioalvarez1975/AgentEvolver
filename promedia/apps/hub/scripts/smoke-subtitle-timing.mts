@@ -1,9 +1,10 @@
 /**
- * Smoke: cue intro-hold + Adelante lead + mediaClock cold-start snap.
+ * Smoke: exact (native) vs assisted intro-hold + Adelante + cold-start snap.
  * Usage: pnpm --filter @promedia/hub exec tsx scripts/smoke-subtitle-timing.mts
  */
 import {
   cueAtPositionWithLeadMs,
+  DEFAULT_SUBTITLE_LEAD_MS,
   effectiveMediaClockPositionMs,
   type MediaClock,
   type SubtitleCue,
@@ -20,12 +21,25 @@ const cues: SubtitleCue[] = [
 ];
 
 function main(): void {
-  // At theme start (t=0), first lyric must already be visible (cancionero).
-  const atStart = cueAtPositionWithLeadMs(cues, 0, 0);
+  assert(DEFAULT_SUBTITLE_LEAD_MS === 0, "native default lead is 0");
+
+  // Native / exact: blank until official startMs (matches YouTube lyric video).
+  assert(
+    cueAtPositionWithLeadMs(cues, 0, 0, { holdIntro: false }) === null,
+    "exact: no intro-hold at t=0",
+  );
+  assert(
+    cueAtPositionWithLeadMs(cues, 12_500, 0, { holdIntro: false })?.text ===
+      "Primera letra",
+    "exact: first lyric at official window",
+  );
+
+  // Assisted ASR: at theme start, first lyric visible (cancionero hold).
+  const atStart = cueAtPositionWithLeadMs(cues, 0, 0, { holdIntro: true });
   assert(atStart?.text === "Primera letra", `intro hold @0: ${atStart?.text}`);
 
   // Adelante −2s: still hold first line at t=0; natural window opens earlier.
-  const withLead = cueAtPositionWithLeadMs(cues, 0, -2000);
+  const withLead = cueAtPositionWithLeadMs(cues, 0, -2000, { holdIntro: true });
   assert(withLead?.text === "Primera letra", "intro hold with Adelante −2");
 
   // Inside first cue window (no lead).

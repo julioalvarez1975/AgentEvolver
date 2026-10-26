@@ -10,8 +10,8 @@ import {
 } from "./subtitle-bins.js";
 import { filterSpeechCues } from "./subtitle-cue-text.js";
 import {
+  preserveNativeCaptionCues,
   scoreCaptionCueQuality,
-  shapeLyricLikeCues,
 } from "./subtitle-lyric-shape.js";
 import { ensureSubtitleDirs } from "./subtitle-paths.js";
 import { extractWav16k } from "./subtitle-asr.js";
@@ -518,7 +518,9 @@ export function expandCaptionPreferLangs(preferLangs: string[]): string[] {
       push("en-gb");
     }
   }
-  push("en");
+  // Callers that want an English fallback must pass "en" in preferLangs.
+  // Native agent passes only the UI language so we never pick EN captions
+  // (and Marian) when a Spanish track is missing — ASR `-l es` is preferred.
   return out;
 }
 
@@ -982,16 +984,18 @@ export async function tryYoutubeCaptions(options: {
   const best = scored[0];
   if (!best) return null;
 
-  // Polish wording / density toward cancionero; good manual tracks keep timing.
-  const cues = shapeLyricLikeCues(best.cues);
+  // Native agent: keep official VTT clocks/words — no lyric-shape drift.
+  // (ASR fallback still shapes in subtitle-asr / finishWithCues.)
+  const cues = preserveNativeCaptionCues(best.cues);
   const sourceLang = captionLangBase(best.cand.lang);
   console.log(
-    `[subtitle] YouTube captions used kind=${best.trackKind} lang=${best.cand.lang} cues=${cues.length} quality=${best.quality} → ${best.cand.filePath}`,
+    `[subtitle] native captions kind=${best.trackKind} lang=${best.cand.lang} cues=${cues.length} quality=${best.quality} → ${best.cand.filePath}`,
   );
   void writeFile(
     metaPath,
     JSON.stringify(
       {
+        agent: "native_v1",
         lang: best.cand.lang,
         sourceLang,
         trackKind: best.trackKind,
