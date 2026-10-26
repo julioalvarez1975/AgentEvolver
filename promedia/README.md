@@ -183,13 +183,15 @@ API hub: `/api/v1/library/*` (listar, subir, canciones, importar Biblias, añadi
 
 #### Importar Biblias (local, no Git)
 
-Las traducciones con **copyright** (RV1960, NVI, NTV, TLA, LBLA, DHH, …) **no se commitean** al repo. El operador las coloca en su máquina:
+Las traducciones con **copyright** (RV1960, NVI, NTV, TLA, LBLA, DHH, …) **no se commitean** al repo. El operador las coloca en su máquina.
+
+Tras el **primer arranque** del hub, ProMedia crea sola la carpeta `promedia/data/library/bibles/import/` (y `files/`) — no hace falta `mkdir` a mano. Alternativa: subir desde **Biblioteca → Biblias** (no requiere esa carpeta).
 
 1. Copiá los `.xml` / `.xmm` / PDF a `promedia/data/library/bibles/import/` **o** subilos en **Biblioteca → Biblias**
-2. Reiniciá el hub (o pulsá **Importar carpeta local** en Biblioteca)
+2. Pulsá **Importar carpeta local** en Biblioteca (o reiniciá el hub si acabás de copiar archivos)
 3. En **Guion → Biblia**, elegí la versión (etiqueta `[local]`) y buscá el pasaje
 
-También: `node scripts/import-bibles.mjs` (llama a `POST /api/v1/library/bibles/import-folder`). El texto canónico queda en `data/library/files/*/canon.json` (gitignore).
+También: `node scripts/import-bibles.mjs` (crea `bibles/import` si falta y llama a `POST /api/v1/library/bibles/import-folder`). El texto canónico queda en `data/library/files/*/canon.json` (gitignore).
 
 ### Vista previa + En vivo
 

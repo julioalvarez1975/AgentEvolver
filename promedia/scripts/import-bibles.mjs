@@ -9,6 +9,21 @@
  *   node scripts/import-bibles.mjs
  *   HUB_URL=http://127.0.0.1:8787 node scripts/import-bibles.mjs
  */
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const defaultImportDir = path.resolve(
+  __dirname,
+  "../data/library/bibles/import",
+);
+const importDir =
+  process.env.BIBLE_IMPORT_DIR?.trim() || defaultImportDir;
+
+// Ensure drop folder exists before the hub scans (Finder-friendly; no manual mkdir).
+await mkdir(importDir, { recursive: true });
+
 const hub = (process.env.HUB_URL || "http://127.0.0.1:8787").replace(/\/$/, "");
 const url = `${hub}/api/v1/library/bibles/import-folder`;
 

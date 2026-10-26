@@ -4,12 +4,26 @@ import { cors } from "hono/cors";
 import type { Server } from "node:http";
 import { SHARED_PACKAGE_VERSION } from "@promedia/shared";
 import { setSessionBroadcaster } from "./broadcast.js";
+import { ensureLibraryLayout } from "./library-store.js";
 import { createApiRoutes } from "./routes.js";
 import { WsHub } from "./ws-hub.js";
 
 const app = new Hono();
 const port = Number(process.env.PORT ?? 8787);
 const deployMode = (process.env.PROMEDIA_MODE ?? "lan").toLowerCase();
+
+// Create data/library/{files,bibles/import} on boot so Finder shows them
+// after first launch (no manual mkdir for Bible drop folder).
+try {
+  const layout = await ensureLibraryLayout();
+  console.log(`[hub] library ready: ${layout.root}`);
+  console.log(`[hub] Bible import folder: ${layout.bibleImport}`);
+} catch (err) {
+  console.error(
+    "[hub] WARN: no se pudo crear la carpeta de biblioteca:",
+    err instanceof Error ? err.message : err,
+  );
+}
 
 app.use(
   "*",
