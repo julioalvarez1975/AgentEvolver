@@ -305,14 +305,14 @@ export type SubtitleAgentState = {
   status: SubtitleAgentStatus;
   /** Playlist item the current cues belong to (if any). */
   itemId: string | null;
-  /** Asset id used for ASR (local file only). */
+  /** Asset id used for ASR cache (`file` asset id, or `yt_<videoId>` for YouTube). */
   assetId: string | null;
   /** Detected / source language of ASR (BCP-47-ish: es, en, …). */
   sourceLang: string | null;
   /** True when cue text was machine-translated to targetLang. */
   translated: boolean;
   cues: SubtitleCue[];
-  /** Operator-facing hint (YouTube disabled, text-only song, error, …). */
+  /** Operator-facing hint (downloading YouTube audio, text-only song, error, …). */
   hint: string | null;
   updatedAt: string | null;
 };

@@ -11,6 +11,7 @@ import { broadcastSession } from "./broadcast.js";
 import { mediaFileExists, transcribeLocalFile } from "./subtitle-asr.js";
 import { ensureSubtitleDirs } from "./subtitle-paths.js";
 import { translateCuesLocal } from "./subtitle-translate.js";
+import { ensureYoutubeAudio } from "./subtitle-youtube.js";
 import type { SessionRecord } from "./session-store.js";
 import { sessionStore } from "./session-store.js";
 
@@ -41,21 +42,31 @@ function patchAndBroadcast(
   broadcastSession(session.id, message);
 }
 
-function resolveLocalVideo(
+type ResolveOk = {
+  ok: true;
+  item: VideoPlaylistItem;
+  assetId: string;
+  /** Absolute path once media is local (file or after yt-dlp). */
+  mediaPath: string | null;
+  youtube: null | { videoId: string; sourceUrl: string };
+};
+
+type ResolveFail = {
+  ok: false;
+  reason:
+    | "no_item"
+    | "not_video"
+    | "no_asset"
+    | "missing_file"
+    | "bad_youtube";
+  item: PlaylistItem | null;
+};
+
+function resolveMediaSource(
   session: SessionRecord,
   itemId: string | null | undefined,
-):
-  | {
-      ok: true;
-      item: VideoPlaylistItem;
-      assetId: string;
-      mediaPath: string;
-    }
-  | { ok: false; reason: "no_item" | "youtube" | "not_video" | "no_asset" | "missing_file"; item: PlaylistItem | null } {
-  const id =
-    itemId ||
-    session.live.currentItemId ||
-    null;
+): ResolveOk | ResolveFail {
+  const id = itemId || session.live.currentItemId || null;
   if (!id) {
     return { ok: false, reason: "no_item", item: null };
   }
@@ -66,9 +77,25 @@ function resolveLocalVideo(
   if (item.type !== "video") {
     return { ok: false, reason: "not_video", item };
   }
+
   if (item.payload.sourceKind === "youtube") {
-    return { ok: false, reason: "youtube", item };
+    const videoId = item.payload.videoId?.trim();
+    const sourceUrl = item.payload.sourceUrl?.trim();
+    if (!videoId) {
+      return { ok: false, reason: "bad_youtube", item };
+    }
+    return {
+      ok: true,
+      item,
+      assetId: `yt_${videoId}`,
+      mediaPath: null,
+      youtube: {
+        videoId,
+        sourceUrl: sourceUrl || `https://www.youtube.com/watch?v=${videoId}`,
+      },
+    };
   }
+
   const assetId = item.payload.assetId;
   const asset = assetStore.get(session.id, assetId);
   if (!asset || asset.kind !== "video") {
@@ -85,16 +112,15 @@ function resolveLocalVideo(
     item,
     assetId,
     mediaPath,
+    youtube: null,
   };
 }
 
 function hintForReason(
-  reason: "no_item" | "youtube" | "not_video" | "no_asset" | "missing_file",
+  reason: ResolveFail["reason"],
   item: PlaylistItem | null,
 ): string {
   switch (reason) {
-    case "youtube":
-      return "youtube_phase1";
     case "not_video":
       if (item?.type === "text" || item?.type === "bible") {
         return "text_only_no_audio";
@@ -105,6 +131,8 @@ function hintForReason(
     case "no_asset":
     case "missing_file":
       return "missing_local_file";
+    case "bad_youtube":
+      return "youtube_invalid";
     default:
       return "unsupported";
   }
@@ -141,9 +169,10 @@ export function setSubtitleAgent(
     ...prev,
     enabled: true,
     targetLang,
-    status: prev.status === "ready" && prev.targetLang === targetLang
-      ? "ready"
-      : "idle",
+    status:
+      prev.status === "ready" && prev.targetLang === targetLang
+        ? "ready"
+        : "idle",
     hint: null,
     updatedAt: new Date().toISOString(),
   };
@@ -156,7 +185,7 @@ export function setSubtitleAgent(
   return message;
 }
 
-/** Re-run when Go Live changes the local file under an active agent. */
+/** Re-run when Go Live changes the A/V item under an active agent. */
 export function maybeRefreshSubtitleAgent(session: SessionRecord): void {
   const agent = session.live.subtitleAgent;
   if (!agent?.enabled) return;
@@ -175,7 +204,7 @@ async function runSubtitleJob(
   if (!agent?.enabled) return;
 
   const targetLang = agent.targetLang;
-  const resolved = resolveLocalVideo(session, preferredItemId);
+  const resolved = resolveMediaSource(session, preferredItemId);
 
   if (!resolved.ok) {
     if (!isCurrent(sessionId, gen)) return;
@@ -206,31 +235,70 @@ async function runSubtitleJob(
     return;
   }
 
-  const exists = await mediaFileExists(resolved.mediaPath);
-  if (!exists) {
-    if (!isCurrent(sessionId, gen)) return;
-    patchAndBroadcast(session, {
-      enabled: true,
-      targetLang,
-      status: "unsupported",
-      itemId: resolved.item.id,
-      assetId: resolved.assetId,
-      cues: [],
-      hint: "missing_local_file",
-    });
-    return;
-  }
-
   try {
     await ensureSubtitleDirs();
     if (!isCurrent(sessionId, gen)) return;
+
+    let mediaPath = resolved.mediaPath;
+    let assetId = resolved.assetId;
+
+    if (resolved.youtube) {
+      patchAndBroadcast(session, {
+        enabled: true,
+        targetLang,
+        status: "downloading",
+        itemId: resolved.item.id,
+        assetId,
+        hint: "youtube_audio",
+        cues: [],
+        translated: false,
+        sourceLang: null,
+      });
+
+      const yt = await ensureYoutubeAudio({
+        videoId: resolved.youtube.videoId,
+        sourceUrl: resolved.youtube.sourceUrl,
+      });
+      if (!isCurrent(sessionId, gen)) return;
+      mediaPath = yt.mediaPath;
+      assetId = yt.assetId;
+    }
+
+    if (!mediaPath) {
+      if (!isCurrent(sessionId, gen)) return;
+      patchAndBroadcast(session, {
+        enabled: true,
+        targetLang,
+        status: "error",
+        itemId: resolved.item.id,
+        assetId,
+        cues: [],
+        hint: "missing_local_file",
+      });
+      return;
+    }
+
+    const exists = await mediaFileExists(mediaPath);
+    if (!exists) {
+      if (!isCurrent(sessionId, gen)) return;
+      patchAndBroadcast(session, {
+        enabled: true,
+        targetLang,
+        status: "unsupported",
+        itemId: resolved.item.id,
+        assetId,
+        cues: [],
+        hint: "missing_local_file",
+      });
+      return;
+    }
 
     patchAndBroadcast(session, {
       enabled: true,
       targetLang,
       status: "extracting",
       itemId: resolved.item.id,
-      assetId: resolved.assetId,
+      assetId,
       hint: null,
       cues: [],
       translated: false,
@@ -241,15 +309,15 @@ async function runSubtitleJob(
     const translateToEn = targetLang === "en";
 
     const asr = await transcribeLocalFile({
-      mediaPath: resolved.mediaPath,
-      assetId: resolved.assetId,
+      mediaPath,
+      assetId,
       translateToEn,
       targetLang,
       onStatus: (st) => {
         if (!isCurrent(sessionId, gen)) return;
         const live = sessionStore.get(sessionId);
         if (!live?.live.subtitleAgent?.enabled) return;
-        patchAndBroadcast(live, { status: st });
+        patchAndBroadcast(live, { status: st, hint: null });
       },
     });
 
@@ -294,7 +362,7 @@ async function runSubtitleJob(
         translated: false,
         hint: "no_speech",
         itemId: resolved.item.id,
-        assetId: resolved.assetId,
+        assetId,
       });
       return;
     }
@@ -306,7 +374,7 @@ async function runSubtitleJob(
       translated,
       hint,
       itemId: resolved.item.id,
-      assetId: resolved.assetId,
+      assetId,
     });
   } catch (err) {
     console.error(
@@ -316,10 +384,11 @@ async function runSubtitleJob(
     if (!isCurrent(sessionId, gen)) return;
     const live = sessionStore.get(sessionId);
     if (!live) return;
+    const msg = err instanceof Error ? err.message : "asr_failed";
     patchAndBroadcast(live, {
       status: "error",
       cues: [],
-      hint: err instanceof Error ? err.message.slice(0, 180) : "asr_failed",
+      hint: msg.slice(0, 180),
       itemId: resolved.item.id,
       assetId: resolved.assetId,
     });

@@ -54,7 +54,7 @@ export type ControlHeaderToolbarProps = {
   sessionFallback?: ReactNode;
   /** Local AI subtitle agent (Phase 1). */
   subtitleAgentEnabled?: boolean;
-  /** Tooltip when current selection cannot run ASR (YouTube / text-only). */
+  /** Tooltip: help text, download progress, or ASR errors (incl. yt-dlp). */
   subtitleAgentTitle?: string;
   onToggleSubtitleAgent?: () => void;
 };
