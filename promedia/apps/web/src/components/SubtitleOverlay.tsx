@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { FittedTextStage } from "@promedia/item-types";
-import type { MediaClock, SubtitleAgentState } from "@promedia/shared";
+import type {
+  MediaClock,
+  SubtitleAgentState,
+  SubtitleFontSize,
+} from "@promedia/shared";
 import {
   cueAtPositionWithLeadMs,
   effectiveMediaClockPositionMs,
   emptySubtitleAgentState,
   isSubtitleFontSize,
+  normalizeProjectionLines,
   normalizeSubtitleLeadMs,
+  TEXT_PROJECTION_LINES,
 } from "@promedia/shared";
 
 export type SubtitleOverlayProps = {
@@ -22,10 +28,22 @@ export type SubtitleOverlayProps = {
   itemId?: string | null;
 };
 
+/** SM–XL biases fit target; band height still scales via CSS data-size. */
+const SUBTITLE_FIT_BY_SIZE: Record<
+  SubtitleFontSize,
+  { heightFrac: number; hardCapPx: number }
+> = {
+  sm: { heightFrac: 0.32, hardCapPx: 120 },
+  md: { heightFrac: 0.4, hardCapPx: 160 },
+  lg: { heightFrac: 0.48, hardCapPx: 200 },
+  xl: { heightFrac: 0.56, hardCapPx: 240 },
+};
+
 /**
  * Upper-stage projection captions (cancionero look via FittedTextStage).
- * Timing prefers hub mediaClock; negative `leadMs` (adelante) shows the cue early so the line is
- * readable before it is sung. Manual ←/→ song slides do not use this path.
+ * Soft-wrap ≤5 lines, largest type that fits (no width overflow), theme shadow,
+ * centered H+V inside the upper band. Timing prefers hub mediaClock; negative
+ * `leadMs` (adelante) shows the cue early. Manual ←/→ song slides do not use this path.
  */
 export function SubtitleOverlay({
   agent,
@@ -36,6 +54,7 @@ export function SubtitleOverlay({
   const state = agent ?? emptySubtitleAgentState();
   const fontSize = isSubtitleFontSize(state.fontSize) ? state.fontSize : "md";
   const leadMs = normalizeSubtitleLeadMs(state.leadMs);
+  const fit = SUBTITLE_FIT_BY_SIZE[fontSize];
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -88,15 +107,20 @@ export function SubtitleOverlay({
     leadMs,
   ]);
 
-  if (!cue?.text) {
+  const displayLines = useMemo(() => {
+    if (!cue?.text) {
+      return null;
+    }
+    const lines = normalizeProjectionLines([cue.text]).slice(
+      0,
+      TEXT_PROJECTION_LINES,
+    );
+    return lines.length > 0 ? lines : [cue.text.trim() || "\u00a0"];
+  }, [cue?.text]);
+
+  if (!cue?.text || !displayLines) {
     return null;
   }
-
-  const lines = cue.text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const displayLines = lines.length > 0 ? lines : [cue.text];
 
   return (
     <div
@@ -106,9 +130,11 @@ export function SubtitleOverlay({
     >
       <FittedTextStage
         lines={displayLines}
-        lineKey={`${cue.id}-${cue.startMs}`}
+        lineKey={`${cue.id}-${cue.startMs}-${fontSize}`}
         className="subtitle-overlay-fit text-output"
         lineClassName="text-output-line"
+        heightFrac={fit.heightFrac}
+        hardCapPx={fit.hardCapPx}
       />
     </div>
   );
