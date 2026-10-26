@@ -225,10 +225,9 @@ Subtítulos automáticos **100 % locales** (sin API keys ni STT/MT en la nube).
 
 1. Arrancá ProMedia (`pnpm dev` / launcher) y abrí **Control**
 2. Añadí un **vídeo o audio de archivo local** al Guion (subida / Biblioteca → Vídeos). **YouTube no** en fase 1
-3. Pulsá **Agente subtítulos** en la barra de herramientas (queda activo)
-4. Elegí el **idioma de subtítulos** (ES / EN / PT / FR / ZH) en el selector que aparece al lado
-5. Poné el ítem **En vivo** (o dejalo seleccionado en Vista previa): el hub extrae audio con `ffmpeg`, corre **Whisper tiny** local y opcionalmente traduce con modelos Marian/OPUS locales
-6. Las captions aparecen abajo al centro en Vista previa y en la ventana **Output**, alineadas al mismo `mediaClock`
+3. Pulsá **Agente subtítulos** en la barra (junto a **Proyectar** / **Idioma**; queda activo). El idioma de subtítulos **sigue el selector Idioma** de Control (ES / EN / PT / FR / ZH)
+4. Poné el ítem **En vivo** (o dejalo seleccionado en Vista previa): el hub extrae audio con `ffmpeg`, corre **Whisper tiny** local y opcionalmente traduce con modelos Marian/OPUS locales
+5. Las captions aparecen abajo al centro en Vista previa y en la ventana **Output**, alineadas al mismo `mediaClock`
 
 **Primera ejecución (descarga de modelos)**
 

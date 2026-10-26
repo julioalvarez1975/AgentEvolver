@@ -372,6 +372,29 @@ body {
   color: var(--muted);
 }
 
+/* Keep Project / Subtitle agent / Language / Library on the first wrap row. */
+.control-header-toolbar > .toolbar-primary-action {
+  flex: 0 0 auto;
+  order: 0;
+}
+
+/* Long “Agente subtítulos” label must stay readable — not icon-only / clipped. */
+.toolbar-subtitle-agent {
+  min-width: 4.6rem;
+  max-width: 6.2rem;
+  flex-shrink: 0;
+}
+
+.toolbar-subtitle-agent .toolbar-icon-btn-label {
+  display: block;
+  overflow: visible;
+  max-height: none;
+  white-space: normal;
+  word-break: break-word;
+  font-size: 0.56rem;
+  line-height: 1.15;
+}
+
 /* Active: tone only — no blue outline/ring (Julio polish). */
 .toolbar-icon-btn.active {
   border-color: var(--border);
@@ -550,6 +573,11 @@ body {
     min-width: 2.8rem;
     max-width: 3.5rem;
   }
+
+  .toolbar-subtitle-agent {
+    min-width: 4.2rem;
+    max-width: 5.8rem;
+  }
 }
 
 /* Narrow: tools keep wrapping; GAM full-width below the flat toolbar. */
@@ -640,6 +668,18 @@ body {
 
   .toolbar-icon-btn-label {
     font-size: 0.52rem;
+  }
+
+  .toolbar-subtitle-agent {
+    min-width: 3.8rem;
+    max-width: 5.4rem;
+  }
+
+  .toolbar-subtitle-agent .toolbar-icon-btn-label {
+    display: block;
+    overflow: visible;
+    max-height: none;
+    font-size: 0.5rem;
   }
 }
 
@@ -1461,10 +1501,7 @@ body {
   border-radius: 0.25em;
 }
 
-.toolbar-subtitle-lang {
-  min-width: 3.2rem;
-  max-width: 4.2rem;
-}
+/* Subtitle target lang follows Control language; no separate Subs select. */
 
 .scene-overlay-black {
   background: #000;
