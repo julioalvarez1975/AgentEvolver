@@ -118,7 +118,9 @@ export function VideoPreview({
       )}
       <p className="video-caveat">
         {isYoutube && projecting
-          ? "Preview local — reproducción en la ventana Output."
+          ? mediaClock?.playing
+            ? "Reproduciendo en Output — Preview no embebe un segundo YouTube."
+            : "Preview local — reproducción en la ventana Output (un solo iframe)."
           : "Preview local — no sincroniza Output hasta Go Live."}
       </p>
     </div>
@@ -292,6 +294,8 @@ function LiveSyncedYouTubePreview({
           videoId={videoId}
           title={title}
           className="video-yt-thumb-fill"
+          playing={transport.playing}
+          playingLabel="Reproduciendo en Output"
         />
         <VideoStageTimeOverlay
           positionMs={
@@ -301,7 +305,9 @@ function LiveSyncedYouTubePreview({
         />
       </div>
       <p className="preview-toolbar-note preview-toolbar-note-inline">
-        YouTube en Output — aquí solo miniatura + transporte (un solo iframe).
+        {transport.playing
+          ? "Audio y vídeo van en la ventana Output (un solo iframe). Aquí: transporte + miniatura."
+          : "YouTube en Output — aquí solo miniatura + transporte (un solo iframe)."}
       </p>
       <MediaClockTransportBar
         transport={transport}

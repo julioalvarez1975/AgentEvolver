@@ -7,6 +7,9 @@ export type YouTubeThumbProps = {
   title?: string;
   className?: string;
   caption?: string;
+  /** When hub clock is playing, show a clear “on Output” affordance. */
+  playing?: boolean;
+  playingLabel?: string;
 };
 
 export function youtubeThumbUrl(videoId: string): string {
@@ -18,9 +21,14 @@ export function YouTubeThumb({
   title,
   className,
   caption,
+  playing = false,
+  playingLabel = "Reproduciendo en Output",
 }: YouTubeThumbProps) {
   return (
-    <div className={className ?? "video-yt-thumb-wrap"}>
+    <div
+      className={className ?? "video-yt-thumb-wrap"}
+      data-playing={playing ? "1" : undefined}
+    >
       <img
         className="video-yt-thumb"
         src={youtubeThumbUrl(videoId)}
@@ -28,6 +36,12 @@ export function YouTubeThumb({
         loading="lazy"
         decoding="async"
       />
+      {playing ? (
+        <div className="video-yt-playing-badge" aria-live="polite">
+          <span className="video-yt-playing-pulse" aria-hidden="true" />
+          <span>{playingLabel}</span>
+        </div>
+      ) : null}
       {caption ? <p className="video-caveat">{caption}</p> : null}
     </div>
   );

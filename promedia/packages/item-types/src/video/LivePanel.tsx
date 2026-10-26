@@ -101,7 +101,13 @@ export function VideoLivePanel({
           <YouTubeThumb
             videoId={video.payload.videoId}
             title={video.payload.title}
-            caption="YouTube en Output — aquí solo miniatura + transporte (evita doble embed)."
+            playing={playing}
+            playingLabel="Reproduciendo en Output"
+            caption={
+              playing
+                ? "Audio y vídeo en Output — aquí miniatura + transporte (un solo iframe)."
+                : "YouTube en Output — aquí solo miniatura + transporte (evita doble embed)."
+            }
           />
         )}
         <VideoStageTimeOverlay
