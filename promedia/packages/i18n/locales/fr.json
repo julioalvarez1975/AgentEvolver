@@ -278,6 +278,8 @@
   "control.subtitleAgentDownloadingAudio": "Téléchargement de l'audio YouTube…",
   "control.subtitleAgentDepsMissing": "Installez yt-dlp et ffmpeg (`brew install yt-dlp ffmpeg`) puis redémarrez ProMedia.",
   "control.subtitleAgentYtDlpMissing": "Installez yt-dlp et ffmpeg (`brew install yt-dlp ffmpeg`) puis redémarrez ProMedia.",
+  "control.subtitleAgentModelDownload": "Impossible de télécharger le modèle Whisper (réseau requis la première fois). Vérifiez la connexion et réessayez.",
+  "control.subtitleAgentModelPath": "Erreur de chemin/cache du modèle Whisper. Supprimez un `promedia/data/models/` partiel et redémarrez une fois en ligne.",
   "control.subtitleAgentYoutubeAge": "Vidéo YouTube avec restriction d'âge — audio impossible à télécharger",
   "control.subtitleAgentYoutubePrivate": "Vidéo YouTube privée ou login requis — téléchargement impossible",
   "control.subtitleAgentYoutubeFailed": "Impossible de télécharger l'audio YouTube (privé, bloqué ou hors ligne)",

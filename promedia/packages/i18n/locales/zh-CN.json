@@ -278,6 +278,8 @@
   "control.subtitleAgentDownloadingAudio": "正在下载 YouTube 音频…",
   "control.subtitleAgentDepsMissing": "请安装 yt-dlp 和 ffmpeg（`brew install yt-dlp ffmpeg`），然后重启 ProMedia。",
   "control.subtitleAgentYtDlpMissing": "请安装 yt-dlp 和 ffmpeg（`brew install yt-dlp ffmpeg`），然后重启 ProMedia。",
+  "control.subtitleAgentModelDownload": "无法下载 Whisper 模型（首次需要联网）。请检查网络后重试。",
+  "control.subtitleAgentModelPath": "Whisper 模型路径/缓存错误。请删除不完整的 `promedia/data/models/`，联网后重启一次。",
   "control.subtitleAgentYoutubeAge": "年龄限制的 YouTube 视频 — 无法下载音频",
   "control.subtitleAgentYoutubePrivate": "私密或需登录的 YouTube 视频 — 无法下载",
   "control.subtitleAgentYoutubeFailed": "无法下载 YouTube 音频（私密、被拦或离线）",
