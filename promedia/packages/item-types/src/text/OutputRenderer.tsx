@@ -1,5 +1,6 @@
 import type { PlaylistItem, TextPayload } from "@promedia/shared";
 import { projectionTextSlides } from "@promedia/shared";
+import { FittedTextStage } from "./FittedTextStage.js";
 
 export type TextOutputRendererProps = {
   item: PlaylistItem;
@@ -7,9 +8,9 @@ export type TextOutputRendererProps = {
 };
 
 /**
- * Text on Output. Align / colors / font come from session theme CSS vars
- * (`--pm-*` on `.pm-theme`); item.payload.align does not win (subtarea 8).
- * Shows at most 5 lines per slide, centered to fill the projection stage.
+ * Text on Output. Align / colors / font family come from session theme CSS
+ * vars (`--pm-*` on `.pm-theme`); item.payload.align does not win (subtarea 8).
+ * Shows at most 5 lines per slide; font size auto-fits the projection stage.
  */
 export function TextOutputRenderer({ item, slideIndex }: TextOutputRendererProps) {
   const payload = item.payload as TextPayload;
@@ -19,12 +20,11 @@ export function TextOutputRenderer({ item, slideIndex }: TextOutputRendererProps
   const lines = slide?.lines ?? [""];
 
   return (
-    <div className="text-output" data-line-count={lines.length}>
-      {lines.map((line, i) => (
-        <p key={`${slide?.id ?? "s"}-${i}`} className="text-output-line">
-          {line || "\u00a0"}
-        </p>
-      ))}
-    </div>
+    <FittedTextStage
+      lines={lines}
+      lineKey={slide?.id ?? `out-${index}`}
+      className="text-output"
+      lineClassName="text-output-line"
+    />
   );
 }

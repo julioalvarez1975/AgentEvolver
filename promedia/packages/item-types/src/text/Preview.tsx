@@ -1,5 +1,6 @@
 import type { PlaylistItem, TextPayload } from "@promedia/shared";
 import { projectionTextSlides } from "@promedia/shared";
+import { FittedTextStage } from "./FittedTextStage.js";
 
 export type TextPreviewProps = {
   item: PlaylistItem;
@@ -7,7 +8,7 @@ export type TextPreviewProps = {
   onSlideIndexChange?: (index: number) => void;
 };
 
-/** Preview uses the same theme CSS vars as Output (theme wins over item align). */
+/** Preview uses the same theme CSS vars + fit path as Output. */
 export function TextPreview({ item, slideIndex }: TextPreviewProps) {
   const payload = item.payload as TextPayload;
   const slides = projectionTextSlides(payload.slides);
@@ -17,13 +18,12 @@ export function TextPreview({ item, slideIndex }: TextPreviewProps) {
 
   return (
     <div className="text-preview">
-      <div className="text-stage" data-line-count={lines.length}>
-        {lines.map((line, i) => (
-          <p key={`${slide?.id ?? "s"}-${i}`} className="text-line">
-            {line || "\u00a0"}
-          </p>
-        ))}
-      </div>
+      <FittedTextStage
+        lines={lines}
+        lineKey={slide?.id ?? `prev-${index}`}
+        className="text-stage"
+        lineClassName="text-line"
+      />
     </div>
   );
 }

@@ -18,7 +18,8 @@ function stanzaToText(stanza: LibrarySongStanza): string {
 }
 
 function textToLines(text: string): string[] {
-  return text.split("\n");
+  // Keep blank editor rows while typing; projection normalizes blanks later.
+  return text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
 }
 
 /** Song editor: title, optional artist, lyrics by stanzas → 5-line projection. */

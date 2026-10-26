@@ -51,8 +51,9 @@ function firstTagText(xml: string, tag: string): string {
 }
 
 /**
- * Quelea stanza body: blank lines separate projected lines; a lone "." is a
- * Quelea blank-line placeholder.
+ * Quelea stanza body: each non-empty newline is one projected row; blank lines
+ * and a lone "." (Quelea blank placeholder) are skipped. Multi-line blobs are
+ * already split here so song→text uses the same 5-line projection path.
  */
 export function parseQueleaLyricBody(raw: string): string[] {
   const text = decodeXmlEntities(raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n"));

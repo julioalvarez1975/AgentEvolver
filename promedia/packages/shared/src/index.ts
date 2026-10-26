@@ -583,13 +583,89 @@ export function itemHasSlides(item: PlaylistItem): boolean {
  */
 export const TEXT_PROJECTION_LINES = 5;
 
+/**
+ * Soft-wrap budget (characters) before a source line becomes multiple
+ * projection rows. Keeps stage typography large for long bible/prose lines.
+ */
+export const TEXT_PROJECTION_SOFT_WRAP_CHARS = 52;
+
+/**
+ * Flatten embedded newlines, drop blanks, and soft-wrap long lines so each
+ * entry is one visual projection row (before 5-line chunking).
+ */
+export function normalizeProjectionLines(
+  lines: string[],
+  softWrapChars: number = TEXT_PROJECTION_SOFT_WRAP_CHARS,
+): string[] {
+  const wrapAt = Math.max(12, Math.trunc(softWrapChars));
+  const out: string[] = [];
+  for (const raw of lines ?? []) {
+    const parts = String(raw)
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .split("\n");
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed) {
+        continue;
+      }
+      for (const row of softWrapProjectionLine(trimmed, wrapAt)) {
+        out.push(row);
+      }
+    }
+  }
+  return out.length > 0 ? out : [""];
+}
+
+/** Split one long line on word boundaries (hard-split only if a word is longer). */
+export function softWrapProjectionLine(
+  line: string,
+  maxChars: number = TEXT_PROJECTION_SOFT_WRAP_CHARS,
+): string[] {
+  const text = line.trim();
+  const limit = Math.max(12, Math.trunc(maxChars));
+  if (text.length <= limit) {
+    return text ? [text] : [];
+  }
+  const words = text.split(/\s+/).filter(Boolean);
+  const rows: string[] = [];
+  let current = "";
+  const pushCurrent = () => {
+    if (current) {
+      rows.push(current);
+      current = "";
+    }
+  };
+  for (const word of words) {
+    if (word.length > limit) {
+      pushCurrent();
+      for (let i = 0; i < word.length; i += limit) {
+        rows.push(word.slice(i, i + limit));
+      }
+      continue;
+    }
+    if (!current) {
+      current = word;
+      continue;
+    }
+    if (`${current} ${word}`.length <= limit) {
+      current = `${current} ${word}`;
+    } else {
+      rows.push(current);
+      current = word;
+    }
+  }
+  pushCurrent();
+  return rows.length > 0 ? rows : [text];
+}
+
 /** Split a line list into chunks of at most `linesPerChunk` (default 5). */
 export function chunkTextLines(
   lines: string[],
   linesPerChunk: number = TEXT_PROJECTION_LINES,
 ): string[][] {
   const limit = Math.max(1, Math.trunc(linesPerChunk));
-  const source = lines.length > 0 ? lines.map((line) => String(line)) : [""];
+  const source = normalizeProjectionLines(lines);
   const chunks: string[][] = [];
   for (let i = 0; i < source.length; i += limit) {
     chunks.push(source.slice(i, i + limit));
@@ -600,6 +676,7 @@ export function chunkTextLines(
 /**
  * Expand text/bible slides so each has ≤5 lines for projection navigation.
  * Preserves intentional slide boundaries; splits only when a slide is longer.
+ * Multi-line blobs / blanks are normalized first so one entry = one visual row.
  */
 export function projectionTextSlides(
   slides: TextSlide[],
