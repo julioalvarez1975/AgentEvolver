@@ -2475,17 +2475,14 @@ body {
   }
 }
 
-/* Black dots pattern — darkens busy/video backgrounds for light text. */
+/* Black dots pattern — Julio's 2×2 PNG tile; darkens busy/video bgs for light text. */
 .pm-stage-bg-dots {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background-image: radial-gradient(
-    rgba(0, 0, 0, 0.55) 1.1px,
-    transparent 1.35px
-  );
-  background-size: 7px 7px;
-  background-color: rgba(0, 0, 0, 0.22);
+  background-image: url("/theme-bg-dots-tile.png");
+  background-repeat: repeat;
+  background-size: 8px 8px;
 }
 
 .pm-theme[data-theme="acento"] {
