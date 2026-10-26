@@ -155,9 +155,30 @@ function classifyUpload(
 /** Default folder Julio (and operators) can drop Bible files into — gitignored under data/. */
 export function bibleImportFolder(): string {
   return (
-    process.env.BIBLE_IMPORT_DIR ??
+    process.env.BIBLE_IMPORT_DIR?.trim() ||
     path.join(libraryRoot(), "bibles", "import")
   );
+}
+
+/**
+ * Create the on-disk library tree so Finder shows drop folders after first hub
+ * launch — no manual `mkdir`. Content stays gitignored; we only create empty dirs.
+ *
+ * Layout under `data/library/`:
+ * - `files/` — stored library items (songs, presentations, media, texts, …)
+ * - `bibles/import/` — operator drop folder for Bible XML/XMM/PDF
+ */
+export async function ensureLibraryLayout(): Promise<{
+  root: string;
+  bibleImport: string;
+}> {
+  const root = libraryRoot();
+  const bibleImport = bibleImportFolder();
+  await mkdir(root, { recursive: true });
+  await mkdir(path.join(root, "files"), { recursive: true });
+  await mkdir(path.join(root, "bibles"), { recursive: true });
+  await mkdir(bibleImport, { recursive: true });
+  return { root, bibleImport };
 }
 
 /**
@@ -167,8 +188,18 @@ export function bibleImportFolder(): string {
 export class LibraryStore {
   private items = new Map<string, LibraryItem>();
   private loaded = false;
+  private layoutReady = false;
+
+  private async ensureLayout(): Promise<void> {
+    if (this.layoutReady) {
+      return;
+    }
+    await ensureLibraryLayout();
+    this.layoutReady = true;
+  }
 
   private async ensureLoaded(): Promise<void> {
+    await this.ensureLayout();
     if (this.loaded) {
       return;
     }
