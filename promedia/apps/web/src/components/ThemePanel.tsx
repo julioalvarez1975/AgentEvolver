@@ -6,8 +6,10 @@ import {
   THEME_BACKGROUND_PACK_IDS,
   THEME_PRESETS,
   TRANSITION_EFFECTS,
+  isThemeBackgroundPackId,
   normalizeThemeBackground,
   type ThemeBackground,
+  type ThemeBackgroundMediaKind,
   type ThemeBackgroundPackId,
   type ThemeFontFamily,
   type ThemeFontSize,
@@ -19,6 +21,13 @@ import {
 import { useLocale } from "../locale/LocaleContext";
 import { StatusTip } from "./StatusTip";
 import { IconTheme } from "./UiIcons";
+
+/** Uploaded/custom stage backgrounds available in this Control session. */
+export type ThemeBackgroundAssetOption = {
+  assetId: string;
+  label: string;
+  mediaKind: ThemeBackgroundMediaKind;
+};
 
 export type ThemePanelProps = {
   themeId: ThemeId;
@@ -32,6 +41,8 @@ export type ThemePanelProps = {
   toolbar?: boolean;
   /** When true, omit the inline TEMA label (parent zone already shows it). */
   hideTitle?: boolean;
+  /** Session-uploaded backgrounds to list in the background dropdown. */
+  backgroundAssets?: ThemeBackgroundAssetOption[];
   /** Upload background video/image (session asset). */
   onUploadBackground?: (file: File) => void | Promise<void>;
   uploadingBackground?: boolean;
@@ -56,6 +67,10 @@ const PACK_LABEL_KEYS: Record<ThemeBackgroundPackId, string> = {
   ocean: "theme.bgPackOcean",
   softgrid: "theme.bgPackSoftgrid",
 };
+
+const SOLID_VALUE = "solid";
+const packValue = (id: ThemeBackgroundPackId) => `pack:${id}`;
+const assetValue = (id: string) => `asset:${id}`;
 
 function merged(
   themeId: ThemeId,
@@ -84,6 +99,7 @@ export function ThemePanel({
   compact,
   toolbar,
   hideTitle,
+  backgroundAssets = [],
   onUploadBackground,
   uploadingBackground,
   onChange,
@@ -95,7 +111,6 @@ export function ThemePanel({
   const bg = normalizeThemeBackground(
     themeBackground ?? DEFAULT_THEME_BACKGROUND,
   );
-  const isMedia = bg.mode === "media";
 
   const patchOverride = (partial: ThemeOverrides) => {
     onChange({
@@ -128,6 +143,64 @@ export function ThemePanel({
         dotsOverlay: bg.dotsOverlay,
       }),
     });
+  };
+
+  const setAsset = (
+    assetId: string,
+    mediaKind: ThemeBackgroundMediaKind | null | undefined,
+  ) => {
+    onChange({
+      themeBackground: normalizeThemeBackground({
+        mode: "media",
+        packId: null,
+        assetId,
+        mediaKind: mediaKind ?? "video",
+        dotsOverlay: bg.dotsOverlay,
+      }),
+    });
+  };
+
+  const assetOptions: ThemeBackgroundAssetOption[] = [...backgroundAssets];
+  if (
+    bg.mode === "media" &&
+    bg.assetId &&
+    !assetOptions.some((a) => a.assetId === bg.assetId)
+  ) {
+    assetOptions.push({
+      assetId: bg.assetId,
+      label: t("theme.bgUploadActive"),
+      mediaKind: bg.mediaKind ?? "video",
+    });
+  }
+
+  const selectValue =
+    bg.mode === "solid"
+      ? SOLID_VALUE
+      : bg.assetId
+        ? assetValue(bg.assetId)
+        : bg.packId
+          ? packValue(bg.packId)
+          : SOLID_VALUE;
+
+  const onBackgroundSelect = (raw: string) => {
+    if (raw === SOLID_VALUE) {
+      setSolid();
+      return;
+    }
+    if (raw.startsWith("pack:")) {
+      const id = raw.slice("pack:".length);
+      if (isThemeBackgroundPackId(id)) {
+        setPack(id);
+      }
+      return;
+    }
+    if (raw.startsWith("asset:")) {
+      const assetId = raw.slice("asset:".length);
+      const entry = assetOptions.find((a) => a.assetId === assetId);
+      if (assetId) {
+        setAsset(assetId, entry?.mediaKind ?? bg.mediaKind);
+      }
+    }
   };
 
   const transitionSelect = (
@@ -233,38 +306,36 @@ export function ThemePanel({
           : "theme-bg-controls"
       }
       role="group"
-      aria-label={t("theme.bgMode")}
+      aria-label={t("theme.bg")}
     >
-      <div className="theme-bg-mode" role="group" aria-label={t("theme.bgMode")}>
-        <button
-          type="button"
-          className={`btn btn-scene${bg.mode === "solid" ? " active" : ""}`}
+      <label
+        className="theme-bg-select-label"
+        title={t("theme.bg")}
+      >
+        {!toolbar ? t("theme.bg") : null}
+        <select
+          className="theme-bg-select"
+          value={selectValue}
           disabled={disabled}
-          aria-pressed={bg.mode === "solid"}
-          title={t("theme.bgSolid")}
-          onClick={setSolid}
+          aria-label={t("theme.bg")}
+          onChange={(e) => onBackgroundSelect(e.target.value)}
         >
-          {t("theme.bgSolid")}
-        </button>
-        <button
-          type="button"
-          className={`btn btn-scene${isMedia ? " active" : ""}`}
-          disabled={disabled}
-          aria-pressed={isMedia}
-          title={t("theme.bgMedia")}
-          onClick={() => {
-            if (!isMedia) {
-              setPack("aurora");
-            }
-          }}
-        >
-          {t("theme.bgMedia")}
-        </button>
-      </div>
+          <option value={SOLID_VALUE}>{t("theme.bgSolid")}</option>
+          {THEME_BACKGROUND_PACK_IDS.map((id) => (
+            <option key={id} value={packValue(id)}>
+              {t(PACK_LABEL_KEYS[id])}
+            </option>
+          ))}
+          {assetOptions.map((asset) => (
+            <option key={asset.assetId} value={assetValue(asset.assetId)}>
+              {asset.label || t("theme.bgUploadActive")}
+            </option>
+          ))}
+        </select>
+      </label>
 
       {bg.mode === "solid" ? (
         <label title={t("theme.bg")} className="theme-bg-color">
-          {!toolbar ? t("theme.bg") : null}
           <input
             type="color"
             value={/^#[0-9a-fA-F]{6}$/.test(values.bg) ? values.bg : "#0a0e14"}
@@ -273,40 +344,7 @@ export function ThemePanel({
             onChange={(e) => patchOverride({ bg: e.target.value })}
           />
         </label>
-      ) : (
-        <div
-          className="theme-bg-packs"
-          role="group"
-          aria-label={t("theme.bgPack")}
-        >
-          {THEME_BACKGROUND_PACK_IDS.map((id) => (
-            <button
-              key={id}
-              type="button"
-              className={`btn btn-scene theme-bg-pack-btn${
-                bg.packId === id && !bg.assetId ? " active" : ""
-              }`}
-              disabled={disabled}
-              aria-pressed={bg.packId === id && !bg.assetId}
-              title={`${t(PACK_LABEL_KEYS[id])} · ${t("theme.bgPackHint")}`}
-              onClick={() => setPack(id)}
-            >
-              <span
-                className={`theme-bg-pack-swatch pm-stage-bg-${id}`}
-                aria-hidden
-              />
-              <span className="theme-bg-pack-label">
-                {t(PACK_LABEL_KEYS[id])}
-              </span>
-            </button>
-          ))}
-          {bg.assetId ? (
-            <span className="theme-bg-upload-active" title={t("theme.bgUploadActive")}>
-              {t("theme.bgUploadActive")}
-            </span>
-          ) : null}
-        </div>
-      )}
+      ) : null}
 
       <div className="theme-bg-actions">
         <input
@@ -325,7 +363,7 @@ export function ThemePanel({
         />
         <button
           type="button"
-          className="btn btn-ghost"
+          className="btn btn-ghost theme-bg-upload-btn"
           disabled={disabled || !onUploadBackground || uploadingBackground}
           title={t("theme.bgUpload")}
           onClick={() => fileRef.current?.click()}

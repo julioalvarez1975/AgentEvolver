@@ -2528,70 +2528,50 @@ body {
 
 .theme-bg-controls-toolbar {
   flex: 1 1 100%;
-  gap: 0.25rem 0.4rem;
+  flex-wrap: nowrap;
+  gap: 0.25rem 0.35rem;
   padding-top: 0.15rem;
   border-top: 1px solid var(--border);
   margin-top: 0.1rem;
+  min-height: 0;
 }
 
-.theme-bg-mode {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-.theme-bg-mode .btn-scene {
-  padding: 0.18rem 0.45rem;
-  font-size: 0.7rem;
-}
-
-.theme-bg-packs {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.theme-bg-pack-btn {
+.theme-bg-select-label {
   display: inline-flex;
   align-items: center;
-  gap: 0.28rem;
-  padding: 0.15rem 0.4rem;
+  gap: 0.3rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.theme-bg-select {
+  max-width: 9.5rem;
   font-size: 0.68rem;
-}
-
-.theme-bg-pack-swatch {
-  width: 1.1rem;
-  height: 1.1rem;
-  border-radius: 3px;
+  padding: 0.15rem 0.25rem;
   border: 1px solid var(--border);
-  flex-shrink: 0;
-  overflow: hidden;
-  position: relative;
+  border-radius: var(--radius);
+  background: var(--panel, transparent);
+  color: var(--fg);
+  line-height: 1.2;
 }
 
-.theme-bg-pack-swatch.pm-stage-bg-aurora {
-  background: linear-gradient(135deg, #0a2a28, #1a4a6a);
-}
-.theme-bg-pack-swatch.pm-stage-bg-embers {
-  background: linear-gradient(135deg, #2a1008, #8a3018);
-}
-.theme-bg-pack-swatch.pm-stage-bg-ocean {
-  background: linear-gradient(135deg, #061428, #1a5a8a);
-}
-.theme-bg-pack-swatch.pm-stage-bg-softgrid {
-  background:
-    linear-gradient(rgba(120, 150, 180, 0.35) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(120, 150, 180, 0.35) 1px, transparent 1px),
-    #0a0e14;
-  background-size: 6px 6px, 6px 6px, auto;
+.theme-bg-controls-toolbar .theme-bg-select {
+  max-width: 8.5rem;
+  height: 1.35rem;
 }
 
 .theme-bg-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: inline-flex;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.35rem 0.55rem;
+  gap: 0.3rem 0.4rem;
+  min-width: 0;
+}
+
+.theme-bg-upload-btn {
+  padding: 0.15rem 0.4rem;
+  font-size: 0.68rem;
+  white-space: nowrap;
 }
 
 .theme-bg-dots-toggle {
@@ -2602,23 +2582,25 @@ body {
   user-select: none;
   font-size: 0.72rem;
   color: var(--fg);
+  white-space: nowrap;
 }
 
 .theme-bg-dots-toggle input {
   margin: 0;
 }
 
-.theme-bg-upload-active {
-  font-size: 0.68rem;
-  color: var(--accent, #3d8bfd);
+.theme-bg-color {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
 }
 
 .theme-bg-color input[type="color"] {
-  width: 2rem;
-  height: 1.4rem;
+  width: 1.35rem;
+  height: 1.35rem;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 3px;
   background: transparent;
   cursor: pointer;
 }

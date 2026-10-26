@@ -117,6 +117,14 @@ export function ControlPage() {
   const [, setUploadHint] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadingBackground, setUploadingBackground] = useState(false);
+  /** Uploaded stage backgrounds listed in the Theme dropdown (this session). */
+  const [themeBackgroundAssets, setThemeBackgroundAssets] = useState<
+    Array<{
+      assetId: string;
+      label: string;
+      mediaKind: "image" | "video";
+    }>
+  >([]);
   const [aboutOpen, setAboutOpen] = useState(false);
   /** Remember video durations (preview metadata) for remaining-time / scrub max. */
   const [durationByItemId, setDurationByItemId] = useState<
@@ -189,6 +197,15 @@ export function ControlPage() {
       const mediaKind = asset.mime.startsWith("image/")
         ? ("image" as const)
         : ("video" as const);
+      const label =
+        (asset.originalName && asset.originalName.trim()) ||
+        t("theme.bgUploadActive");
+      setThemeBackgroundAssets((prev) => {
+        if (prev.some((a) => a.assetId === asset.id)) {
+          return prev;
+        }
+        return [...prev, { assetId: asset.id, label, mediaKind }];
+      });
       session.setTheme({
         themeBackground: normalizeThemeBackground({
           mode: "media",
@@ -983,6 +1000,7 @@ export function ControlPage() {
               themeBackground={themeBackground}
               transitionEffect={transitionEffect}
               uploadingBackground={uploadingBackground}
+              backgroundAssets={themeBackgroundAssets}
               onProject={onStartProjection}
               onOpenLibrary={openLibrary}
               onSceneNormal={() => session.setSceneMode("normal")}
