@@ -275,7 +275,7 @@
   "library.songFolderResult": "{n} chant(s) importé(s){updated}{skipped}.",
   "bible.localBadge": "locale",
   "control.subtitleAgent": "Agent sous-titres",
-  "control.subtitleAgentTitle": "Activer les sous-titres locaux (ASR hors ligne via whisper.cpp). Fichiers hub ou YouTube (audio via yt-dlp). Nécessite ffmpeg + whisper-cli ; YouTube aussi yt-dlp (`brew install yt-dlp ffmpeg whisper-cpp`). Premier lancement : téléchargement de ggml-tiny. La langue des sous-titres suit le sélecteur Langue de Contrôle.",
+  "control.subtitleAgentTitle": "Activer les sous-titres locaux (ASR hors ligne via whisper.cpp). Fichiers hub ou YouTube (audio via yt-dlp). Nécessite ffmpeg + whisper-cli ; YouTube aussi yt-dlp (`brew install yt-dlp ffmpeg whisper-cpp`). Premier lancement : téléchargement de ggml-base (~142 MB). La langue des sous-titres suit le sélecteur Langue de Contrôle.",
   "control.subtitleAgentLang": "Langue des sous-titres (suit Langue du Control)",
   "control.subtitleAgentLangShort": "Sous-titres",
   "control.subtitleAgentYoutube": "YouTube : le hub télécharge l'audio avec yt-dlp (local) puis lance Whisper. Nécessite yt-dlp + ffmpeg dans le PATH.",
