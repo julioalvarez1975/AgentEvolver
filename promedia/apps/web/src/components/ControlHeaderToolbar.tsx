@@ -12,6 +12,7 @@ import { ThemePanel } from "./ThemePanel";
 import {
   IconAbout,
   IconLanguage,
+  IconLibrary,
   IconProject,
   IconSceneBlack,
   IconSceneClear,
@@ -31,6 +32,8 @@ export type ControlHeaderToolbarProps = {
   transitionEffect: TransitionEffect;
   uploadingBackground?: boolean;
   onProject: () => void;
+  /** Open local Biblioteca (songs / bibles / texts / presentations / media). */
+  onOpenLibrary: () => void;
   onSceneNormal: () => void;
   onToggleScene: (mode: Exclude<SceneMode, "normal">) => void;
   onThemeChange: (patch: {
@@ -79,7 +82,7 @@ function ToolbarBtn({
 }
 
 /**
- * Control tools strip (below title-only header): Proyectar · idioma · Acerca de
+ * Control tools strip (below title-only header): Proyectar · Biblioteca · idioma · Acerca de
  * + TEMA zone (escenas + presets + pickers + transitions). Icon above / label below.
  */
 export function ControlHeaderToolbar({
@@ -94,6 +97,7 @@ export function ControlHeaderToolbar({
   transitionEffect,
   uploadingBackground,
   onProject,
+  onOpenLibrary,
   onSceneNormal,
   onToggleScene,
   onThemeChange,
@@ -133,6 +137,14 @@ export function ControlHeaderToolbar({
           }
           icon={<IconProject />}
           onClick={onProject}
+        />
+
+        <ToolbarBtn
+          disabled={hubUnreachable}
+          title={t("library.hint")}
+          label={t("library.open")}
+          icon={<IconLibrary />}
+          onClick={onOpenLibrary}
         />
 
         <label className="toolbar-lang" title={t("control.language")}>
