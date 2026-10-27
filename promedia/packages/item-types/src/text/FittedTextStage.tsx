@@ -14,6 +14,11 @@ export type FittedTextStageProps = {
   heightFrac?: number;
   /** Absolute px ceiling for auto-fit (default 220). */
   hardCapPx?: number;
+  /**
+   * Hard cap on source + visual lines (default TEXT_PROJECTION_LINES = 5).
+   * Lyric overlay may pass 6 (Julio 4–6).
+   */
+  maxLines?: number;
 };
 
 /** Soft text-shadow can bleed a few px past glyph bounds. */
@@ -80,10 +85,10 @@ function visualLineCount(block: HTMLElement): number {
 }
 
 /**
- * Projection text block: ≤5 rows, font auto-fit via ResizeObserver so the
- * block fills the stage. Width (content box + padding/safe area) always wins
- * over growing as large as possible. Long unbreakable words may wrap, still
- * capped at 5 visual lines.
+ * Projection text block: ≤maxLines rows (default 5; lyric overlay up to 6),
+ * font auto-fit via ResizeObserver so the block fills the stage. Width
+ * (content box + padding/safe area) always wins over growing as large as
+ * possible. Long unbreakable words may wrap, still capped at maxLines.
  */
 export function FittedTextStage({
   lines,
@@ -92,15 +97,18 @@ export function FittedTextStage({
   lineClassName = "text-output-line",
   heightFrac = DEFAULT_HEIGHT_FRAC,
   hardCapPx = DEFAULT_HARD_CAP_PX,
+  maxLines = TEXT_PROJECTION_LINES,
 }: FittedTextStageProps) {
   const shellRef = useRef<HTMLDivElement>(null);
   const blockRef = useRef<HTMLDivElement>(null);
   const [fontPx, setFontPx] = useState(28);
   const [wrapMode, setWrapMode] = useState<WrapMode>("nowrap");
 
-  const safeLines = lines
-    .map((line) => String(line))
-    .slice(0, TEXT_PROJECTION_LINES);
+  const lineCap =
+    Number.isFinite(maxLines) && maxLines >= 1
+      ? Math.min(8, Math.max(1, Math.trunc(maxLines)))
+      : TEXT_PROJECTION_LINES;
+  const safeLines = lines.map((line) => String(line)).slice(0, lineCap);
   const displayLines = safeLines.length > 0 ? safeLines : [""];
   const linesSignature = displayLines.join("\n");
   const heightFracSafe =
@@ -157,8 +165,7 @@ export function FittedTextStage({
           const widthOk = linesFitWidth(block, availW);
           const heightOk = block.scrollHeight <= availH + 1;
           const linesOk =
-            mode === "nowrap" ||
-            visualLineCount(block) <= TEXT_PROJECTION_LINES;
+            mode === "nowrap" || visualLineCount(block) <= lineCap;
 
           // Width is mandatory; height + visual-line cap apply as well.
           if (widthOk && heightOk && linesOk) {
@@ -198,7 +205,7 @@ export function FittedTextStage({
     });
     ro.observe(shell);
     return () => ro.disconnect();
-  }, [linesSignature, lineKey, heightFracSafe, hardCapSafe]);
+  }, [linesSignature, lineKey, heightFracSafe, hardCapSafe, lineCap]);
 
   return (
     <div

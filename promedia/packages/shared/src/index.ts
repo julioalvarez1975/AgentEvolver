@@ -358,6 +358,12 @@ export const SUBTITLE_LEAD_MS_OPTIONS: readonly SubtitleLeadMs[] = [
 export const DEFAULT_SUBTITLE_LEAD_MS: SubtitleLeadMs = 0;
 
 /**
+ * Cancionero / Biblioteca lyric path (#83): show text 1s before the sung onset.
+ * Applied when that path finishes; operator can still change Adelante after.
+ */
+export const CANCIONERO_DEFAULT_LEAD_MS: SubtitleLeadMs = -1000;
+
+/**
  * How the overlay maps mediaClock → cue.
  * - `exact`: cue windows as stored (official captions / no intro-hold).
  * - `assisted`: intro-hold first lyric through musical lead-in (ASR fallback).
@@ -896,10 +902,25 @@ export function itemHasSlides(item: PlaylistItem): boolean {
 export const TEXT_PROJECTION_LINES = 5;
 
 /**
+ * Max lines for timed lyric / subtitle overlay (Julio: 4–6, no overflow).
+ * Cue synthesis prefers fewer (~4) so FittedTextStage can stay large.
+ */
+export const LYRIC_OVERLAY_MAX_LINES = 6;
+
+/** Preferred lines per cancionero / lyric cue chunk (large type). */
+export const LYRIC_OVERLAY_PREFERRED_LINES = 4;
+
+/**
  * Soft-wrap budget (characters) before a source line becomes multiple
  * projection rows. Keeps stage typography large for long bible/prose lines.
  */
 export const TEXT_PROJECTION_SOFT_WRAP_CHARS = 52;
+
+/**
+ * Soft-wrap budget for lyric phrases on the subtitle / cancionero overlay.
+ * Shorter than bible prose so lines stay singable and type stays large.
+ */
+export const LYRIC_PHRASE_SOFT_WRAP_CHARS = 40;
 
 /**
  * Flatten embedded newlines, drop blanks, and soft-wrap long lines so each

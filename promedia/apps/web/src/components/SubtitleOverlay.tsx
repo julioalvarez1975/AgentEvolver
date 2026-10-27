@@ -10,9 +10,10 @@ import {
   effectiveMediaClockPositionMs,
   emptySubtitleAgentState,
   isSubtitleFontSize,
+  LYRIC_OVERLAY_MAX_LINES,
+  LYRIC_PHRASE_SOFT_WRAP_CHARS,
   normalizeProjectionLines,
   normalizeSubtitleLeadMs,
-  TEXT_PROJECTION_LINES,
 } from "@promedia/shared";
 
 export type SubtitleOverlayProps = {
@@ -28,21 +29,24 @@ export type SubtitleOverlayProps = {
   itemId?: string | null;
 };
 
-/** SM–XL biases fit target; band height still scales via CSS data-size. */
+/**
+ * SM–XL biases fit toward song-stage size (full-bleed FittedTextStage).
+ * Band is the full stage; heightFrac/hardCap match canciones, XL a bit larger.
+ */
 const SUBTITLE_FIT_BY_SIZE: Record<
   SubtitleFontSize,
   { heightFrac: number; hardCapPx: number }
 > = {
-  sm: { heightFrac: 0.32, hardCapPx: 120 },
-  md: { heightFrac: 0.4, hardCapPx: 160 },
-  lg: { heightFrac: 0.48, hardCapPx: 200 },
-  xl: { heightFrac: 0.56, hardCapPx: 240 },
+  sm: { heightFrac: 0.36, hardCapPx: 180 },
+  md: { heightFrac: 0.44, hardCapPx: 220 },
+  lg: { heightFrac: 0.52, hardCapPx: 260 },
+  xl: { heightFrac: 0.6, hardCapPx: 300 },
 };
 
 /**
- * Upper-stage projection captions (cancionero look via FittedTextStage).
- * Soft-wrap ≤5 lines, largest type that fits (no width overflow), theme shadow,
- * centered H+V inside the upper band. Timing prefers hub mediaClock; negative
+ * Full-stage lyric projection (cancionero look via FittedTextStage).
+ * Soft-wrap ≤6 short phrases, largest type that fits (no overflow), theme
+ * shadow, centered H+V on the stage. Timing prefers hub mediaClock; negative
  * `leadMs` (adelante) shows the cue early. Assisted timingMode holds the first
  * lyric through musical lead-in; exact (native captions) uses cue windows only.
  * Manual ←/→ song slides do not use this path.
@@ -117,10 +121,10 @@ export function SubtitleOverlay({
     if (!cue?.text) {
       return null;
     }
-    const lines = normalizeProjectionLines([cue.text]).slice(
-      0,
-      TEXT_PROJECTION_LINES,
-    );
+    const lines = normalizeProjectionLines(
+      [cue.text],
+      LYRIC_PHRASE_SOFT_WRAP_CHARS,
+    ).slice(0, LYRIC_OVERLAY_MAX_LINES);
     return lines.length > 0 ? lines : [cue.text.trim() || "\u00a0"];
   }, [cue?.text]);
 
@@ -141,6 +145,7 @@ export function SubtitleOverlay({
         lineClassName="text-output-line"
         heightFrac={fit.heightFrac}
         hardCapPx={fit.hardCapPx}
+        maxLines={LYRIC_OVERLAY_MAX_LINES}
       />
     </div>
   );
