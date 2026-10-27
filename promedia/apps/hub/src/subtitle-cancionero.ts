@@ -9,15 +9,10 @@ import type {
   SubtitleCue,
 } from "@promedia/shared";
 import {
-  LYRIC_OVERLAY_MAX_LINES,
-  LYRIC_OVERLAY_PREFERRED_LINES,
-  LYRIC_PHRASE_SOFT_WRAP_CHARS,
-  softWrapProjectionLine,
-} from "@promedia/shared";
-import {
   ensureAugmentedPath,
   resolveFfmpegBin,
 } from "./subtitle-bins.js";
+import { cleanCueText, filterSpeechCues } from "./subtitle-cue-text.js";
 
 const AUDIO_EXT_RE =
   /\.(mp3|wav|m4a|aac|flac|ogg|opus|wma|aiff|aif|caf|webm)$/i;
@@ -234,51 +229,24 @@ export async function findCancioneroSong(
 }
 
 /**
- * Split a stanza line into short lyric phrases (not long run-on sentences).
- * Breaks on . ! ? ; : — … and commas when the remainder stays phrase-sized;
- * then soft-wraps at LYRIC_PHRASE_SOFT_WRAP_CHARS.
+ * Exact Biblioteca line breaks only — never re-merge or invent phrase splits.
+ * Embedded newlines inside one stanza cell become separate lines; punctuation
+ * does not create new cue boundaries.
  */
-export function splitLyricPhrases(
-  raw: string,
-  maxChars: number = LYRIC_PHRASE_SOFT_WRAP_CHARS,
-): string[] {
-  const cleaned = String(raw ?? "")
+export function splitLyricPhrases(raw: string): string[] {
+  return String(raw ?? "")
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .split("\n")
     .map((p) => p.trim())
     .filter(Boolean);
-  if (cleaned.length === 0) return [];
-
-  const limit = Math.max(12, Math.trunc(maxChars));
-  const phrases: string[] = [];
-
-  const pushWrapped = (chunk: string) => {
-    for (const row of softWrapProjectionLine(chunk, limit)) {
-      const t = row.trim();
-      if (t) phrases.push(t);
-    }
-  };
-
-  for (const line of cleaned) {
-    if (line.length <= limit) {
-      phrases.push(line);
-      continue;
-    }
-    // Prefer phrase breaks before falling back to word wrap.
-    const rough = line
-      .split(/(?<=[.!?…])\s+|(?<=[;:—–-])\s+|(?<=,)\s+(?=.{10,})/u)
-      .map((p) => p.trim())
-      .filter(Boolean);
-    for (const piece of rough.length ? rough : [line]) {
-      pushWrapped(piece.replace(/[,:;]\s*$/u, "").trim() || piece);
-    }
-  }
-  return phrases;
 }
 
-/** Flatten every stanza into ordered short lyric phrases. */
-export function songLyricPhrases(song: LibrarySongPayload): string[] {
+/**
+ * Ordered cancionero lines (stanza order). One Biblioteca line → one phrase.
+ * Stanza boundaries are preserved as sequence order only (no cross-merge).
+ */
+export function songCancioneroLines(song: LibrarySongPayload): string[] {
   const out: string[] = [];
   const stanzas =
     song.stanzas.length > 0
@@ -292,85 +260,250 @@ export function songLyricPhrases(song: LibrarySongPayload): string[] {
   return out;
 }
 
-/**
- * Pack short phrases into cue chunks (preferred 4, max 6 lines).
- * Preserves stanza boundaries so verses advance like cancionero slides.
- */
-function chunkPhraseLines(phrases: string[]): string[] {
-  if (phrases.length === 0) return [];
-  const preferred = Math.max(
-    1,
-    Math.min(LYRIC_OVERLAY_PREFERRED_LINES, LYRIC_OVERLAY_MAX_LINES),
-  );
-  const maxLines = Math.max(preferred, LYRIC_OVERLAY_MAX_LINES);
-  const chunks: string[] = [];
-
-  for (let i = 0; i < phrases.length; ) {
-    const remaining = phrases.length - i;
-    let take = Math.min(preferred, remaining);
-    // Absorb a single orphan line into this cue when it still fits ≤ max.
-    if (
-      remaining === preferred + 1 &&
-      remaining <= maxLines
-    ) {
-      take = remaining;
-    } else if (remaining > maxLines && remaining - preferred === 1) {
-      take = Math.min(maxLines, remaining);
-    }
-    const text = phrases.slice(i, i + take).join("\n").trim();
-    if (text) chunks.push(text);
-    i += take;
-  }
-  return chunks;
+/** @deprecated Prefer songCancioneroLines — same exact-line semantics. */
+export function songLyricPhrases(song: LibrarySongPayload): string[] {
+  return songCancioneroLines(song);
 }
 
 /**
- * Flatten library song stanzas into projection chunks of short phrases
- * (preferred 4, max 6 lines) for the timed lyric overlay.
+ * One cue text per exact cancionero line (Biblioteca stanza/line breaks).
+ * Does not pack/re-split lines into invented multi-line phrase chunks.
  */
 export function songLyricChunks(song: LibrarySongPayload): string[] {
-  const stanzas =
-    song.stanzas.length > 0
-      ? song.stanzas
-      : [{ id: "empty", lines: [] as string[] }];
-  const chunks: string[] = [];
-  for (const stanza of stanzas) {
-    const phrases: string[] = [];
-    for (const line of stanza.lines ?? []) {
-      phrases.push(...splitLyricPhrases(String(line)));
-    }
-    chunks.push(...chunkPhraseLines(phrases));
-  }
-  return chunks;
+  return songCancioneroLines(song);
 }
 
+/** Fold text for lyric↔ASR alignment (accents stripped, lowercase). */
+export function normalizeAlignText(raw: string): string {
+  return cleanCueText(raw)
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function alignTokens(raw: string): string[] {
+  return normalizeAlignText(raw)
+    .split(/\s+/)
+    .filter((t) => t.length >= 1);
+}
+
+function tokenCoverage(needle: string[], hay: string[]): number {
+  if (needle.length === 0 || hay.length === 0) return 0;
+  const counts = new Map<string, number>();
+  for (const t of hay) counts.set(t, (counts.get(t) ?? 0) + 1);
+  let hit = 0;
+  for (const t of needle) {
+    const n = counts.get(t) ?? 0;
+    if (n > 0) {
+      hit += 1;
+      counts.set(t, n - 1);
+    }
+  }
+  return hit / needle.length;
+}
+
+function lineTimingScore(lineTokens: string[], windowText: string): number {
+  const hay = alignTokens(windowText);
+  if (lineTokens.length === 0 || hay.length === 0) return 0;
+  const coverage = tokenCoverage(lineTokens, hay);
+  const jac =
+    coverage === 0
+      ? 0
+      : tokenCoverage(hay, lineTokens); // reverse coverage dampens huge windows
+  const contains =
+    normalizeAlignText(windowText).includes(lineTokens.join(" ")) ||
+    lineTokens.join(" ").includes(normalizeAlignText(windowText));
+  return coverage * 0.7 + jac * 0.2 + (contains ? 0.15 : 0);
+}
+
+export type CancioneroAlignResult = {
+  cues: SubtitleCue[];
+  /** How many cancionero lines got a voice-matched start (not equal-time fill). */
+  alignedCount: number;
+  /** True when enough lines locked to voice timing to trust the sync. */
+  synced: boolean;
+};
+
 /**
- * Build timed cues from cancionero phrases, spread over durationMs.
- * Short lyric phrases (≤4–6 lines per cue); −1s lead is applied via agent leadMs.
+ * Map exact cancionero lines onto ASR/caption clocks.
+ * Timing source text is used only for alignment — cue `.text` stays Biblioteca.
  */
-export function songToSubtitleCues(
-  song: LibrarySongPayload,
-  durationMs: number,
-): SubtitleCue[] {
-  const chunks = songLyricChunks(song);
-  if (chunks.length === 0) return [];
+export function alignCancioneroLinesToTiming(
+  lines: readonly string[],
+  timingCues: readonly SubtitleCue[],
+  durationMs = 0,
+): CancioneroAlignResult {
+  const speech = filterSpeechCues([...timingCues]);
+  const exactLines = lines.map((l) => String(l).trim()).filter(Boolean);
+  if (exactLines.length === 0) {
+    return { cues: [], alignedCount: 0, synced: false };
+  }
 
   const total = Math.max(
-    durationMs > 0 ? durationMs : chunks.length * 8_000,
-    chunks.length * 2_500,
+    durationMs > 0 ? durationMs : 0,
+    speech.length > 0 ? speech[speech.length - 1]!.endMs : 0,
+    exactLines.length * 2_500,
   );
-  // Leave a short lead-in so assisted intro-hold shows phrase 1 from t≈0,
-  // then space remaining phrases evenly. Overlay lead (−1s) anticipates onset.
-  const leadInMs = Math.min(4_000, Math.floor(total * 0.06));
-  const usable = Math.max(total - leadInMs, chunks.length * 2_000);
-  const slice = usable / chunks.length;
 
-  return chunks.map((text, index) => {
+  if (speech.length === 0) {
+    return {
+      cues: cuesFromEqualTime(exactLines, total),
+      alignedCount: 0,
+      synced: false,
+    };
+  }
+
+  const starts: number[] = new Array(exactLines.length).fill(-1);
+  let cursor = 0;
+  let alignedCount = 0;
+
+  for (let li = 0; li < exactLines.length; li++) {
+    const lineTok = alignTokens(exactLines[li]!);
+    if (lineTok.length === 0) continue;
+
+    let bestScore = 0;
+    let bestStart = -1;
+    let bestEndCursor = cursor;
+
+    // Search a forward window; allow multi-cue spans for one hymn line.
+    const searchEnd = Math.min(speech.length, cursor + 14);
+    for (let i = cursor; i < searchEnd; i++) {
+      let window = "";
+      for (let j = i; j < Math.min(speech.length, i + 4); j++) {
+        window = window ? `${window} ${speech[j]!.text}` : speech[j]!.text;
+        const score = lineTimingScore(lineTok, window);
+        // Prefer earlier windows when scores are close (don't race ahead).
+        const earlierBonus = (searchEnd - i) * 0.001;
+        const adjusted = score + earlierBonus;
+        if (adjusted > bestScore + 0.02 || (adjusted >= bestScore && bestStart < 0)) {
+          if (score >= 0.45) {
+            bestScore = score;
+            bestStart = speech[i]!.startMs;
+            bestEndCursor = j + 1;
+          }
+        }
+      }
+    }
+
+    if (bestStart >= 0 && bestScore >= 0.45) {
+      starts[li] = bestStart;
+      cursor = Math.max(cursor + 1, bestEndCursor);
+      alignedCount += 1;
+    }
+  }
+
+  // Fill gaps monotonically so unaligned lines sit between neighbors
+  // (still cancionero text — never ASR words).
+  let last = -1;
+  for (let i = 0; i < starts.length; i++) {
+    if (starts[i]! >= 0) {
+      if (last >= 0 && starts[i]! < starts[last]!) {
+        starts[i] = starts[last]!;
+      }
+      last = i;
+    }
+  }
+
+  // Leading unaligned → estimate from first locked / conservative intro.
+  const firstLocked = starts.findIndex((s) => s >= 0);
+  if (firstLocked === -1) {
+    return {
+      cues: cuesFromEqualTime(exactLines, total),
+      alignedCount: 0,
+      synced: false,
+    };
+  }
+  if (firstLocked > 0) {
+    for (let i = 0; i < firstLocked; i++) {
+      const span = starts[firstLocked]! / Math.max(1, firstLocked);
+      starts[i] = Math.round(i * span);
+    }
+  }
+
+  // Trailing / interior gaps: linear interpolate between locked anchors.
+  for (let i = 0; i < starts.length; i++) {
+    if (starts[i]! >= 0) continue;
+    let prev = i - 1;
+    while (prev >= 0 && starts[prev]! < 0) prev -= 1;
+    let next = i + 1;
+    while (next < starts.length && starts[next]! < 0) next += 1;
+    if (prev >= 0 && next < starts.length) {
+      const gap = next - prev;
+      const t = (i - prev) / gap;
+      starts[i] = Math.round(
+        starts[prev]! + t * (starts[next]! - starts[prev]!),
+      );
+    } else if (prev >= 0) {
+      const remain = starts.length - 1 - prev;
+      const slice = Math.max(
+        2_000,
+        Math.floor((total - starts[prev]!) / Math.max(1, remain)),
+      );
+      starts[i] = starts[prev]! + (i - prev) * slice;
+    } else if (next < starts.length) {
+      starts[i] = Math.round((starts[next]! * (i + 1)) / (next + 1));
+    } else {
+      starts[i] =
+        conservativeIntroMs(total, exactLines.length) + i * 2_500;
+    }
+  }
+
+  // Enforce non-decreasing starts (voice never goes backward).
+  for (let i = 1; i < starts.length; i++) {
+    if (starts[i]! < starts[i - 1]!) {
+      starts[i] = starts[i - 1]!;
+    }
+  }
+
+  const cues: SubtitleCue[] = exactLines.map((text, index) => {
+    const startMs = Math.max(0, Math.round(starts[index]!));
+    const endMs = Math.max(
+      startMs + 500,
+      index === exactLines.length - 1
+        ? total
+        : Math.round(starts[index + 1]!),
+    );
+    return {
+      id: `cancionero_${index}`,
+      startMs,
+      endMs,
+      text,
+    };
+  });
+
+  const synced =
+    alignedCount >= Math.max(2, Math.ceil(exactLines.length * 0.4));
+  return { cues, alignedCount, synced };
+}
+
+/** Musical intro before equal-time fallback starts advancing lines. */
+function conservativeIntroMs(totalMs: number, lineCount: number): number {
+  // Prefer waiting through a real intro rather than racing the voice.
+  const byPct = Math.floor(totalMs * 0.14);
+  const capped = Math.min(18_000, Math.max(8_000, byPct));
+  const maxIntro = Math.max(0, totalMs - lineCount * 2_000);
+  return Math.min(capped, maxIntro);
+}
+
+function cuesFromEqualTime(
+  lines: readonly string[],
+  durationMs: number,
+): SubtitleCue[] {
+  if (lines.length === 0) return [];
+  const total = Math.max(
+    durationMs > 0 ? durationMs : lines.length * 8_000,
+    lines.length * 2_500,
+  );
+  const leadInMs = conservativeIntroMs(total, lines.length);
+  const usable = Math.max(total - leadInMs, lines.length * 2_000);
+  const slice = usable / lines.length;
+  return lines.map((text, index) => {
     const startMs = Math.round(leadInMs + index * slice);
     const endMs = Math.round(
-      index === chunks.length - 1
-        ? total
-        : leadInMs + (index + 1) * slice,
+      index === lines.length - 1 ? total : leadInMs + (index + 1) * slice,
     );
     return {
       id: `cancionero_${index}`,
@@ -379,6 +512,18 @@ export function songToSubtitleCues(
       text,
     };
   });
+}
+
+/**
+ * Build timed cues from exact cancionero lines.
+ * Equal-time fallback only — prefer alignCancioneroLinesToTiming when ASR /
+ * captions clocks exist. −1s display lead is applied via agent leadMs.
+ */
+export function songToSubtitleCues(
+  song: LibrarySongPayload,
+  durationMs: number,
+): SubtitleCue[] {
+  return cuesFromEqualTime(songLyricChunks(song), durationMs);
 }
 
 function runCmd(

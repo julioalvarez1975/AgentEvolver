@@ -223,7 +223,10 @@ export function ControlPage() {
         if (hint === "mt_source_only") {
           return t("control.subtitleAgentSourceOnly");
         }
-        if (hint === "cancionero_match") {
+        if (
+          hint === "cancionero_match" ||
+          hint === "cancionero_match_synced"
+        ) {
           return t("control.subtitleAgentCancioneroReady");
         }
         if (
