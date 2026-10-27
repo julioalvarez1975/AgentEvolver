@@ -1,15 +1,21 @@
 /**
- * Smoke: exact (native) vs assisted intro-hold + Adelante + cold-start snap.
+ * Smoke: exact (native) vs assisted intro-hold + Adelante + cold-start snap
+ * + player→hub mediaClock authority (YouTube / Guion Audio cue sync).
  * Usage: pnpm --filter @promedia/hub exec tsx scripts/smoke-subtitle-timing.mts
  */
 import {
   cueAtPositionWithLeadMs,
   DEFAULT_SUBTITLE_LEAD_MS,
+  CANCIONERO_DEFAULT_LEAD_MS,
   effectiveMediaClockPositionMs,
   type MediaClock,
   type SubtitleCue,
 } from "@promedia/shared";
-import { shouldSnapMediaClockToStart } from "@promedia/item-types";
+import {
+  shouldCorrectSeek,
+  shouldReportMediaClockPosition,
+  shouldSnapMediaClockToStart,
+} from "@promedia/item-types";
 
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg);
@@ -22,6 +28,7 @@ const cues: SubtitleCue[] = [
 
 function main(): void {
   assert(DEFAULT_SUBTITLE_LEAD_MS === 0, "native default lead is 0");
+  assert(CANCIONERO_DEFAULT_LEAD_MS === -1000, "cancionero default lead −1s");
 
   // Native / exact: blank until official startMs (matches YouTube lyric video).
   assert(
@@ -32,6 +39,17 @@ function main(): void {
     cueAtPositionWithLeadMs(cues, 12_500, 0, { holdIntro: false })?.text ===
       "Primera letra",
     "exact: first lyric at official window",
+  );
+
+  // Cancionero exact + −1s: line appears 1s before voice onset startMs.
+  assert(
+    cueAtPositionWithLeadMs(cues, 11_000, -1000, { holdIntro: false })?.text ===
+      "Primera letra",
+    "cancionero −1s shows first line at onset−1s",
+  );
+  assert(
+    cueAtPositionWithLeadMs(cues, 10_500, -1000, { holdIntro: false }) === null,
+    "cancionero −1s still blank before onset−1s",
   );
 
   // Assisted ASR: at theme start, first lyric visible (cancionero hold).
@@ -92,6 +110,64 @@ function main(): void {
   assert(
     shouldSnapMediaClockToStart(20_000, clock, now) === false,
     "no snap when player already past head",
+  );
+
+  // Player authority: do NOT chase wall-clock extrapolation (stale hub).
+  const stalePlaying: MediaClock = {
+    itemId: "item1",
+    playing: true,
+    positionMs: 5_000,
+    rate: 1,
+    updatedAt: new Date(now - 3_000).toISOString(),
+  };
+  assert(
+    effectiveMediaClockPositionMs(stalePlaying, now) >= 7_500,
+    "stale hub extrapolates past player",
+  );
+  const noChase = shouldCorrectSeek(5_000, stalePlaying, now);
+  assert(noChase.seek === false, "do not seek player to extrapolated clock");
+
+  // Fresh operator scrub: seek to explicit hub position.
+  const scrub: MediaClock = {
+    itemId: "item1",
+    playing: true,
+    positionMs: 30_000,
+    rate: 1,
+    updatedAt: new Date(now).toISOString(),
+  };
+  const scrubSeek = shouldCorrectSeek(5_000, scrub, now);
+  assert(
+    scrubSeek.seek === true && scrubSeek.targetMs === 30_000,
+    "seek on fresh operator scrub",
+  );
+
+  // Player→hub report: while playing near last position, heartbeat when aged.
+  const agedReport: MediaClock = {
+    itemId: "item1",
+    playing: true,
+    positionMs: 5_000,
+    rate: 1,
+    updatedAt: new Date(now - 500).toISOString(),
+  };
+  assert(
+    shouldReportMediaClockPosition(5_020, agedReport, now) === true,
+    "heartbeat report refreshes updatedAt while stalled/buffering",
+  );
+  assert(
+    shouldReportMediaClockPosition(5_500, agedReport, now) === true,
+    "report when player advanced past epsilon",
+  );
+  const freshMatch: MediaClock = {
+    ...agedReport,
+    updatedAt: new Date(now - 50).toISOString(),
+  };
+  assert(
+    shouldReportMediaClockPosition(5_020, freshMatch, now) === false,
+    "skip redundant report right after hub write",
+  );
+  assert(
+    shouldReportMediaClockPosition(5_000, scrub, now) === false,
+    "do not report over a fresh scrub — seek first",
   );
 
   console.log("SMOKE_OK smoke-subtitle-timing");

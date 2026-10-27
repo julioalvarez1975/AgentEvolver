@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { MediaClock, VideoFit } from "@promedia/shared";
-import { effectiveMediaClockPositionMs } from "@promedia/shared";
 import {
   MEDIA_CLOCK_COLD_START_MS,
-  MEDIA_CLOCK_DRIFT_MS,
+  MEDIA_CLOCK_REPORT_INTERVAL_MS,
   shouldCorrectSeek,
+  shouldReportMediaClockPosition,
   shouldSnapMediaClockToStart,
 } from "./clock.js";
 
@@ -78,21 +78,6 @@ export function FileVideo({
     if (!el || preview || !mediaClock) {
       return;
     }
-    const localMs = el.currentTime * 1000;
-    if (
-      !coldSnapDoneRef.current &&
-      shouldSnapMediaClockToStart(localMs, mediaClock) &&
-      onMediaClockSetRef.current
-    ) {
-      coldSnapDoneRef.current = true;
-      onMediaClockSetRef.current({ playing: true, positionMs: 0 });
-      el.currentTime = 0;
-    } else {
-      const { seek, targetMs } = shouldCorrectSeek(localMs, mediaClock);
-      if (seek) {
-        el.currentTime = targetMs / 1000;
-      }
-    }
     el.loop = loop;
     el.muted = muted;
     if (mediaClock.playing) {
@@ -106,7 +91,79 @@ export function FileVideo({
     } else {
       el.pause();
     }
-  }, [mediaClock, preview, loop, muted, onBlocked]);
+  }, [
+    preview,
+    loop,
+    muted,
+    onBlocked,
+    mediaClock?.playing,
+    mediaClock?.itemId,
+  ]);
+
+  /** Operator scrub / Go Live / cold-snap seek (not player→hub heartbeats). */
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || preview || !mediaClock) {
+      return;
+    }
+    const localMs = el.currentTime * 1000;
+    if (
+      !coldSnapDoneRef.current &&
+      shouldSnapMediaClockToStart(localMs, mediaClock) &&
+      onMediaClockSetRef.current
+    ) {
+      coldSnapDoneRef.current = true;
+      onMediaClockSetRef.current({ playing: true, positionMs: 0 });
+      el.currentTime = 0;
+      return;
+    }
+    const { seek, targetMs } = shouldCorrectSeek(localMs, mediaClock);
+    if (seek) {
+      el.currentTime = targetMs / 1000;
+    }
+  }, [
+    preview,
+    mediaClock?.playing,
+    mediaClock?.itemId,
+    mediaClock?.positionMs,
+    mediaClock?.updatedAt,
+  ]);
+
+  // Player → hub: real currentTime drives SubtitleOverlay (not wall-clock).
+  useEffect(() => {
+    if (preview || !mediaClock?.playing || !onMediaClockSet) {
+      return;
+    }
+    const tick = () => {
+      const el = ref.current;
+      const clock = mediaClockRef.current;
+      const report = onMediaClockSetRef.current;
+      if (!el || !clock?.playing || !report) {
+        return;
+      }
+      const localMs = el.currentTime * 1000;
+      if (
+        !coldSnapDoneRef.current &&
+        shouldSnapMediaClockToStart(localMs, clock)
+      ) {
+        coldSnapDoneRef.current = true;
+        report({ playing: true, positionMs: 0 });
+        el.currentTime = 0;
+        return;
+      }
+      if (shouldReportMediaClockPosition(localMs, clock)) {
+        report({ playing: true, positionMs: Math.round(localMs) });
+      }
+    };
+    tick();
+    const id = window.setInterval(tick, MEDIA_CLOCK_REPORT_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [
+    preview,
+    mediaClock?.playing,
+    mediaClock?.itemId,
+    onMediaClockSet,
+  ]);
 
   return (
     <div className="video-file-wrap">
@@ -143,8 +200,11 @@ export function FileVideo({
               onMediaClockSetRef.current?.({ playing: true, positionMs: 0 });
               el.currentTime = 0;
             } else if (clock) {
-              const targetMs = effectiveMediaClockPositionMs(clock);
-              if (Math.abs(el.currentTime * 1000 - targetMs) > MEDIA_CLOCK_DRIFT_MS) {
+              const { seek, targetMs } = shouldCorrectSeek(
+                el.currentTime * 1000,
+                clock,
+              );
+              if (seek) {
                 el.currentTime = targetMs / 1000;
               }
             }
