@@ -34,8 +34,15 @@ import {
   shapeLyricLikeCues,
 } from "./subtitle-lyric-shape.js";
 import {
+  findCancioneroSong,
+  probeMediaDurationMs,
+  songToSubtitleCues,
+  titleFromAudioFilename,
+} from "./subtitle-cancionero.js";
+import {
   ensureYoutubeAudio,
   expandCaptionPreferLangs,
+  fetchYoutubeMeta,
   tryYoutubeCaptions,
   ytDlpAvailable,
 } from "./subtitle-youtube.js";
@@ -370,6 +377,153 @@ function isStickyHardYoutube(
   );
 }
 
+/** Cancionero miss is intentional — do not fall through to Whisper on Go Live. */
+function isStickyCancioneroMiss(
+  agent: SubtitleAgentState | null | undefined,
+): boolean {
+  return Boolean(
+    agent &&
+      agent.status === "error" &&
+      (agent.hint === "cancionero_no_match" ||
+        agent.hint === "cancionero_empty" ||
+        agent.hint === "cancionero_no_songs"),
+  );
+}
+
+/**
+ * Guion Audio + YouTube: match Biblioteca cancionero by title/filename.
+ * Hit → timed cues from stanzas (no Whisper/Marian). Miss → sticky error.
+ * Returns true when the job should stop (hit finished or miss reported).
+ */
+async function tryCancioneroLyricPath(options: {
+  sessionId: string;
+  gen: number;
+  targetLang: SubtitleTargetLang;
+  resolved: ResolveOk;
+}): Promise<boolean> {
+  const { sessionId, gen, targetLang, resolved } = options;
+  const item = resolved.item;
+  const isAudio = item.type === "audio";
+  const isYoutube =
+    item.type === "video" && item.payload.sourceKind === "youtube";
+  if (!isAudio && !isYoutube) {
+    return false;
+  }
+
+  const titles: string[] = [];
+  const artists: string[] = [];
+  let durationMs = 0;
+
+  if (isAudio) {
+    const payloadTitle =
+      typeof item.payload.title === "string" ? item.payload.title.trim() : "";
+    if (payloadTitle) titles.push(payloadTitle);
+    const fromFile = titleFromAudioFilename(resolved.originalName);
+    if (fromFile) titles.push(fromFile);
+    if (resolved.mediaPath) {
+      durationMs = await probeMediaDurationMs(resolved.mediaPath);
+    }
+  } else if (isYoutube && resolved.youtube) {
+    const payloadTitle =
+      typeof item.payload.title === "string" ? item.payload.title.trim() : "";
+    if (payloadTitle) titles.push(payloadTitle);
+
+    const liveLookup = sessionStore.get(sessionId);
+    if (!liveLookup?.live.subtitleAgent?.enabled) return true;
+    patchAndBroadcast(liveLookup, {
+      enabled: true,
+      targetLang,
+      status: "downloading",
+      itemId: item.id,
+      assetId: resolved.assetId,
+      hint: "cancionero_lookup",
+      cues: [],
+      translated: false,
+      sourceLang: null,
+    });
+
+    const meta = await fetchYoutubeMeta({
+      videoId: resolved.youtube.videoId,
+      sourceUrl: resolved.youtube.sourceUrl,
+    });
+    if (!isCurrent(sessionId, gen)) return true;
+    if (meta?.title) titles.push(meta.title);
+    if (meta?.track) titles.push(meta.track);
+    if (meta?.artist) artists.push(meta.artist);
+    if (meta?.durationMs) durationMs = meta.durationMs;
+  }
+
+  const match = await findCancioneroSong({ titles, artists });
+  if (!isCurrent(sessionId, gen)) return true;
+
+  if (!match.ok) {
+    const live = sessionStore.get(sessionId);
+    if (!live?.live.subtitleAgent?.enabled) return true;
+    const hint =
+      match.reason === "no_songs"
+        ? "cancionero_no_songs"
+        : match.reason === "no_query"
+          ? "cancionero_no_match"
+          : "cancionero_no_match";
+    console.warn(
+      `[subtitle] cancionero miss (${match.reason}) tried=${JSON.stringify(match.tried)}`,
+    );
+    patchAndBroadcast(live, {
+      enabled: true,
+      targetLang,
+      status: "error",
+      itemId: item.id,
+      assetId: resolved.assetId,
+      cues: [],
+      translated: false,
+      sourceLang: null,
+      hint,
+      timingMode: "assisted",
+    });
+    return true;
+  }
+
+  const cues = songToSubtitleCues(match.song, durationMs);
+  if (!cues.length) {
+    const live = sessionStore.get(sessionId);
+    if (!live?.live.subtitleAgent?.enabled) return true;
+    patchAndBroadcast(live, {
+      enabled: true,
+      targetLang,
+      status: "error",
+      itemId: item.id,
+      assetId: resolved.assetId,
+      cues: [],
+      translated: false,
+      sourceLang: null,
+      hint: "cancionero_empty",
+      timingMode: "assisted",
+    });
+    return true;
+  }
+
+  console.log(
+    `[subtitle] cancionero match score=${match.score} q="${match.matchedQuery}" song="${match.song.title}" cues=${cues.length}`,
+  );
+
+  const ok = await finishWithCues({
+    sessionId,
+    gen,
+    itemId: item.id,
+    assetId: resolved.assetId,
+    cues,
+    sourceLang: targetLang,
+    targetLang,
+    alreadyEnglish: targetLang === "en",
+    // Keep stanza text as-is (like native captions); assisted intro-hold for lead-in.
+    nativeTrack: true,
+    preserveLyricsSource: true,
+    timingMode: "assisted",
+    hint: "cancionero_match",
+  });
+  return ok || true;
+}
+
 async function missingBinStillAbsent(hint: string): Promise<boolean> {
   if (hint === "yt_dlp_missing") {
     return !(await ytDlpAvailable());
@@ -439,10 +593,13 @@ export function setSubtitleAgent(
     return sessionStore.touchSubtitleAgent(session);
   }
 
-  // Keep missing-binary / hard YT error visible when focus/lang changes; only
-  // clear on toggle-on (wasOff) so Control shows the hint instead of retry spam.
+  // Keep missing-binary / hard YT / cancionero-miss visible when focus/lang
+  // changes; only clear on toggle-on (wasOff) so Control shows the hint
+  // instead of retry spam (and never invents lyrics via Whisper after a miss).
   const stickyHardYt = isStickyHardYoutube(prev);
-  const keepSticky = (stickyMissing || stickyHardYt) && !wasOff;
+  const stickyCancionero = isStickyCancioneroMiss(prev);
+  const keepSticky =
+    (stickyMissing || stickyHardYt || stickyCancionero) && !wasOff;
   if (wasOff) {
     clearYtHardFail(session.id);
   }
@@ -508,6 +665,10 @@ async function runSubtitleJob(
     // Same hard YT failure — wait for backoff or user toggle-on.
     return;
   }
+  if (!force && agentPeek && isStickyCancioneroMiss(agentPeek)) {
+    // Cancionero miss — wait for toggle-on or library update (no Whisper).
+    return;
+  }
 
   const gen = bumpJob(sessionId);
   const session = sessionStore.get(sessionId);
@@ -553,6 +714,18 @@ async function runSubtitleJob(
 
   try {
     await ensureSubtitleDirs();
+    if (!isCurrent(sessionId, gen)) return;
+
+    // Option 3: Guion Audio + YouTube → Biblioteca cancionero first.
+    // Hit places stanza lyrics on mediaClock; miss → Spanish modal (sticky).
+    // Do not fall through to Whisper/Marian for this path.
+    const cancioneroDone = await tryCancioneroLyricPath({
+      sessionId,
+      gen,
+      targetLang,
+      resolved,
+    });
+    if (cancioneroDone) return;
     if (!isCurrent(sessionId, gen)) return;
 
     if (resolved.youtube) {

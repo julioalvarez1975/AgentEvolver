@@ -689,6 +689,82 @@ export async function listYoutubeCaptionTracks(options: {
   return out;
 }
 
+export type YoutubeMeta = {
+  videoId: string;
+  /** Best display title (fulltitle || title). */
+  title: string | null;
+  track: string | null;
+  artist: string | null;
+  /** Duration in milliseconds when known. */
+  durationMs: number;
+};
+
+/**
+ * Lightweight yt-dlp `-J` probe for cancionero matching (title / track / artist / duration).
+ * Does not download media. Returns null when yt-dlp is missing or the probe fails.
+ */
+export async function fetchYoutubeMeta(options: {
+  videoId: string;
+  sourceUrl: string;
+}): Promise<YoutubeMeta | null> {
+  const { videoId, sourceUrl } = options;
+  assertSafeVideoId(videoId);
+  if (!(await ytDlpAvailable())) return null;
+  const bin = resolveYtDlpBin();
+  const url =
+    sourceUrl?.trim() || `https://www.youtube.com/watch?v=${videoId}`;
+  let result: { code: number; stderr: string; stdout: string };
+  try {
+    result = await runCmd(bin, [
+      "--no-playlist",
+      "--no-warnings",
+      "--skip-download",
+      "-J",
+      "--",
+      url,
+    ]);
+  } catch {
+    return null;
+  }
+  if (result.code !== 0 || !result.stdout.trim()) return null;
+  let data: {
+    title?: string;
+    fulltitle?: string;
+    track?: string;
+    artist?: string;
+    album_artist?: string;
+    creator?: string;
+    duration?: number;
+  };
+  try {
+    data = JSON.parse(result.stdout) as typeof data;
+  } catch {
+    return null;
+  }
+  const title =
+    (typeof data.fulltitle === "string" && data.fulltitle.trim()) ||
+    (typeof data.title === "string" && data.title.trim()) ||
+    null;
+  const track =
+    typeof data.track === "string" && data.track.trim() ? data.track.trim() : null;
+  const artist =
+    (typeof data.artist === "string" && data.artist.trim()) ||
+    (typeof data.album_artist === "string" && data.album_artist.trim()) ||
+    (typeof data.creator === "string" && data.creator.trim()) ||
+    null;
+  const durationSec =
+    typeof data.duration === "number" && Number.isFinite(data.duration)
+      ? data.duration
+      : 0;
+  return {
+    videoId,
+    title,
+    track,
+    artist,
+    durationMs: durationSec > 0 ? Math.round(durationSec * 1000) : 0,
+  };
+}
+
 async function invokeYtDlpCaptions(options: {
   bin: string;
   cacheDir: string;
