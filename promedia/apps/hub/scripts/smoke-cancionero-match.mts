@@ -1,16 +1,17 @@
 /**
- * Smoke: cancionero title normalize / match / phrase cues / −1s lead.
+ * Smoke: cancionero exact lines / voice-align / −1s lead (no invented splits).
  * Usage: pnpm --filter @promedia/hub exec tsx scripts/smoke-cancionero-match.mts
  */
-import type { LibrarySongPayload } from "@promedia/shared";
+import type { LibrarySongPayload, SubtitleCue } from "@promedia/shared";
 import {
   CANCIONERO_DEFAULT_LEAD_MS,
   cueAtPositionWithLeadMs,
-  LYRIC_OVERLAY_MAX_LINES,
 } from "@promedia/shared";
 import {
+  alignCancioneroLinesToTiming,
   normalizeMatchTitle,
   scoreSongMatch,
+  songCancioneroLines,
   songLyricChunks,
   songLyricPhrases,
   songToSubtitleCues,
@@ -68,64 +69,99 @@ assert(ytLike >= 70, `youtube-like title score got ${ytLike}`);
 const miss = scoreSongMatch(song, "Shape of You");
 assert(miss < 55, `unrelated should miss, got ${miss}`);
 
+// Exact Biblioteca lines — do not invent punctuation splits.
 const longLine =
-  "Señor mi Dios, al contemplar los cielos, el firmamento y las estrellas mil, ¿qué es el hombre para que tú lo cuides?";
+  "Señor mi Dios, al contemplar los cielos, el firmamento y las estrellas mil";
 const phrases = splitLyricPhrases(longLine);
-assert(phrases.length >= 2, `long sentence → phrases, got ${phrases.length}`);
-assert(
-  phrases.every((p) => p.length <= 48),
-  `phrases should be short, got ${JSON.stringify(phrases)}`,
-);
+assert(phrases.length === 1, `exact line stays 1 phrase, got ${phrases.length}`);
+assert(phrases[0] === longLine, "exact line text preserved");
+
+const embedded = splitLyricPhrases("línea uno\nlínea dos");
+assert(embedded.length === 2, "embedded newlines → exact lines");
+assert(embedded[0] === "línea uno" && embedded[1] === "línea dos", "newline split");
 
 const flat = songLyricPhrases(song);
-assert(flat.length >= 5, `expected ≥5 phrases, got ${flat.length}`);
+assert(flat.length === 5, `expected 5 exact lines, got ${flat.length}`);
+assert(flat[0] === "Señor mi Dios", "first exact line");
+assert(flat[1] === "al contemplar los cielos", "second exact line");
 
 const chunks = songLyricChunks(song);
-assert(chunks.length >= 2, `expected ≥2 chunks, got ${chunks.length}`);
-assert(chunks[0]!.includes("Señor mi Dios"), "first chunk lyric");
+assert(chunks.length === 5, `one cue per exact line, got ${chunks.length}`);
 assert(
-  chunks.every(
-    (c) => c.split("\n").filter(Boolean).length <= LYRIC_OVERLAY_MAX_LINES,
-  ),
-  "chunks ≤6 lines",
-);
-
-const runOnSong: LibrarySongPayload = {
-  title: "Run on",
-  stanzas: [{ id: "r1", lines: [longLine] }],
-};
-const runChunks = songLyricChunks(runOnSong);
-assert(runChunks.length >= 1, "run-on yields chunks");
-assert(
-  runChunks.every(
-    (c) => c.split("\n").filter(Boolean).length <= LYRIC_OVERLAY_MAX_LINES,
-  ),
-  "run-on chunks ≤6 lines",
+  chunks.every((c) => !c.includes("\n")),
+  "chunks are single exact lines (no re-merge)",
 );
 assert(
-  runChunks.some((c) => c.includes("\n") || c.length <= 48),
-  "run-on split into short phrases",
+  JSON.stringify(chunks) === JSON.stringify(songCancioneroLines(song)),
+  "chunks === cancionero lines",
 );
 
 const cues = songToSubtitleCues(song, 120_000);
-assert(cues.length === chunks.length, "cue count = chunks");
-assert(cues[0]!.startMs >= 0, "first start ≥ 0");
+assert(cues.length === chunks.length, "cue count = exact lines");
+assert(cues[0]!.startMs >= 8_000, "equal-time fallback waits through intro");
 assert(cues[cues.length - 1]!.endMs >= 100_000, "last end near duration");
 assert(
   cues.every((c) => c.text.trim().length > 0),
   "all cues have text",
 );
+assert(
+  cues.every((c, i) => c.text === chunks[i]),
+  "cue text is exact cancionero line",
+);
 
-const held = cueAtPositionWithLeadMs(cues, 500, 0, { holdIntro: true });
-assert(held?.text === cues[0]!.text, "assisted intro-hold shows first verse");
+// Voice sync: ASR/caption clocks → cancionero text only.
+const timing: SubtitleCue[] = [
+  { id: "t0", startMs: 12_000, endMs: 14_000, text: "Señor mi Dios" },
+  {
+    id: "t1",
+    startMs: 14_500,
+    endMs: 17_000,
+    text: "al contemplar los cielos",
+  },
+  { id: "t2", startMs: 17_500, endMs: 19_000, text: "te adoro a Ti" },
+  { id: "t3", startMs: 22_000, endMs: 24_000, text: "Cuán grande es Él" },
+  { id: "t4", startMs: 24_500, endMs: 26_500, text: "Cuán grande es Él" },
+];
+const aligned = alignCancioneroLinesToTiming(chunks, timing, 60_000);
+assert(aligned.synced, "enough lines voice-aligned");
+assert(aligned.alignedCount >= 4, `alignedCount got ${aligned.alignedCount}`);
+assert(aligned.cues.length === 5, "aligned cue count");
+assert(
+  aligned.cues.every((c, i) => c.text === chunks[i]),
+  "aligned cues keep Biblioteca text",
+);
+assert(aligned.cues[0]!.startMs === 12_000, "first line locks to voice");
+assert(aligned.cues[1]!.startMs === 14_500, "second line locks to voice");
+// Must not race: before voice onset (with −1s lead) earlier lines only.
+const exactOpts = { holdIntro: false } as const;
+assert(
+  cueAtPositionWithLeadMs(aligned.cues, 10_500, 0, exactOpts)?.text == null,
+  "exact mode: blank before first voice moment",
+);
+assert(
+  cueAtPositionWithLeadMs(
+    aligned.cues,
+    11_000,
+    CANCIONERO_DEFAULT_LEAD_MS,
+    exactOpts,
+  )?.text === "Señor mi Dios",
+  "−1s lead shows first line 1s before voice",
+);
+assert(
+  cueAtPositionWithLeadMs(
+    aligned.cues,
+    13_500,
+    CANCIONERO_DEFAULT_LEAD_MS,
+    exactOpts,
+  )?.text === "al contemplar los cielos",
+  "−1s lead advances to next line 1s before its voice",
+);
+assert(
+  cueAtPositionWithLeadMs(aligned.cues, 14_500, 0, exactOpts)?.text ===
+    "al contemplar los cielos",
+  "without lead, next line appears at its voice onset",
+);
 
 assert(CANCIONERO_DEFAULT_LEAD_MS === -1000, "cancionero default lead −1s");
-const early = cueAtPositionWithLeadMs(
-  cues,
-  Math.max(0, cues[0]!.startMs - 500),
-  CANCIONERO_DEFAULT_LEAD_MS,
-  { holdIntro: true },
-);
-assert(early?.text === cues[0]!.text, "−1s lead shows first lyric early");
 
 console.log("SMOKE_OK cancionero-match");

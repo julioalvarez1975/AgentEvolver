@@ -121,8 +121,19 @@ export function SubtitleOverlay({
     if (!cue?.text) {
       return null;
     }
+    // Prefer exact cue newlines (cancionero Biblioteca lines). Soft-wrap only
+    // when a single source line has no breaks and would otherwise overflow.
+    const exact = String(cue.text)
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (exact.length > 1) {
+      return exact.slice(0, LYRIC_OVERLAY_MAX_LINES);
+    }
     const lines = normalizeProjectionLines(
-      [cue.text],
+      exact.length ? exact : [cue.text],
       LYRIC_PHRASE_SOFT_WRAP_CHARS,
     ).slice(0, LYRIC_OVERLAY_MAX_LINES);
     return lines.length > 0 ? lines : [cue.text.trim() || "\u00a0"];

@@ -35,8 +35,10 @@ import {
   shapeLyricLikeCues,
 } from "./subtitle-lyric-shape.js";
 import {
+  alignCancioneroLinesToTiming,
   findCancioneroSong,
   probeMediaDurationMs,
+  songCancioneroLines,
   songToSubtitleCues,
   titleFromAudioFilename,
 } from "./subtitle-cancionero.js";
@@ -399,9 +401,124 @@ function isStickyCancioneroMiss(
 }
 
 /**
+ * Timing-only probe for cancionero sync. Captions/ASR clocks are used to
+ * decide *when* to reveal each Biblioteca line — never to rewrite the text.
+ */
+async function fetchCancioneroTimingCues(options: {
+  sessionId: string;
+  gen: number;
+  targetLang: SubtitleTargetLang;
+  resolved: ResolveOk;
+  onStatus?: (
+    status: "downloading" | "extracting" | "transcribing",
+    hint: string,
+  ) => void;
+}): Promise<{ cues: import("@promedia/shared").SubtitleCue[]; assetId: string } | null> {
+  const { sessionId, gen, targetLang, resolved } = options;
+  let mediaPath = resolved.mediaPath;
+  let assetId = resolved.assetId;
+
+  if (resolved.youtube) {
+    options.onStatus?.("downloading", "cancionero_sync");
+    const preferLangs = expandCaptionPreferLangs([targetLang]);
+    try {
+      const caps = await tryYoutubeCaptions({
+        videoId: resolved.youtube.videoId,
+        sourceUrl: resolved.youtube.sourceUrl,
+        preferLangs,
+      });
+      if (!isCurrent(sessionId, gen)) return null;
+      if (caps && caps.cues.length > 0) {
+        const speech = filterSpeechCues(caps.cues);
+        if (speech.length > 0) {
+          console.log(
+            `[subtitle] cancionero timing from YouTube captions kind=${caps.trackKind} n=${speech.length}`,
+          );
+          return { cues: speech, assetId: caps.assetId };
+        }
+      }
+    } catch (err) {
+      console.warn(
+        "[subtitle] cancionero timing captions failed:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+
+    options.onStatus?.("downloading", "cancionero_sync");
+    try {
+      const yt = await ensureYoutubeAudio({
+        videoId: resolved.youtube.videoId,
+        sourceUrl: resolved.youtube.sourceUrl,
+      });
+      if (!isCurrent(sessionId, gen)) return null;
+      mediaPath = yt.mediaPath;
+      assetId = yt.assetId;
+    } catch (err) {
+      console.warn(
+        "[subtitle] cancionero timing YT audio failed:",
+        err instanceof Error ? err.message : err,
+      );
+      return null;
+    }
+  } else if (mediaPath) {
+    options.onStatus?.("extracting", "cancionero_sync");
+    try {
+      const local = await tryLocalCaptionTracks({
+        assetId,
+        mediaPath,
+        originalName: resolved.originalName,
+      });
+      if (!isCurrent(sessionId, gen)) return null;
+      if (local && local.cues.length > 0) {
+        const speech = filterSpeechCues(local.cues);
+        if (speech.length > 0) {
+          console.log(
+            `[subtitle] cancionero timing from local captions origin=${local.origin} n=${speech.length}`,
+          );
+          return { cues: speech, assetId };
+        }
+      }
+    } catch (err) {
+      console.warn(
+        "[subtitle] cancionero timing local captions failed:",
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  if (!mediaPath) return null;
+  const exists = await mediaFileExists(mediaPath);
+  if (!exists) return null;
+
+  options.onStatus?.("transcribing", "cancionero_sync");
+  try {
+    const asr = await transcribeLocalFile({
+      mediaPath,
+      assetId,
+      translateToEn: false,
+      targetLang,
+      onStatus: (st) => options.onStatus?.(st, "cancionero_sync"),
+    });
+    if (!isCurrent(sessionId, gen)) return null;
+    const speech = filterSpeechCues(asr.cues);
+    if (speech.length === 0) return null;
+    console.log(
+      `[subtitle] cancionero timing from ASR n=${speech.length}`,
+    );
+    return { cues: speech, assetId };
+  } catch (err) {
+    console.warn(
+      "[subtitle] cancionero timing ASR failed:",
+      err instanceof Error ? err.message : err,
+    );
+    return null;
+  }
+}
+
+/**
  * Guion Audio + YouTube: match Biblioteca cancionero by title/filename.
- * Hit → timed cues from stanzas (no Whisper/Marian). Miss → sticky error.
- * Returns true when the job should stop (hit finished or miss reported).
+ * Hit → exact stanza/line text, clocks from captions/ASR when available
+ * (timing only). Miss → sticky error. Returns true when the job should stop.
  */
 async function tryCancioneroLyricPath(options: {
   sessionId: string;
@@ -486,13 +603,13 @@ async function tryCancioneroLyricPath(options: {
       translated: false,
       sourceLang: null,
       hint,
-      timingMode: "assisted",
+      timingMode: "exact",
     });
     return true;
   }
 
-  const cues = songToSubtitleCues(match.song, durationMs);
-  if (!cues.length) {
+  const lines = songCancioneroLines(match.song);
+  if (!lines.length) {
     const live = sessionStore.get(sessionId);
     if (!live?.live.subtitleAgent?.enabled) return true;
     patchAndBroadcast(live, {
@@ -505,30 +622,90 @@ async function tryCancioneroLyricPath(options: {
       translated: false,
       sourceLang: null,
       hint: "cancionero_empty",
-      timingMode: "assisted",
+      timingMode: "exact",
+    });
+    return true;
+  }
+
+  // Voice sync: captions/ASR clocks only — Biblioteca lines stay exact.
+  const liveSync = sessionStore.get(sessionId);
+  if (!liveSync?.live.subtitleAgent?.enabled) return true;
+  const timing = await fetchCancioneroTimingCues({
+    sessionId,
+    gen,
+    targetLang,
+    resolved,
+    onStatus: (status, hint) => {
+      if (!isCurrent(sessionId, gen)) return;
+      const live = sessionStore.get(sessionId);
+      if (!live?.live.subtitleAgent?.enabled) return;
+      patchAndBroadcast(live, {
+        status,
+        hint,
+        itemId: item.id,
+        assetId: resolved.assetId,
+        cues: [],
+        translated: false,
+        sourceLang: null,
+      });
+    },
+  });
+  if (!isCurrent(sessionId, gen)) return true;
+
+  let cues = songToSubtitleCues(match.song, durationMs);
+  let synced = false;
+  let assetId = resolved.assetId;
+  if (timing && timing.cues.length > 0) {
+    const aligned = alignCancioneroLinesToTiming(
+      lines,
+      timing.cues,
+      durationMs,
+    );
+    cues = aligned.cues;
+    synced = aligned.synced;
+    assetId = timing.assetId;
+    console.log(
+      `[subtitle] cancionero align synced=${synced} aligned=${aligned.alignedCount}/${lines.length}`,
+    );
+  }
+
+  if (!cues.length) {
+    const live = sessionStore.get(sessionId);
+    if (!live?.live.subtitleAgent?.enabled) return true;
+    patchAndBroadcast(live, {
+      enabled: true,
+      targetLang,
+      status: "error",
+      itemId: item.id,
+      assetId,
+      cues: [],
+      translated: false,
+      sourceLang: null,
+      hint: "cancionero_empty",
+      timingMode: "exact",
     });
     return true;
   }
 
   console.log(
-    `[subtitle] cancionero match score=${match.score} q="${match.matchedQuery}" song="${match.song.title}" cues=${cues.length}`,
+    `[subtitle] cancionero match score=${match.score} q="${match.matchedQuery}" song="${match.song.title}" cues=${cues.length} synced=${synced}`,
   );
 
   const ok = await finishWithCues({
     sessionId,
     gen,
     itemId: item.id,
-    assetId: resolved.assetId,
+    assetId,
     cues,
     sourceLang: targetLang,
     targetLang,
     alreadyEnglish: targetLang === "en",
-    // Keep stanza text as-is (like native captions); assisted intro-hold for lead-in.
+    // Exact Biblioteca text; exact timingMode so we wait for the voice
+    // (no intro-hold race). leadMs −1s reveals each line 1s before onset.
     nativeTrack: true,
     preserveLyricsSource: true,
-    timingMode: "assisted",
-    hint: "cancionero_match",
-    // Path default: show letter 1s before the sung onset (Julio).
+    timingMode: "exact",
+    hint: synced ? "cancionero_match_synced" : "cancionero_match",
     leadMs: CANCIONERO_DEFAULT_LEAD_MS,
   });
   return ok || true;
@@ -727,8 +904,8 @@ async function runSubtitleJob(
     if (!isCurrent(sessionId, gen)) return;
 
     // Option 3: Guion Audio + YouTube → Biblioteca cancionero first.
-    // Hit places stanza lyrics on mediaClock; miss → Spanish modal (sticky).
-    // Do not fall through to Whisper/Marian for this path.
+    // Hit: exact stanza/line text + captions/ASR clocks (timing only).
+    // Miss → Spanish modal (sticky). Do not fall through to Marian rewrite.
     const cancioneroDone = await tryCancioneroLyricPath({
       sessionId,
       gen,
