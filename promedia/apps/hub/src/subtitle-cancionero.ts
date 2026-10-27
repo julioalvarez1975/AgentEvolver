@@ -8,7 +8,12 @@ import type {
   LibrarySongPayload,
   SubtitleCue,
 } from "@promedia/shared";
-import { songToTextPayload } from "@promedia/shared";
+import {
+  LYRIC_OVERLAY_MAX_LINES,
+  LYRIC_OVERLAY_PREFERRED_LINES,
+  LYRIC_PHRASE_SOFT_WRAP_CHARS,
+  softWrapProjectionLine,
+} from "@promedia/shared";
 import {
   ensureAugmentedPath,
   resolveFfmpegBin,
@@ -229,25 +234,119 @@ export async function findCancioneroSong(
 }
 
 /**
- * Flatten library song stanzas into projection chunks (≤5 lines), same as Guion canciones.
+ * Split a stanza line into short lyric phrases (not long run-on sentences).
+ * Breaks on . ! ? ; : — … and commas when the remainder stays phrase-sized;
+ * then soft-wraps at LYRIC_PHRASE_SOFT_WRAP_CHARS.
  */
-export function songLyricChunks(song: LibrarySongPayload): string[] {
-  const payload = songToTextPayload(song);
+export function splitLyricPhrases(
+  raw: string,
+  maxChars: number = LYRIC_PHRASE_SOFT_WRAP_CHARS,
+): string[] {
+  const cleaned = String(raw ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (cleaned.length === 0) return [];
+
+  const limit = Math.max(12, Math.trunc(maxChars));
+  const phrases: string[] = [];
+
+  const pushWrapped = (chunk: string) => {
+    for (const row of softWrapProjectionLine(chunk, limit)) {
+      const t = row.trim();
+      if (t) phrases.push(t);
+    }
+  };
+
+  for (const line of cleaned) {
+    if (line.length <= limit) {
+      phrases.push(line);
+      continue;
+    }
+    // Prefer phrase breaks before falling back to word wrap.
+    const rough = line
+      .split(/(?<=[.!?…])\s+|(?<=[;:—–-])\s+|(?<=,)\s+(?=.{10,})/u)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    for (const piece of rough.length ? rough : [line]) {
+      pushWrapped(piece.replace(/[,:;]\s*$/u, "").trim() || piece);
+    }
+  }
+  return phrases;
+}
+
+/** Flatten every stanza into ordered short lyric phrases. */
+export function songLyricPhrases(song: LibrarySongPayload): string[] {
+  const out: string[] = [];
+  const stanzas =
+    song.stanzas.length > 0
+      ? song.stanzas
+      : [{ id: "empty", lines: [] as string[] }];
+  for (const stanza of stanzas) {
+    for (const line of stanza.lines ?? []) {
+      out.push(...splitLyricPhrases(String(line)));
+    }
+  }
+  return out;
+}
+
+/**
+ * Pack short phrases into cue chunks (preferred 4, max 6 lines).
+ * Preserves stanza boundaries so verses advance like cancionero slides.
+ */
+function chunkPhraseLines(phrases: string[]): string[] {
+  if (phrases.length === 0) return [];
+  const preferred = Math.max(
+    1,
+    Math.min(LYRIC_OVERLAY_PREFERRED_LINES, LYRIC_OVERLAY_MAX_LINES),
+  );
+  const maxLines = Math.max(preferred, LYRIC_OVERLAY_MAX_LINES);
   const chunks: string[] = [];
-  for (const slide of payload.slides) {
-    const text = (slide.lines ?? [])
-      .map((l) => String(l).trim())
-      .filter(Boolean)
-      .join("\n")
-      .trim();
+
+  for (let i = 0; i < phrases.length; ) {
+    const remaining = phrases.length - i;
+    let take = Math.min(preferred, remaining);
+    // Absorb a single orphan line into this cue when it still fits ≤ max.
+    if (
+      remaining === preferred + 1 &&
+      remaining <= maxLines
+    ) {
+      take = remaining;
+    } else if (remaining > maxLines && remaining - preferred === 1) {
+      take = Math.min(maxLines, remaining);
+    }
+    const text = phrases.slice(i, i + take).join("\n").trim();
     if (text) chunks.push(text);
+    i += take;
   }
   return chunks;
 }
 
 /**
- * Build timed cues from cancionero stanzas, spread over durationMs.
- * Uses the same 5-line chunking as canciones projection.
+ * Flatten library song stanzas into projection chunks of short phrases
+ * (preferred 4, max 6 lines) for the timed lyric overlay.
+ */
+export function songLyricChunks(song: LibrarySongPayload): string[] {
+  const stanzas =
+    song.stanzas.length > 0
+      ? song.stanzas
+      : [{ id: "empty", lines: [] as string[] }];
+  const chunks: string[] = [];
+  for (const stanza of stanzas) {
+    const phrases: string[] = [];
+    for (const line of stanza.lines ?? []) {
+      phrases.push(...splitLyricPhrases(String(line)));
+    }
+    chunks.push(...chunkPhraseLines(phrases));
+  }
+  return chunks;
+}
+
+/**
+ * Build timed cues from cancionero phrases, spread over durationMs.
+ * Short lyric phrases (≤4–6 lines per cue); −1s lead is applied via agent leadMs.
  */
 export function songToSubtitleCues(
   song: LibrarySongPayload,
@@ -260,8 +359,8 @@ export function songToSubtitleCues(
     durationMs > 0 ? durationMs : chunks.length * 8_000,
     chunks.length * 2_500,
   );
-  // Leave a short lead-in so assisted intro-hold shows verse 1 from t≈0,
-  // then space remaining verses evenly through the track.
+  // Leave a short lead-in so assisted intro-hold shows phrase 1 from t≈0,
+  // then space remaining phrases evenly. Overlay lead (−1s) anticipates onset.
   const leadInMs = Math.min(4_000, Math.floor(total * 0.06));
   const usable = Math.max(total - leadInMs, chunks.length * 2_000);
   const slice = usable / chunks.length;

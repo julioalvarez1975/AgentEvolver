@@ -10,6 +10,7 @@ import type {
   VideoPlaylistItem,
 } from "@promedia/shared";
 import {
+  CANCIONERO_DEFAULT_LEAD_MS,
   DEFAULT_SUBTITLE_LEAD_MS,
   emptySubtitleAgentState,
   normalizeSubtitleLeadMs,
@@ -275,6 +276,8 @@ async function finishWithCues(options: {
   preserveLyricsSource?: boolean;
   hint?: string | null;
   timingMode?: SubtitleTimingMode;
+  /** Optional path default (e.g. cancionero −1s). */
+  leadMs?: SubtitleLeadMs;
 }): Promise<boolean> {
   const {
     sessionId,
@@ -350,6 +353,10 @@ async function finishWithCues(options: {
   }
 
   clearYtHardFail(sessionId);
+  const leadPatch =
+    options.leadMs !== undefined
+      ? { leadMs: normalizeSubtitleLeadMs(options.leadMs) }
+      : {};
   patchAndBroadcast(liveFinal, {
     status: "ready",
     cues,
@@ -359,6 +366,7 @@ async function finishWithCues(options: {
     hint: hint ?? (nativeTrack ? "native_captions" : null),
     itemId,
     assetId,
+    ...leadPatch,
   });
   return true;
 }
@@ -520,6 +528,8 @@ async function tryCancioneroLyricPath(options: {
     preserveLyricsSource: true,
     timingMode: "assisted",
     hint: "cancionero_match",
+    // Path default: show letter 1s before the sung onset (Julio).
+    leadMs: CANCIONERO_DEFAULT_LEAD_MS,
   });
   return ok || true;
 }
