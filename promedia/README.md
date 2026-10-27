@@ -261,9 +261,9 @@ YouTube con captions oficiales en el idioma de Control es el camino de referenci
 1. Arrancá ProMedia (`pnpm dev` / launcher) y abrí **Control**
 2. Añadí un **vídeo/audio local** (pestaña Audio del Guion incluida) o un **YouTube** público al Guion
 3. Pulsá **Subtítulos nativos** en la barra (junto a **Proyectar** / **Idioma**; queda activo). El idioma **sigue el selector Idioma** de Control (ES / EN / PT / FR / ZH)
-4. Poné el ítem **En vivo**. Prioridad **letra real** del idioma de Control:
-   - YouTube: captions **manuales/oficiales** (luego auto) **solo** en el idioma de Control (`es` / `es-419`…) — tiempos y texto **sin reshape ni Marian**; si no hay pista en ese idioma, bestaudio → Whisper `-l es` (no translate-from-EN)
-   - Local: sidecar SRT/VTT o softsubs → si faltan, `ffmpeg` → WAV → **whisper.cpp** (`whisper-cli` + **ggml-base**; `-l <idioma de Control>`, `-ml 48 -sow`)
+4. Poné el ítem **En vivo**. Prioridad **letra real**:
+   - **Audio (Guion) y YouTube:** busca primero en el **cancionero** (Biblioteca → Canciones) por título / nombre de archivo / metadata de YouTube. Si hay match, proyecta las estrofas sincronizadas al `mediaClock` (sin Whisper/Marian). Si **no** está en el cancionero → **modal de aviso** (no inventa letra).
+   - Vídeo local (archivo): captions sidecar SRT/VTT o softsubs → si faltan, Whisper `-l <idioma de Control>`
    - Se filtran etiquetas no-speech (`[MUSIC]`, `[MÚSICA]`, etc.); un job vacío → hint `no_speech`
 5. Overlay: estilo cancionero; **default Adelante = 0** (sync con clocks oficiales). Captions nativos usan `timingMode=exact` (sin intro-hold). ASR fallback usa assisted + intro-hold. Tamaño SM–XL junto al botón.
 

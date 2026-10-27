@@ -35,6 +35,7 @@ import {
 import { AboutDialog } from "../components/AboutDialog";
 import { BibliotecaDialog } from "../components/BibliotecaDialog";
 import { BibleDialog } from "../components/BibleDialog";
+import { CancioneroNoMatchDialog } from "../components/CancioneroNoMatchDialog";
 import { ControlAdBanner } from "../components/ControlAdBanner";
 import { ControlHeaderToolbar } from "../components/ControlHeaderToolbar";
 import { LanRemoteHint } from "../components/LanRemoteHint";
@@ -146,6 +147,8 @@ export function ControlPage() {
     }>
   >([]);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [cancioneroNoMatchOpen, setCancioneroNoMatchOpen] = useState(false);
+  const cancioneroWarnShownFor = useRef<string | null>(null);
   /** Remember video durations (preview metadata) for remaining-time / scrub max. */
   const [durationByItemId, setDurationByItemId] = useState<
     Record<string, number>
@@ -220,6 +223,9 @@ export function ControlPage() {
         if (hint === "mt_source_only") {
           return t("control.subtitleAgentSourceOnly");
         }
+        if (hint === "cancionero_match") {
+          return t("control.subtitleAgentCancioneroReady");
+        }
         if (
           hint === "native_captions" ||
           hint === "native_captions_auto"
@@ -235,6 +241,13 @@ export function ControlPage() {
         return t("control.subtitleAgentReady");
       }
       if (st === "error") {
+        if (
+          hint === "cancionero_no_match" ||
+          hint === "cancionero_no_songs" ||
+          hint === "cancionero_empty"
+        ) {
+          return t("control.cancioneroNoMatchTitle");
+        }
         if (hint === "no_speech") {
           return t("control.subtitleAgentNoSpeech");
         }
@@ -382,6 +395,36 @@ export function ControlPage() {
   const sessionReady = session.hasSession;
   /** Playlist chrome needs a session; mutations need WS (auto-reconnects if down). */
   const canMutate = sessionReady && wsReady;
+
+  // Modal when Subtítulos finds no cancionero match for Guion Audio / YouTube.
+  useEffect(() => {
+    if (!subtitleAgent.enabled) {
+      cancioneroWarnShownFor.current = null;
+      return;
+    }
+    if (subtitleAgent.status !== "error") {
+      return;
+    }
+    const hint = subtitleAgent.hint ?? "";
+    if (
+      hint !== "cancionero_no_match" &&
+      hint !== "cancionero_no_songs" &&
+      hint !== "cancionero_empty"
+    ) {
+      return;
+    }
+    const key = `${subtitleAgent.itemId ?? ""}:${hint}`;
+    if (cancioneroWarnShownFor.current === key) {
+      return;
+    }
+    cancioneroWarnShownFor.current = key;
+    setCancioneroNoMatchOpen(true);
+  }, [
+    subtitleAgent.enabled,
+    subtitleAgent.status,
+    subtitleAgent.hint,
+    subtitleAgent.itemId,
+  ]);
 
   // When agent is on, re-target ASR if focus item changed (live preferred).
   useEffect(() => {
@@ -1334,6 +1377,30 @@ export function ControlPage() {
       </div>
 
       <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
+
+      <CancioneroNoMatchDialog
+        open={cancioneroNoMatchOpen}
+        onClose={() => setCancioneroNoMatchOpen(false)}
+        hint={subtitleAgent.hint}
+        mediaTitle={(() => {
+          const id = subtitleAgent.itemId;
+          const it = id
+            ? items.find((i) => i.id === id) ?? subtitleFocusItem
+            : subtitleFocusItem;
+          if (!it) return null;
+          if (it.type === "audio") {
+            return it.payload.title?.trim() || null;
+          }
+          if (it.type === "video" && it.payload.sourceKind === "youtube") {
+            return (
+              it.payload.title?.trim() ||
+              `YouTube ${it.payload.videoId || ""}`.trim() ||
+              null
+            );
+          }
+          return null;
+        })()}
+      />
 
       {popupBlockedUrl ? (
         <div className="control-banner control-banner-compact" role="status">
