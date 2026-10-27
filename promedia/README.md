@@ -334,6 +334,7 @@ En desarrollo el **WebSocket** va directo al hub (`ws://<host>:8787`); REST por 
 
 - Pantalla completa en el proyector / 2.º display
 - Sincroniza reproducción con **`mediaClock`** del hub (play/pausa/seek desde Control)
+- **YouTube / Audio:** Output reporta el `currentTime` real al hub (~250 ms) para que cancionero/cues sigan la voz (no el reloj de pared de En vivo); seek solo en scrub / Go Live
 - **YouTube:** una sola iframe en Output (Preview/En vivo muestran thumb + transporte; no segundo embed)
 - **Subtítulos** (agente activo): overlay inferior sincronizado con `mediaClock` (mismo instante que Vista previa)
 - Escenas Logo / Negro / Clear son overlays (no cortan el reloj de medios)
