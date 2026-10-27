@@ -23,6 +23,11 @@ export {
 export {
   MEDIA_CLOCK_COLD_START_MS,
   MEDIA_CLOCK_DRIFT_MS,
+  MEDIA_CLOCK_REPORT_INTERVAL_MS,
+  MEDIA_CLOCK_REPORT_EPSILON_MS,
+  MEDIA_CLOCK_SEEK_AUTHORITY_MS,
+  MEDIA_CLOCK_REPORT_HEARTBEAT_MS,
   shouldCorrectSeek,
+  shouldReportMediaClockPosition,
   shouldSnapMediaClockToStart,
 } from "./clock.js";

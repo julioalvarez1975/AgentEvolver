@@ -9,7 +9,9 @@ import {
 import type { MediaClock } from "@promedia/shared";
 import {
   MEDIA_CLOCK_COLD_START_MS,
+  MEDIA_CLOCK_REPORT_INTERVAL_MS,
   shouldCorrectSeek,
+  shouldReportMediaClockPosition,
   shouldSnapMediaClockToStart,
 } from "./clock.js";
 
@@ -484,6 +486,17 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
               player.seekTo(targetMs / 1000, true);
             }
           }
+          // Hold hub clock at real head time while autoplay is blocked so
+          // cancionero cues do not race ahead of the silent iframe.
+          if (
+            onMediaClockSetRef.current &&
+            shouldReportMediaClockPosition(localMs, clock)
+          ) {
+            onMediaClockSetRef.current({
+              playing: true,
+              positionMs: Math.round(localMs),
+            });
+          }
           if (failStreakRef.current >= 2 && !mutedRef.current) {
             // Muted autoplay usually succeeds — get video motion, ask for click for audio.
             player.mute();
@@ -505,7 +518,91 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
       }, PLAY_WATCHDOG_MS);
 
       return () => window.clearInterval(watchdog);
-    }, [mediaClock, preview, ready, muted, softMuted]);
+      // Intentionally omit positionMs — player→hub reports must not remount this
+      // play/pause watchdog. Scrubs are applied via the seek effect below.
+    }, [
+      preview,
+      ready,
+      muted,
+      softMuted,
+      mediaClock?.playing,
+      mediaClock?.itemId,
+    ]);
+
+    /** Operator scrub / Go Live position — seek without restarting the watchdog. */
+    useEffect(() => {
+      if (preview || !ready || !mediaClock || !playerRef.current) {
+        return;
+      }
+      const player = playerRef.current;
+      try {
+        const localMs = (player.getCurrentTime?.() ?? 0) * 1000;
+        const { seek, targetMs } = shouldCorrectSeek(localMs, mediaClock);
+        if (seek) {
+          player.seekTo(targetMs / 1000, true);
+        }
+      } catch {
+        // ignore
+      }
+    }, [
+      preview,
+      ready,
+      mediaClock?.positionMs,
+      mediaClock?.updatedAt,
+      mediaClock?.itemId,
+    ]);
+
+    /**
+     * Player → hub: push real YouTube currentTime so SubtitleOverlay tracks
+     * the sung words (cancionero −1s lead), not Go Live wall-clock.
+     */
+    useEffect(() => {
+      if (preview || !ready || !mediaClock?.playing || !onMediaClockSet) {
+        return;
+      }
+      const tick = () => {
+        const player = playerRef.current;
+        const clock = mediaClockRef.current;
+        const report = onMediaClockSetRef.current;
+        if (!player || !clock?.playing || !report) {
+          return;
+        }
+        try {
+          const localMs = (player.getCurrentTime?.() ?? 0) * 1000;
+          const state = readPlayerState(player);
+          // Report while playing/buffering, or while still at the head (hold cues).
+          if (
+            !isActivelyPlaying(state) &&
+            localMs > MEDIA_CLOCK_COLD_START_MS
+          ) {
+            return;
+          }
+          if (
+            !coldSnapDoneRef.current &&
+            shouldSnapMediaClockToStart(localMs, clock)
+          ) {
+            coldSnapDoneRef.current = true;
+            report({ playing: true, positionMs: 0 });
+            player.seekTo(0, true);
+            return;
+          }
+          if (shouldReportMediaClockPosition(localMs, clock)) {
+            report({ playing: true, positionMs: Math.round(localMs) });
+          }
+        } catch {
+          // ignore transient API errors
+        }
+      };
+      tick();
+      const id = window.setInterval(tick, MEDIA_CLOCK_REPORT_INTERVAL_MS);
+      return () => window.clearInterval(id);
+    }, [
+      preview,
+      ready,
+      mediaClock?.playing,
+      mediaClock?.itemId,
+      onMediaClockSet,
+    ]);
 
     const clickUnblock = () => {
       const player = playerRef.current;
