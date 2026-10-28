@@ -1974,16 +1974,11 @@ body {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .subtitle-overlay--reel .text-fit-block:not([data-fitted="1"]) {
-    opacity: 1;
-  }
-
-  .subtitle-overlay--reel .text-fit-block[data-fitted="1"],
-  .subtitle-overlay--reel .text-fit-block[data-fitted="1"] > .text-output-line {
-    animation: none;
-  }
-}
+/*
+ * Projection / LED output keeps Reel enter motion even when the control OS
+ * has prefers-reduced-motion — congregation screens are not personal UI chrome.
+ * (Control UI elsewhere still respects the media query.)
+ */
 
 /* Subtitle target lang follows Control language; no separate Subs select. */
 
