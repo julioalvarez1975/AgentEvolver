@@ -9,7 +9,11 @@ import type {
   LibrarySongPayload,
   TextPayload,
 } from "@promedia/shared";
-import { LIBRARY_CATEGORIES, songToTextPayload } from "@promedia/shared";
+import {
+  LIBRARY_CATEGORIES,
+  flattenSongLyrics,
+  songToTextPayload,
+} from "@promedia/shared";
 import { assetStore } from "./asset-store.js";
 import {
   importBibleFile,
@@ -326,15 +330,19 @@ export class LibraryStore {
     if (!title) {
       return { error: "missing_title", message: "La canción necesita un título." };
     }
-    const stanzas = (song.stanzas ?? [])
-      .map((s) => ({
-        id: s.id || newId(),
-        lines: (s.lines ?? []).map((l) => String(l)),
-      }))
-      .filter((s) => s.lines.some((l) => l.trim().length > 0) || true);
-    if (stanzas.length === 0) {
-      stanzas.push({ id: newId(), lines: [""] });
-    }
+    // Always one lyric block — karaoke agent syncs lines (no stanza slider).
+    const flat = flattenSongLyrics({
+      title,
+      artist: song.artist?.trim() || undefined,
+      stanzas: song.stanzas ?? [],
+    });
+    const stanza = flat.stanzas[0]!;
+    const stanzas = [
+      {
+        id: stanza.id || newId(),
+        lines: stanza.lines.map((l) => String(l)),
+      },
+    ];
     const id = newId();
     const ts = nowIso();
     const item: LibraryItem = {
@@ -345,7 +353,7 @@ export class LibraryStore {
       updatedAt: ts,
       song: {
         title,
-        artist: song.artist?.trim() || undefined,
+        artist: flat.artist,
         stanzas,
       },
     };
@@ -367,17 +375,25 @@ export class LibraryStore {
     if (!title) {
       return { error: "missing_title", message: "La canción necesita un título." };
     }
+    const flat = flattenSongLyrics({
+      title,
+      artist: song.artist?.trim() || undefined,
+      stanzas: song.stanzas ?? [],
+    });
+    const stanza = flat.stanzas[0]!;
     const updated: LibraryItem = {
       ...existing,
       title,
       updatedAt: nowIso(),
       song: {
         title,
-        artist: song.artist?.trim() || undefined,
-        stanzas: (song.stanzas ?? []).map((s) => ({
-          id: s.id || newId(),
-          lines: (s.lines ?? []).map((l) => String(l)),
-        })),
+        artist: flat.artist,
+        stanzas: [
+          {
+            id: stanza.id || newId(),
+            lines: stanza.lines.map((l) => String(l)),
+          },
+        ],
       },
     };
     this.items.set(id, updated);

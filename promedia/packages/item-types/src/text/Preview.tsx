@@ -1,5 +1,5 @@
 import type { PlaylistItem, TextPayload } from "@promedia/shared";
-import { projectionTextSlides } from "@promedia/shared";
+import { resolveProjectionTextSlides } from "@promedia/shared";
 import { FittedTextStage } from "./FittedTextStage.js";
 
 export type TextPreviewProps = {
@@ -11,7 +11,7 @@ export type TextPreviewProps = {
 /** Preview uses the same theme CSS vars + fit path as Output. */
 export function TextPreview({ item, slideIndex }: TextPreviewProps) {
   const payload = item.payload as TextPayload;
-  const slides = projectionTextSlides(payload.slides);
+  const slides = resolveProjectionTextSlides(payload);
   const index = Math.min(Math.max(slideIndex, 0), Math.max(slides.length - 1, 0));
   const slide = slides[index];
   const lines = slide?.lines ?? [""];

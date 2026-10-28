@@ -4,7 +4,7 @@ import type {
   TextPlaylistItem,
   TextSlide,
 } from "@promedia/shared";
-import { projectionTextSlides } from "@promedia/shared";
+import { resolveProjectionTextSlides } from "@promedia/shared";
 
 const ALIGNS: ReadonlySet<TextAlign> = new Set(["left", "center", "right"]);
 
@@ -38,6 +38,9 @@ export function isTextPayload(value: unknown): value is TextPayload {
   if (p.align !== undefined && !ALIGNS.has(p.align as TextAlign)) {
     return false;
   }
+  if (p.chunkLines !== undefined && typeof p.chunkLines !== "boolean") {
+    return false;
+  }
   return true;
 }
 
@@ -57,15 +60,19 @@ export function isTextPlaylistItem(value: unknown): value is TextPlaylistItem {
 }
 
 export function normalizeTextPayload(payload: TextPayload): TextPayload {
-  const slides = projectionTextSlides(
-    payload.slides.map((slide) => ({
-      id: slide.id,
-      lines: slide.lines.map((line) => String(line)),
-    })),
-  );
+  const mapped = payload.slides.map((slide) => ({
+    id: slide.id,
+    lines: slide.lines.map((line) => String(line)),
+  }));
+  const chunkLines = payload.chunkLines === false ? false : undefined;
+  const slides = resolveProjectionTextSlides({
+    slides: mapped,
+    chunkLines,
+  });
   return {
     title: payload.title?.trim() ? payload.title.trim() : undefined,
     align: payload.align ?? "center",
+    ...(chunkLines === false ? { chunkLines: false as const } : {}),
     slides,
   };
 }

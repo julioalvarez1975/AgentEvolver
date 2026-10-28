@@ -1,5 +1,5 @@
 import type { PlaylistItem, TextPayload } from "@promedia/shared";
-import { projectionTextSlides } from "@promedia/shared";
+import { resolveProjectionTextSlides } from "@promedia/shared";
 import { FittedTextStage } from "./FittedTextStage.js";
 
 export type TextOutputRendererProps = {
@@ -10,11 +10,11 @@ export type TextOutputRendererProps = {
 /**
  * Text on Output. Align / colors / font family come from session theme CSS
  * vars (`--pm-*` on `.pm-theme`); item.payload.align does not win (subtarea 8).
- * Shows at most 5 lines per slide; font size auto-fits the projection stage.
+ * Songs with chunkLines:false keep one lyric block; karaoke agent advances lines.
  */
 export function TextOutputRenderer({ item, slideIndex }: TextOutputRendererProps) {
   const payload = item.payload as TextPayload;
-  const slides = projectionTextSlides(payload.slides);
+  const slides = resolveProjectionTextSlides(payload);
   const index = Math.min(Math.max(slideIndex, 0), Math.max(slides.length - 1, 0));
   const slide = slides[index];
   const lines = slide?.lines ?? [""];
