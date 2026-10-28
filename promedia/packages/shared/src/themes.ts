@@ -34,7 +34,8 @@ export const TRANSITION_EFFECTS: readonly TransitionEffect[] = [
   "pixelate",
 ] as const;
 
-export const DEFAULT_TRANSITION_EFFECT: TransitionEffect = "none";
+/** SoftScale so TEMA enter motion is visible without hunting the dropdown. */
+export const DEFAULT_TRANSITION_EFFECT: TransitionEffect = "softScale";
 
 /** Fixed transition length on Output / En vivo (ms). */
 export const TRANSITION_DURATION_MS = 600;

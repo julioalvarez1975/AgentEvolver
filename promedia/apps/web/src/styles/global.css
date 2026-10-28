@@ -1682,12 +1682,12 @@ body {
 @keyframes pm-tx-crossfade {
   0% {
     opacity: 0;
-    transform: scale(1.02);
-    filter: brightness(0.88) contrast(0.94);
+    transform: scale(1.04);
+    filter: brightness(0.75) contrast(0.9);
   }
   42% {
-    opacity: 0.62;
-    filter: brightness(0.96) contrast(0.98);
+    opacity: 0.55;
+    filter: brightness(0.92) contrast(0.96);
   }
   100% {
     opacity: 1;
@@ -1726,8 +1726,8 @@ body {
 @keyframes pm-tx-soft-scale {
   0% {
     opacity: 0;
-    transform: scale(1.075);
-    filter: blur(8px);
+    transform: scale(1.12);
+    filter: blur(14px);
   }
   100% {
     opacity: 1;
@@ -1745,13 +1745,13 @@ body {
 @keyframes pm-tx-motion-blur {
   0% {
     opacity: 0;
-    transform: translateX(2.8%) scale(1.03);
-    filter: blur(18px) brightness(1.04);
+    transform: translateX(5%) scale(1.04);
+    filter: blur(22px) brightness(1.06);
   }
   48% {
-    opacity: 0.88;
-    transform: translateX(-0.35%) scale(1.01);
-    filter: blur(9px) brightness(1.02);
+    opacity: 0.85;
+    transform: translateX(-0.6%) scale(1.015);
+    filter: blur(11px) brightness(1.03);
   }
   100% {
     opacity: 1;
