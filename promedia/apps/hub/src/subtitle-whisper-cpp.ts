@@ -542,6 +542,12 @@ export async function transcribeWithWhisperCpp(options: {
   translateToEn: boolean;
   /** Spoken-language hint for `-l` (e.g. targetLang when same-language captions). */
   languageHint?: string | null;
+  /**
+   * Optional initial prompt (karaoke timing path): bias Whisper toward
+   * official cancionero vocabulary. Clocks only — cue text is discarded
+   * after forced align. Older whisper-cli builds may reject `-prompt`.
+   */
+  prompt?: string | null;
   workDir: string;
   onStatus?: (status: "downloading" | "transcribing") => void;
 }): Promise<{
@@ -574,10 +580,13 @@ export async function transcribeWithWhisperCpp(options: {
   const lyricMaxLen = Number(
     process.env.SUBTITLE_WHISPER_MAX_LEN?.trim() || "48",
   );
+  const promptText = options.prompt?.trim() || "";
+
   const buildArgs = (optional: {
     np: boolean;
     sns: boolean;
     lyricSeg: boolean;
+    prompt: boolean;
   }): string[] => {
     const args = [
       "-m",
@@ -602,6 +611,9 @@ export async function transcribeWithWhisperCpp(options: {
     ) {
       args.push("-ml", String(Math.floor(lyricMaxLen)), "-sow");
     }
+    if (optional.prompt && promptText) {
+      args.push("-prompt", promptText);
+    }
     if (options.translateToEn) {
       args.push("-tr");
     }
@@ -610,7 +622,12 @@ export async function transcribeWithWhisperCpp(options: {
 
   let code: number;
   let stderr: string;
-  let args = buildArgs({ np: true, sns: true, lyricSeg: true });
+  let args = buildArgs({
+    np: true,
+    sns: true,
+    lyricSeg: true,
+    prompt: Boolean(promptText),
+  });
   try {
     ({ code, stderr } = await runCmd(bin, args));
   } catch (err) {
@@ -626,14 +643,15 @@ export async function transcribeWithWhisperCpp(options: {
 
   if (
     code !== 0 &&
-    /-(?:np|sns|ml|sow)|max-len|split-on-word|unknown|unrecognized/i.test(
+    /-(?:np|sns|ml|sow|prompt)|max-len|split-on-word|unknown|unrecognized/i.test(
       stderr,
     )
   ) {
     // Older builds may reject optional flags — peel them off in stages.
     const retries = [
-      { np: true, sns: true, lyricSeg: false },
-      { np: false, sns: false, lyricSeg: false },
+      { np: true, sns: true, lyricSeg: true, prompt: false },
+      { np: true, sns: true, lyricSeg: false, prompt: false },
+      { np: false, sns: false, lyricSeg: false, prompt: false },
     ] as const;
     for (const opt of retries) {
       args = buildArgs(opt);
@@ -642,7 +660,7 @@ export async function transcribeWithWhisperCpp(options: {
       stderr = next.stderr;
       if (code === 0) break;
       if (
-        !/-(?:np|sns|ml|sow)|max-len|split-on-word|unknown|unrecognized/i.test(
+        !/-(?:np|sns|ml|sow|prompt)|max-len|split-on-word|unknown|unrecognized/i.test(
           stderr,
         )
       ) {

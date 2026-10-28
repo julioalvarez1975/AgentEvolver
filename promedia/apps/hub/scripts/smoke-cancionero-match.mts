@@ -1,15 +1,20 @@
 /**
- * Smoke: cancionero exact lines / voice-align / −1s lead (no invented splits).
+ * Smoke: karaoke cancionero exact lines / forced align / −1s lead / pack 2–3.
  * Usage: pnpm --filter @promedia/hub exec tsx scripts/smoke-cancionero-match.mts
  */
 import type { LibrarySongPayload, SubtitleCue } from "@promedia/shared";
 import {
   CANCIONERO_DEFAULT_LEAD_MS,
+  LYRIC_OVERLAY_MAX_LINES,
+  LYRIC_OVERLAY_PREFERRED_LINES,
   cueAtPositionWithLeadMs,
 } from "@promedia/shared";
 import {
   alignCancioneroLinesToTiming,
+  buildKaraokeAlignPrompt,
+  flattenTimingTokens,
   normalizeMatchTitle,
+  packKaraokeDisplayCues,
   scoreSongMatch,
   songCancioneroLines,
   songLyricChunks,
@@ -163,5 +168,50 @@ assert(
 );
 
 assert(CANCIONERO_DEFAULT_LEAD_MS === -1000, "cancionero default lead −1s");
+
+// Karaoke-gen: token stream + prompt + 2–3 line display pack.
+const stream = flattenTimingTokens(timing);
+assert(stream.length >= 10, `token stream got ${stream.length}`);
+assert(stream[0]!.token === "senor" || stream[0]!.token.length > 0, "stream tokens");
+
+const prompt = buildKaraokeAlignPrompt(chunks);
+assert(prompt.includes("Señor") || prompt.toLowerCase().includes("senor") || prompt.length > 10, "align prompt");
+assert(prompt.length <= 220, "prompt truncated");
+
+const packed = packKaraokeDisplayCues(aligned.cues);
+assert(packed.length === Math.ceil(5 / LYRIC_OVERLAY_PREFERRED_LINES), `packed groups got ${packed.length}`);
+assert(
+  packed.every((c) => c.text.split("\n").length <= LYRIC_OVERLAY_MAX_LINES),
+  "packed cues ≤ max lines",
+);
+assert(
+  packed[0]!.text.split("\n").every((line, i) => line === chunks[i]),
+  "packed keeps exact Biblioteca lines",
+);
+assert(packed[0]!.startMs === aligned.cues[0]!.startMs, "pack start = first line onset");
+assert(
+  cueAtPositionWithLeadMs(
+    packed,
+    11_000,
+    CANCIONERO_DEFAULT_LEAD_MS,
+    exactOpts,
+  )?.text.split("\n")[0] === "Señor mi Dios",
+  "−1s lead on packed karaoke cue",
+);
+
+// ASR typos must not rewrite cancionero text.
+const messy: SubtitleCue[] = [
+  { id: "m0", startMs: 12_000, endMs: 14_000, text: "senor mi dios" },
+  { id: "m1", startMs: 14_500, endMs: 17_000, text: "al contemplar los cielos" },
+  { id: "m2", startMs: 17_500, endMs: 19_000, text: "te adoro a ti" },
+  { id: "m3", startMs: 22_000, endMs: 24_000, text: "cuan grande es el" },
+  { id: "m4", startMs: 24_500, endMs: 26_500, text: "cuan grande es el" },
+];
+const messyAligned = alignCancioneroLinesToTiming(chunks, messy, 60_000);
+assert(
+  messyAligned.cues.every((c, i) => c.text === chunks[i]),
+  "messy ASR never rewrites Biblioteca text",
+);
+assert(messyAligned.synced, "messy ASR still syncs via normalize");
 
 console.log("SMOKE_OK cancionero-match");

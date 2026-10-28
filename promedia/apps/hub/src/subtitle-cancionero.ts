@@ -1,12 +1,17 @@
 /**
- * Cancionero / Biblioteca lyric match for Guion Audio + YouTube.
- * Source of truth for this path — no Whisper/Marian.
+ * Karaoke-gen / Lyricsync path for Guion Audio + YouTube (Julio option 2):
+ * Biblioteca / cancionero is the ONLY text source. Whisper / captions supply
+ * clocks for forced alignment — never rewrite words.
  */
 import { spawn } from "node:child_process";
 import type {
   LibraryItem,
   LibrarySongPayload,
   SubtitleCue,
+} from "@promedia/shared";
+import {
+  LYRIC_OVERLAY_MAX_LINES,
+  LYRIC_OVERLAY_PREFERRED_LINES,
 } from "@promedia/shared";
 import {
   ensureAugmentedPath,
@@ -327,9 +332,86 @@ export type CancioneroAlignResult = {
   synced: boolean;
 };
 
+type TimedToken = { token: string; startMs: number; endMs: number };
+
 /**
- * Map exact cancionero lines onto ASR/caption clocks.
+ * Flatten ASR/caption cues into a monotonic word stream with interpolated
+ * clocks (karaoke-gen / Lyricsync style). Cue text is timing glue only.
+ */
+export function flattenTimingTokens(
+  timingCues: readonly SubtitleCue[],
+): TimedToken[] {
+  const out: TimedToken[] = [];
+  for (const cue of timingCues) {
+    const toks = alignTokens(cue.text);
+    if (toks.length === 0) continue;
+    const span = Math.max(1, cue.endMs - cue.startMs);
+    for (let i = 0; i < toks.length; i++) {
+      const t0 = cue.startMs + Math.round((i / toks.length) * span);
+      const t1 =
+        cue.startMs + Math.round(((i + 1) / toks.length) * span);
+      out.push({
+        token: toks[i]!,
+        startMs: t0,
+        endMs: Math.max(t0 + 1, t1),
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * Whisper `-prompt` seed from official cancionero lines (timing ASR only).
+ * Truncated so whisper-cli stays stable; never shown on Output.
+ */
+export function buildKaraokeAlignPrompt(
+  lines: readonly string[],
+  maxChars = 220,
+): string {
+  const joined = lines
+    .map((l) => String(l).trim())
+    .filter(Boolean)
+    .join(" ");
+  if (!joined) return "";
+  if (joined.length <= maxChars) return joined;
+  const cut = joined.slice(0, maxChars);
+  const sp = cut.lastIndexOf(" ");
+  return (sp > 40 ? cut.slice(0, sp) : cut).trim();
+}
+
+/**
+ * Pack per-line karaoke cues into overlay groups: prefer 2 lines, hard max 3.
+ * Exact Biblioteca text joined with newlines; start = first line onset.
+ */
+export function packKaraokeDisplayCues(
+  lineCues: readonly SubtitleCue[],
+  preferredLines = LYRIC_OVERLAY_PREFERRED_LINES,
+  maxLines = LYRIC_OVERLAY_MAX_LINES,
+): SubtitleCue[] {
+  if (lineCues.length === 0) return [];
+  const size = Math.min(
+    maxLines,
+    Math.max(1, Math.trunc(preferredLines) || 2),
+  );
+  const out: SubtitleCue[] = [];
+  for (let i = 0; i < lineCues.length; i += size) {
+    const group = lineCues.slice(i, i + size);
+    const first = group[0]!;
+    const last = group[group.length - 1]!;
+    out.push({
+      id: `karaoke_${out.length}`,
+      startMs: first.startMs,
+      endMs: Math.max(first.startMs + 500, last.endMs),
+      text: group.map((c) => c.text).join("\n"),
+    });
+  }
+  return out;
+}
+
+/**
+ * Map exact cancionero lines onto ASR/caption clocks (forced align).
  * Timing source text is used only for alignment — cue `.text` stays Biblioteca.
+ * Returns one cue per exact line; call packKaraokeDisplayCues for 2–3 line UI.
  */
 export function alignCancioneroLinesToTiming(
   lines: readonly string[],
@@ -356,6 +438,7 @@ export function alignCancioneroLinesToTiming(
     };
   }
 
+  const stream = flattenTimingTokens(speech);
   const starts: number[] = new Array(exactLines.length).fill(-1);
   let cursor = 0;
   let alignedCount = 0;
@@ -368,27 +451,71 @@ export function alignCancioneroLinesToTiming(
     let bestStart = -1;
     let bestEndCursor = cursor;
 
-    // Search a forward window; allow multi-cue spans for one hymn line.
-    const searchEnd = Math.min(speech.length, cursor + 14);
-    for (let i = cursor; i < searchEnd; i++) {
-      let window = "";
-      for (let j = i; j < Math.min(speech.length, i + 4); j++) {
-        window = window ? `${window} ${speech[j]!.text}` : speech[j]!.text;
-        const score = lineTimingScore(lineTok, window);
-        // Prefer earlier windows when scores are close (don't race ahead).
-        const earlierBonus = (searchEnd - i) * 0.001;
-        const adjusted = score + earlierBonus;
-        if (adjusted > bestScore + 0.02 || (adjusted >= bestScore && bestStart < 0)) {
-          if (score >= 0.45) {
+    // Primary: sequential token-stream match (karaoke-gen forced align).
+    if (stream.length > 0) {
+      const searchEnd = Math.min(stream.length, cursor + 48);
+      const need = Math.max(1, lineTok.length);
+      for (let i = cursor; i < searchEnd; i++) {
+        const maxJ = Math.min(stream.length, i + need + 3);
+        for (let j = i; j < maxJ; j++) {
+          const windowToks = stream.slice(i, j + 1).map((t) => t.token);
+          const windowText = windowToks.join(" ");
+          const score = lineTimingScore(lineTok, windowText);
+          const earlierBonus = (searchEnd - i) * 0.0005;
+          const adjusted = score + earlierBonus;
+          if (
+            score >= 0.4 &&
+            (adjusted > bestScore + 0.015 ||
+              (adjusted >= bestScore && bestStart < 0))
+          ) {
             bestScore = score;
-            bestStart = speech[i]!.startMs;
+            bestStart = stream[i]!.startMs;
             bestEndCursor = j + 1;
           }
         }
       }
     }
 
-    if (bestStart >= 0 && bestScore >= 0.45) {
+    // Fallback: multi-cue windows on the raw speech list.
+    if (bestStart < 0) {
+      const cueCursor = Math.min(
+        speech.length - 1,
+        Math.max(
+          0,
+          speech.findIndex((c) => c.startMs >= (stream[cursor]?.startMs ?? 0)),
+        ),
+      );
+      const searchEnd = Math.min(speech.length, Math.max(0, cueCursor) + 14);
+      for (let i = Math.max(0, cueCursor); i < searchEnd; i++) {
+        let window = "";
+        for (let j = i; j < Math.min(speech.length, i + 4); j++) {
+          window = window ? `${window} ${speech[j]!.text}` : speech[j]!.text;
+          const score = lineTimingScore(lineTok, window);
+          const earlierBonus = (searchEnd - i) * 0.001;
+          const adjusted = score + earlierBonus;
+          if (
+            score >= 0.45 &&
+            (adjusted > bestScore + 0.02 ||
+              (adjusted >= bestScore && bestStart < 0))
+          ) {
+            bestScore = score;
+            bestStart = speech[i]!.startMs;
+            // Advance token cursor past this cue's tokens.
+            const cueEnd = speech[j]!.endMs;
+            let tokEnd = cursor;
+            while (
+              tokEnd < stream.length &&
+              stream[tokEnd]!.startMs < cueEnd
+            ) {
+              tokEnd += 1;
+            }
+            bestEndCursor = Math.max(cursor + 1, tokEnd);
+          }
+        }
+      }
+    }
+
+    if (bestStart >= 0 && bestScore >= 0.4) {
       starts[li] = bestStart;
       cursor = Math.max(cursor + 1, bestEndCursor);
       alignedCount += 1;

@@ -36,7 +36,9 @@ import {
 } from "./subtitle-lyric-shape.js";
 import {
   alignCancioneroLinesToTiming,
+  buildKaraokeAlignPrompt,
   findCancioneroSong,
+  packKaraokeDisplayCues,
   probeMediaDurationMs,
   songCancioneroLines,
   songToSubtitleCues,
@@ -401,14 +403,16 @@ function isStickyCancioneroMiss(
 }
 
 /**
- * Timing-only probe for cancionero sync. Captions/ASR clocks are used to
- * decide *when* to reveal each Biblioteca line — never to rewrite the text.
+ * Timing-only probe for karaoke forced align. Captions/ASR clocks decide
+ * *when* to reveal each Biblioteca line — never rewrite the text.
  */
 async function fetchCancioneroTimingCues(options: {
   sessionId: string;
   gen: number;
   targetLang: SubtitleTargetLang;
   resolved: ResolveOk;
+  /** Official cancionero lines → Whisper `-prompt` (clocks only). */
+  alignPrompt?: string | null;
   onStatus?: (
     status: "downloading" | "extracting" | "transcribing",
     hint: string,
@@ -497,18 +501,20 @@ async function fetchCancioneroTimingCues(options: {
       assetId,
       translateToEn: false,
       targetLang,
+      // Karaoke: prompt biases clocks; ASR words never reach the overlay.
+      prompt: options.alignPrompt ?? null,
       onStatus: (st) => options.onStatus?.(st, "cancionero_sync"),
     });
     if (!isCurrent(sessionId, gen)) return null;
     const speech = filterSpeechCues(asr.cues);
     if (speech.length === 0) return null;
     console.log(
-      `[subtitle] cancionero timing from ASR n=${speech.length}`,
+      `[subtitle] karaoke timing from ASR n=${speech.length} prompt=${Boolean(options.alignPrompt)}`,
     );
     return { cues: speech, assetId };
   } catch (err) {
     console.warn(
-      "[subtitle] cancionero timing ASR failed:",
+      "[subtitle] karaoke timing ASR failed:",
       err instanceof Error ? err.message : err,
     );
     return null;
@@ -516,9 +522,9 @@ async function fetchCancioneroTimingCues(options: {
 }
 
 /**
- * Guion Audio + YouTube: match Biblioteca cancionero by title/filename.
- * Hit → exact stanza/line text, clocks from captions/ASR when available
- * (timing only). Miss → sticky error. Returns true when the job should stop.
+ * Guion Audio + YouTube — default karaoke agent (Julio option 2):
+ * Biblioteca cancionero text + forced align clocks. Miss → sticky modal.
+ * Returns true when the job should stop (hit or sticky miss).
  */
 async function tryCancioneroLyricPath(options: {
   sessionId: string;
@@ -627,14 +633,16 @@ async function tryCancioneroLyricPath(options: {
     return true;
   }
 
-  // Voice sync: captions/ASR clocks only — Biblioteca lines stay exact.
+  // Karaoke forced align: captions/ASR clocks only — Biblioteca text exact.
   const liveSync = sessionStore.get(sessionId);
   if (!liveSync?.live.subtitleAgent?.enabled) return true;
+  const alignPrompt = buildKaraokeAlignPrompt(lines);
   const timing = await fetchCancioneroTimingCues({
     sessionId,
     gen,
     targetLang,
     resolved,
+    alignPrompt,
     onStatus: (status, hint) => {
       if (!isCurrent(sessionId, gen)) return;
       const live = sessionStore.get(sessionId);
@@ -652,7 +660,7 @@ async function tryCancioneroLyricPath(options: {
   });
   if (!isCurrent(sessionId, gen)) return true;
 
-  let cues = songToSubtitleCues(match.song, durationMs);
+  let lineCues = songToSubtitleCues(match.song, durationMs);
   let synced = false;
   let assetId = resolved.assetId;
   if (timing && timing.cues.length > 0) {
@@ -661,13 +669,16 @@ async function tryCancioneroLyricPath(options: {
       timing.cues,
       durationMs,
     );
-    cues = aligned.cues;
+    lineCues = aligned.cues;
     synced = aligned.synced;
     assetId = timing.assetId;
     console.log(
-      `[subtitle] cancionero align synced=${synced} aligned=${aligned.alignedCount}/${lines.length}`,
+      `[subtitle] karaoke align synced=${synced} aligned=${aligned.alignedCount}/${lines.length}`,
     );
   }
+
+  // Prefer 2 / max 3 display lines (exact Biblioteca text, newlines kept).
+  const cues = packKaraokeDisplayCues(lineCues);
 
   if (!cues.length) {
     const live = sessionStore.get(sessionId);
@@ -688,7 +699,7 @@ async function tryCancioneroLyricPath(options: {
   }
 
   console.log(
-    `[subtitle] cancionero match score=${match.score} q="${match.matchedQuery}" song="${match.song.title}" cues=${cues.length} synced=${synced}`,
+    `[subtitle] karaoke match score=${match.score} q="${match.matchedQuery}" song="${match.song.title}" lines=${lineCues.length} cues=${cues.length} synced=${synced}`,
   );
 
   const ok = await finishWithCues({
@@ -701,7 +712,7 @@ async function tryCancioneroLyricPath(options: {
     targetLang,
     alreadyEnglish: targetLang === "en",
     // Exact Biblioteca text; exact timingMode so we wait for the voice
-    // (no intro-hold race). leadMs −1s reveals each line 1s before onset.
+    // (no intro-hold race). leadMs −1s reveals each group 1s before onset.
     nativeTrack: true,
     preserveLyricsSource: true,
     timingMode: "exact",
@@ -903,9 +914,9 @@ async function runSubtitleJob(
     await ensureSubtitleDirs();
     if (!isCurrent(sessionId, gen)) return;
 
-    // Option 3: Guion Audio + YouTube → Biblioteca cancionero first.
-    // Hit: exact stanza/line text + captions/ASR clocks (timing only).
-    // Miss → Spanish modal (sticky). Do not fall through to Marian rewrite.
+    // Option 2 (default): Guion Audio + YouTube → karaoke cancionero align.
+    // Hit: exact Biblioteca text + Whisper/captions clocks (never rewrite).
+    // Miss → modal (sticky). Do not fall through to Whisper-as-lyrics.
     const cancioneroDone = await tryCancioneroLyricPath({
       sessionId,
       gen,

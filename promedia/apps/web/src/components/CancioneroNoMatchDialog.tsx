@@ -10,8 +10,8 @@ export type CancioneroNoMatchDialogProps = {
 };
 
 /**
- * Warning when Subtítulos cannot find the Guion Audio / YouTube item
- * in Biblioteca → Canciones (option 3 — cancionero is source of truth).
+ * Warning when Karaoke agent cannot find the Guion Audio / YouTube item
+ * in Biblioteca → Canciones (option 2 — cancionero is source of truth).
  */
 export function CancioneroNoMatchDialog({
   open,
