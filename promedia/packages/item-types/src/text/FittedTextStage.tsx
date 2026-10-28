@@ -152,6 +152,9 @@ export function FittedTextStage({
         return;
       }
 
+      // Clear so overlay enter motion can re-fire after this fit settles.
+      delete block.dataset.fitted;
+
       // Stage content box already excludes padding; extra px for shadow bleed.
       const availW = Math.max(8, contentW - WIDTH_SAFETY_PX);
       const availH = contentH;
@@ -212,6 +215,10 @@ export function FittedTextStage({
       block.style.fontSize = `${best}px`;
       setWrapMode(mode);
       setFontPx(best);
+      // Mark fitted so lyric overlay CSS can start enter motion at final size
+      // (animating during the 28px→fit search looked like a hard cut).
+      void block.offsetWidth;
+      block.dataset.fitted = "1";
     };
 
     measure();
