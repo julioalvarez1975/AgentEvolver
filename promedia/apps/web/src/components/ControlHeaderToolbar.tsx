@@ -1,18 +1,10 @@
 import type { ReactNode } from "react";
 import type { Locale } from "@promedia/i18n";
 import type {
-  SceneMode,
-  SubtitleFontSize,
-  SubtitleLeadMs,
   ThemeBackground,
   ThemeId,
   ThemeOverrides,
   TransitionEffect,
-} from "@promedia/shared";
-import {
-  DEFAULT_SUBTITLE_LEAD_MS,
-  SUBTITLE_FONT_SIZES,
-  SUBTITLE_LEAD_MS_OPTIONS,
 } from "@promedia/shared";
 import { LOCALE_SHORT, useLocale } from "../locale/LocaleContext";
 import {
@@ -25,10 +17,6 @@ import {
   IconLanguage,
   IconLibrary,
   IconProject,
-  IconSceneBlack,
-  IconSceneClear,
-  IconSceneLogo,
-  IconSceneNormal,
   IconSubtitles,
 } from "./UiIcons";
 
@@ -37,7 +25,6 @@ export type ControlHeaderToolbarProps = {
   hubUnreachable: boolean;
   canMutate: boolean;
   hasSession: boolean;
-  sceneMode: SceneMode;
   themeId: ThemeId;
   themeOverrides: ThemeOverrides | null;
   themeBackground: ThemeBackground;
@@ -48,8 +35,6 @@ export type ControlHeaderToolbarProps = {
   onProject: () => void;
   /** Open local Biblioteca (songs / bibles / texts / presentations / media). */
   onOpenLibrary: () => void;
-  onSceneNormal: () => void;
-  onToggleScene: (mode: Exclude<SceneMode, "normal">) => void;
   onThemeChange: (patch: {
     themeId?: ThemeId;
     themeOverrides?: ThemeOverrides | null;
@@ -60,12 +45,8 @@ export type ControlHeaderToolbarProps = {
   onAbout: () => void;
   /** Manual create/join when no session yet (rare after auto-session). */
   sessionFallback?: ReactNode;
-  /** Local AI subtitle agent (Phase 1). */
+  /** Local AI subtitle / karaoke agent. */
   subtitleAgentEnabled?: boolean;
-  /** Caption size SM–XL (session-persisted). */
-  subtitleAgentFontSize?: SubtitleFontSize;
-  /** Signed cue offset vs mediaClock (−3s…0). */
-  subtitleAgentLeadMs?: SubtitleLeadMs;
   /** Tooltip: help text, download progress, or ASR errors (incl. yt-dlp). */
   subtitleAgentTitle?: string;
   /**
@@ -74,8 +55,6 @@ export type ControlHeaderToolbarProps = {
    */
   subtitleAgentErrorMessage?: string | null;
   onToggleSubtitleAgent?: () => void;
-  onSubtitleFontSizeChange?: (size: SubtitleFontSize) => void;
-  onSubtitleLeadMsChange?: (leadMs: SubtitleLeadMs) => void;
 };
 
 function ToolbarBtn({
@@ -114,16 +93,15 @@ function ToolbarBtn({
 }
 
 /**
- * Flat Control tools strip (below title-only header): every control is a peer
- * item in one flex-wrap toolbar — no TEMA zone / clustered wrappers.
- * Julio will re-group later; do not invent groups here.
+ * Flat Control tools strip: Project, subtitle agent, language, library,
+ * about, transition + stage background. Scene / theme-preset / size / lead
+ * UI removed for Guion width (keyboard shortcuts still work in Control).
  */
 export function ControlHeaderToolbar({
   projectionBusy,
   hubUnreachable,
   canMutate,
   hasSession,
-  sceneMode,
   themeId,
   themeOverrides,
   themeBackground,
@@ -132,58 +110,19 @@ export function ControlHeaderToolbar({
   backgroundAssets,
   onProject,
   onOpenLibrary,
-  onSceneNormal,
-  onToggleScene,
   onThemeChange,
   onUploadBackground,
   onAbout,
   sessionFallback,
   subtitleAgentEnabled = false,
-  subtitleAgentFontSize = "md",
-  subtitleAgentLeadMs = DEFAULT_SUBTITLE_LEAD_MS,
   subtitleAgentTitle,
   subtitleAgentErrorMessage,
   onToggleSubtitleAgent,
-  onSubtitleFontSizeChange,
-  onSubtitleLeadMsChange,
 }: ControlHeaderToolbarProps) {
   const { t, locale, setLocale, locales } = useLocale();
-  const subtitleSizeLabel: Record<SubtitleFontSize, string> = {
-    sm: t("control.subtitleAgentFontSizeSm"),
-    md: t("control.subtitleAgentFontSizeMd"),
-    lg: t("control.subtitleAgentFontSizeLg"),
-    xl: t("control.subtitleAgentFontSizeXl"),
-  };
-  const subtitleLeadLabel: Record<SubtitleLeadMs, string> = {
-    [-3000]: t("control.subtitleAgentLeadNeg30"),
-    [-2500]: t("control.subtitleAgentLeadNeg25"),
-    [-2000]: t("control.subtitleAgentLeadNeg20"),
-    [-1500]: t("control.subtitleAgentLeadNeg15"),
-    [-1000]: t("control.subtitleAgentLeadNeg10"),
-    [-500]: t("control.subtitleAgentLeadNeg05"),
-    [0]: t("control.subtitleAgentLead0"),
-  };
-
-  const sceneBtn = (
-    mode: SceneMode,
-    icon: ReactNode,
-    labelKey: string,
-    shortcutKey: string,
-    onClick: () => void,
-  ) => (
-    <ToolbarBtn
-      active={sceneMode === mode}
-      disabled={!canMutate}
-      title={t(shortcutKey)}
-      label={t(labelKey)}
-      icon={icon}
-      onClick={onClick}
-    />
-  );
 
   const subtitleTitle =
-    subtitleAgentTitle?.trim() ||
-    t("control.subtitleAgentTitle");
+    subtitleAgentTitle?.trim() || t("control.subtitleAgentTitle");
   const depsError = subtitleAgentErrorMessage?.trim() || "";
 
   return (
@@ -192,7 +131,6 @@ export function ControlHeaderToolbar({
       role="toolbar"
       aria-label={t("control.toolbar")}
     >
-      {/* Primary row peers: Project → Subtitle agent → Language (then Library). */}
       <ToolbarBtn
         className="toolbar-primary-action"
         disabled={projectionBusy || hubUnreachable}
@@ -216,77 +154,6 @@ export function ControlHeaderToolbar({
           icon={<IconSubtitles />}
           onClick={() => onToggleSubtitleAgent?.()}
         />
-        {/* Size + lead stay visible with agent off so Julio can set them first. */}
-        <div
-          className="toolbar-subtitle-seg"
-          role="group"
-          aria-label={t("control.subtitleAgentFontSize")}
-          title={t("control.subtitleAgentFontSize")}
-        >
-          <span className="toolbar-subtitle-seg-label" aria-hidden>
-            {t("control.subtitleAgentFontSizeShort")}
-          </span>
-          <div
-            className="toolbar-subtitle-seg-btns"
-            role="radiogroup"
-            aria-label={t("control.subtitleAgentFontSize")}
-          >
-            {SUBTITLE_FONT_SIZES.map((size) => {
-              const selected = subtitleAgentFontSize === size;
-              const tip = `${t("control.subtitleAgentFontSize")}: ${subtitleSizeLabel[size]}`;
-              return (
-                <button
-                  key={size}
-                  type="button"
-                  role="radio"
-                  className={`toolbar-subtitle-seg-btn${selected ? " active" : ""}`}
-                  aria-checked={selected}
-                  aria-label={tip}
-                  title={tip}
-                  disabled={!canMutate || !onSubtitleFontSizeChange}
-                  onClick={() => onSubtitleFontSizeChange?.(size)}
-                >
-                  {subtitleSizeLabel[size]}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div
-          className="toolbar-subtitle-seg toolbar-subtitle-lead-seg"
-          role="group"
-          aria-label={t("control.subtitleAgentLeadShort")}
-          title={t("control.subtitleAgentLead")}
-        >
-          <span className="toolbar-subtitle-seg-label" aria-hidden>
-            {t("control.subtitleAgentLeadShort")}
-          </span>
-          <div
-            className="toolbar-subtitle-seg-btns"
-            role="radiogroup"
-            aria-label={t("control.subtitleAgentLead")}
-          >
-            {SUBTITLE_LEAD_MS_OPTIONS.map((ms) => {
-              const selected = subtitleAgentLeadMs === ms;
-              const tip = `${t("control.subtitleAgentLeadShort")}: ${subtitleLeadLabel[ms]}`;
-              return (
-                <button
-                  key={ms}
-                  type="button"
-                  role="radio"
-                  className={`toolbar-subtitle-seg-btn${selected ? " active" : ""}`}
-                  aria-checked={selected}
-                  aria-label={tip}
-                  title={tip}
-                  disabled={!canMutate || !onSubtitleLeadMsChange}
-                  onClick={() => onSubtitleLeadMsChange?.(ms)}
-                >
-                  {subtitleLeadLabel[ms]}
-                </button>
-              );
-            })}
-          </div>
-        </div>
         {depsError ? (
           <StatusTip
             className="toolbar-subtitle-agent-error"
@@ -316,7 +183,9 @@ export function ControlHeaderToolbar({
             </option>
           ))}
         </select>
-        <span className="toolbar-icon-btn-label">{t("control.languageShort")}</span>
+        <span className="toolbar-icon-btn-label">
+          {t("control.languageShort")}
+        </span>
       </label>
 
       <ToolbarBtn
@@ -339,37 +208,7 @@ export function ControlHeaderToolbar({
         <div className="toolbar-session-fallback">{sessionFallback}</div>
       ) : null}
 
-      {sceneBtn(
-        "normal",
-        <IconSceneNormal />,
-        "control.sceneNormal",
-        "shortcuts.sceneNormal",
-        onSceneNormal,
-      )}
-      {sceneBtn(
-        "logo",
-        <IconSceneLogo />,
-        "control.sceneLogo",
-        "shortcuts.sceneLogo",
-        () => onToggleScene("logo"),
-      )}
-      {sceneBtn(
-        "black",
-        <IconSceneBlack />,
-        "control.sceneBlack",
-        "shortcuts.sceneBlack",
-        () => onToggleScene("black"),
-      )}
-      {sceneBtn(
-        "clear",
-        <IconSceneClear />,
-        "control.sceneClear",
-        "shortcuts.sceneClear",
-        () => onToggleScene("clear"),
-      )}
-
       <ThemePanel
-        toolbar
         themeId={themeId}
         themeOverrides={themeOverrides}
         themeBackground={themeBackground}

@@ -522,9 +522,10 @@ async function fetchCancioneroTimingCues(options: {
 }
 
 /**
- * Guion Audio + YouTube — default karaoke agent (Julio option 2):
- * Biblioteca cancionero text + forced align clocks. Miss → sticky modal.
- * Returns true when the job should stop (hit or sticky miss).
+ * Guion Audio + YouTube — karaoke when the Biblioteca cancionero matches.
+ * Audio miss → sticky modal (no Whisper-as-lyrics for songs).
+ * YouTube miss → return false so captions / Whisper handle general videos.
+ * Returns true when the job should stop (karaoke hit or sticky Audio miss).
  */
 async function tryCancioneroLyricPath(options: {
   sessionId: string;
@@ -588,6 +589,14 @@ async function tryCancioneroLyricPath(options: {
   if (!isCurrent(sessionId, gen)) return true;
 
   if (!match.ok) {
+    // YouTube without cancionero → fall through to captions / Whisper ASR
+    // (sermons, teachings, general videos). Audio stays sticky modal.
+    if (isYoutube) {
+      console.warn(
+        `[subtitle] cancionero miss for YouTube (${match.reason}) — captions/Whisper fallback tried=${JSON.stringify(match.tried)}`,
+      );
+      return false;
+    }
     const live = sessionStore.get(sessionId);
     if (!live?.live.subtitleAgent?.enabled) return true;
     const hint =
@@ -677,7 +686,7 @@ async function tryCancioneroLyricPath(options: {
     );
   }
 
-  // Prefer 2 / max 3 display lines (exact Biblioteca text, newlines kept).
+  // Prefer 1–2 / max 2 display lines (exact Biblioteca text, newlines kept).
   const cues = packKaraokeDisplayCues(lineCues);
 
   if (!cues.length) {
@@ -914,9 +923,9 @@ async function runSubtitleJob(
     await ensureSubtitleDirs();
     if (!isCurrent(sessionId, gen)) return;
 
-    // Option 2 (default): Guion Audio + YouTube → karaoke cancionero align.
-    // Hit: exact Biblioteca text + Whisper/captions clocks (never rewrite).
-    // Miss → modal (sticky). Do not fall through to Whisper-as-lyrics.
+    // Karaoke when cancionero matches (Audio / YouTube).
+    // Audio miss → sticky modal. YouTube miss → captions/Whisper below.
+    // Local file video skips this path and uses sidecar / Whisper.
     const cancioneroDone = await tryCancioneroLyricPath({
       sessionId,
       gen,

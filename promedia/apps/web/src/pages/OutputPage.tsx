@@ -270,6 +270,7 @@ export function OutputPage() {
               agent={subtitleAgent}
               mediaClock={mediaClock}
               itemId={liveItem?.id ?? null}
+              transitionEffect={transitionEffect}
             />
             <SceneOverlay mode={sceneMode} />
           </>

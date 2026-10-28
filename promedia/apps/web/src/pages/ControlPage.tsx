@@ -12,7 +12,6 @@ import type {
   ImagePayload,
   LibrarySongPayload,
   PlaylistItem,
-  SceneMode,
   SubtitleTargetLang,
   TextPayload,
   ThemeId,
@@ -24,9 +23,7 @@ import {
   DEFAULT_THEME_ID,
   DEFAULT_TRANSITION_EFFECT,
   emptySubtitleAgentState,
-  isSubtitleFontSize,
   isSubtitleTargetLang,
-  normalizeSubtitleLeadMs,
   itemHasSlides,
   itemProjectionSlideCount,
   normalizeThemeBackground,
@@ -185,7 +182,6 @@ export function ControlPage() {
   );
   const liveSlideIndex = session.snapshot?.live.currentSlideIndex ?? 0;
   const mediaClock = session.snapshot?.live.mediaClock ?? null;
-  const sceneMode: SceneMode = session.snapshot?.live.sceneMode ?? "normal";
   const themeId: ThemeId =
     session.snapshot?.live.themeId ?? DEFAULT_THEME_ID;
   const themeOverrides = session.snapshot?.live.themeOverrides ?? null;
@@ -387,14 +383,6 @@ export function ControlPage() {
     } finally {
       setUploadingBackground(false);
     }
-  };
-
-  const toggleSceneMode = (mode: SceneMode) => {
-    if (session.wsStatus !== "open") {
-      return;
-    }
-    // Active mode → normal; otherwise set mode
-    session.setSceneMode(sceneMode === mode ? "normal" : mode);
   };
 
   const wsReady = session.wsStatus === "open";
@@ -1271,7 +1259,6 @@ export function ControlPage() {
               hubUnreachable={session.hubUnreachable}
               canMutate={canMutate}
               hasSession={session.hasSession}
-              sceneMode={sceneMode}
               themeId={themeId}
               themeOverrides={themeOverrides}
               themeBackground={themeBackground}
@@ -1280,20 +1267,10 @@ export function ControlPage() {
               backgroundAssets={themeBackgroundAssets}
               onProject={onStartProjection}
               onOpenLibrary={openLibrary}
-              onSceneNormal={() => session.setSceneMode("normal")}
-              onToggleScene={(mode) => toggleSceneMode(mode)}
               onThemeChange={(patch) => session.setTheme(patch)}
               onUploadBackground={onUploadThemeBackground}
               onAbout={() => setAboutOpen(true)}
               subtitleAgentEnabled={subtitleAgent.enabled}
-              subtitleAgentFontSize={
-                isSubtitleFontSize(subtitleAgent.fontSize)
-                  ? subtitleAgent.fontSize
-                  : "md"
-              }
-              subtitleAgentLeadMs={normalizeSubtitleLeadMs(
-                subtitleAgent.leadMs,
-              )}
               subtitleAgentTitle={subtitleAgentTitle}
               subtitleAgentErrorMessage={
                 subtitleAgent.enabled &&
@@ -1316,12 +1293,6 @@ export function ControlPage() {
                   itemId:
                     (liveItemId || selectedItemId || undefined) ?? undefined,
                 });
-              }}
-              onSubtitleFontSizeChange={(fontSize) => {
-                session.setSubtitleAgent({ fontSize });
-              }}
-              onSubtitleLeadMsChange={(leadMs) => {
-                session.setSubtitleAgent({ leadMs });
               }}
               sessionFallback={
                 <>
@@ -1753,6 +1724,7 @@ export function ControlPage() {
                 agent={subtitleAgent}
                 mediaClock={mediaClock}
                 itemId={liveItem?.id ?? null}
+                transitionEffect={transitionEffect}
               />
             </div>
           </section>
@@ -1887,6 +1859,7 @@ export function ControlPage() {
                     : null
                 }
                 itemId={selectedItem?.id ?? null}
+                transitionEffect={transitionEffect}
               />
             </div>
           </section>

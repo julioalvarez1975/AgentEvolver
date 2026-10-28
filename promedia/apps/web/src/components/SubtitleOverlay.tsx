@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { FittedTextStage } from "@promedia/item-types";
 import type {
   MediaClock,
   SubtitleAgentState,
   SubtitleFontSize,
+  TransitionEffect,
 } from "@promedia/shared";
 import {
   cueAtPositionWithLeadMs,
+  DEFAULT_TRANSITION_EFFECT,
   effectiveMediaClockPositionMs,
   emptySubtitleAgentState,
   isSubtitleFontSize,
@@ -15,6 +17,8 @@ import {
   LYRIC_PHRASE_SOFT_WRAP_CHARS,
   normalizeSubtitleLeadMs,
   softWrapProjectionLine,
+  TRANSITION_DURATION_MS,
+  transitionCssId,
 } from "@promedia/shared";
 
 export type SubtitleOverlayProps = {
@@ -28,27 +32,32 @@ export type SubtitleOverlayProps = {
   localPositionMs?: number | null;
   /** Only render cues when this matches agent.itemId (or agent has cues for it). */
   itemId?: string | null;
+  /**
+   * TEMA transition (FreeShow-style tip De22bDYtucC) — applied on each cue
+   * remount so lyric / subtitle changes fade instead of hard-cutting.
+   */
+  transitionEffect?: TransitionEffect;
 };
 
 /**
- * SM–XL biases fit toward Reel / LED-wall lyric size (full-bleed FittedTextStage).
- * Prefer 1–2 short phrases: heightFrac + widthFrac + hardCap lean large so
- * type owns center stage (IG Reel Dd5Bi1IzCuQ aesthetic).
+ * SM–XL biases fit toward IG Reel Dd5Bi1IzCuQ / LED karaoke size.
+ * 1–2 short phrases only: heightFrac + widthFrac + hardCap lean large so
+ * type owns center stage.
  */
 const SUBTITLE_FIT_BY_SIZE: Record<
   SubtitleFontSize,
   { heightFrac: number; widthFrac: number; hardCapPx: number }
 > = {
-  sm: { heightFrac: 0.48, widthFrac: 0.26, hardCapPx: 260 },
-  md: { heightFrac: 0.58, widthFrac: 0.28, hardCapPx: 320 },
-  lg: { heightFrac: 0.66, widthFrac: 0.3, hardCapPx: 380 },
-  xl: { heightFrac: 0.74, widthFrac: 0.32, hardCapPx: 420 },
+  sm: { heightFrac: 0.55, widthFrac: 0.3, hardCapPx: 300 },
+  md: { heightFrac: 0.66, widthFrac: 0.33, hardCapPx: 380 },
+  lg: { heightFrac: 0.76, widthFrac: 0.35, hardCapPx: 460 },
+  xl: { heightFrac: 0.84, widthFrac: 0.38, hardCapPx: 540 },
 };
 
 /**
- * Prefer ≤2 visual rows; absolute max 3. Cancionero exact newlines win when
- * present (sliced only if over the hard max). Soft-wrap widens the char
- * budget before spilling past preferred / max so FittedTextStage stays large.
+ * Prefer 1–2 visual rows; hard max 2 (karaoke Reel). Cancionero exact
+ * newlines win when present (sliced if over max). Soft-wrap widens the
+ * char budget before spilling so FittedTextStage stays large.
  */
 function lyricOverlayDisplayLines(raw: string): string[] {
   const exact = String(raw ?? "")
@@ -84,7 +93,7 @@ function lyricOverlayDisplayLines(raw: string): string[] {
     return rows;
   }
 
-  // Absolute max 3 — force-fit before FittedTextStage hard-caps.
+  // Hard max 2 — force-fit before FittedTextStage hard-caps.
   rows = tryBudget(
     Math.max(12, Math.ceil(single.length / LYRIC_OVERLAY_MAX_LINES)),
   );
@@ -92,26 +101,26 @@ function lyricOverlayDisplayLines(raw: string): string[] {
 }
 
 /**
- * Full-stage lyric projection — Instagram Reel / LED-wall look via
- * FittedTextStage: big centered type, fluid cue enter, no purple glow.
- * Prefer 2 short phrases (absolute max 3), largest type that fits (no
- * overflow), theme shadow, centered H+V. Timing prefers hub mediaClock;
- * negative `leadMs` (adelante) shows the cue early. Assisted timingMode
- * holds the first lyric through musical lead-in; exact (native captions /
- * cancionero) uses cue windows only. Manual ←/→ song slides do not use
- * this path.
+ * Full-stage karaoke projection — IG Reel Dd5Bi1IzCuQ / LED-wall look:
+ * huge centered type, 1–2 rows, fluid cue enter, soft black shadow only.
+ * Timing prefers hub mediaClock; negative `leadMs` shows the cue early.
+ * Assisted timingMode holds the first lyric through musical lead-in;
+ * exact (cancionero / native) uses cue windows only. Manual ←/→ song
+ * slides do not use this path.
  */
 export function SubtitleOverlay({
   agent,
   mediaClock,
   localPositionMs,
   itemId,
+  transitionEffect = DEFAULT_TRANSITION_EFFECT,
 }: SubtitleOverlayProps) {
   const state = agent ?? emptySubtitleAgentState();
   const fontSize = isSubtitleFontSize(state.fontSize) ? state.fontSize : "md";
   const leadMs = normalizeSubtitleLeadMs(state.leadMs);
   const holdIntro = state.timingMode !== "exact";
   const fit = SUBTITLE_FIT_BY_SIZE[fontSize];
+  const effect = transitionEffect || DEFAULT_TRANSITION_EFFECT;
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -171,8 +180,8 @@ export function SubtitleOverlay({
     if (!cue?.text) {
       return null;
     }
-    // Prefer exact cue newlines (cancionero Biblioteca lines). Soft-wrap only
-    // when a single source line has no breaks — prefer 2 rows, hard max 3.
+    // Prefer exact cue newlines (cancionero). Soft-wrap only when a single
+    // source line has no breaks — prefer 1–2 rows, hard max 2.
     return lyricOverlayDisplayLines(cue.text);
   }, [cue?.text]);
 
@@ -181,17 +190,30 @@ export function SubtitleOverlay({
   }
 
   const cueMotionKey = `${cue.id}-${cue.startMs}`;
+  const txClass =
+    effect !== "none"
+      ? ` pm-tx pm-tx-${transitionCssId(effect)}`
+      : " subtitle-overlay-cue--reel";
+  const cueStyle =
+    effect !== "none"
+      ? ({ "--pm-tx-ms": `${TRANSITION_DURATION_MS}ms` } as CSSProperties)
+      : undefined;
 
   return (
     <div
       className="subtitle-overlay subtitle-overlay--reel"
       data-size={fontSize}
       data-motion="reel"
+      data-tx={effect}
       data-cue={cueMotionKey}
       aria-live="polite"
     >
-      {/* Key remounts the fit block so Reel enter motion restarts per cue. */}
-      <div key={cueMotionKey} className="subtitle-overlay-cue">
+      {/* Key remounts so TEMA / Reel enter runs on each lyric cue change. */}
+      <div
+        key={cueMotionKey}
+        className={`subtitle-overlay-cue${txClass}`}
+        style={cueStyle}
+      >
         <FittedTextStage
           lines={displayLines}
           lineKey={`${cueMotionKey}-${fontSize}`}

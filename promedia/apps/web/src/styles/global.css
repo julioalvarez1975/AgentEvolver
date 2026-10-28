@@ -390,93 +390,6 @@ body {
   max-width: none;
 }
 
-.toolbar-subtitle-seg {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-  gap: 0.1rem;
-  flex: 0 0 auto;
-  min-width: 7.5rem;
-}
-
-.toolbar-subtitle-lead-seg {
-  min-width: 14.5rem;
-}
-
-.toolbar-subtitle-seg-label {
-  display: block;
-  font-size: 0.55rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--muted);
-  line-height: 1;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.toolbar-subtitle-seg-btns {
-  display: inline-flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: stretch;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-elev);
-  overflow: hidden;
-}
-
-.toolbar-subtitle-seg-btn {
-  appearance: none;
-  margin: 0;
-  border: none;
-  border-right: 1px solid var(--border);
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  line-height: 1;
-  padding: 0.38rem 0.42rem;
-  min-width: 1.85rem;
-  cursor: pointer;
-  outline: none;
-  box-shadow: none;
-}
-
-.toolbar-subtitle-seg-btn:last-child {
-  border-right: none;
-}
-
-.toolbar-subtitle-lead-seg .toolbar-subtitle-seg-btn {
-  min-width: 1.85rem;
-  padding-inline: 0.22rem;
-  font-size: 0.6rem;
-}
-
-.toolbar-subtitle-seg-btn:not(:disabled):hover {
-  background: #182230;
-  color: var(--fg);
-}
-
-.toolbar-subtitle-seg-btn.active {
-  background: #1a2430;
-  color: var(--fg);
-}
-
-.toolbar-subtitle-seg-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.toolbar-subtitle-seg-btn:focus-visible {
-  outline: 2px solid var(--accent, #5b9fd4);
-  outline-offset: -2px;
-  z-index: 1;
-}
-
 /* Long “Agente subtítulos” label must stay readable — not icon-only / clipped. */
 .toolbar-subtitle-agent {
   min-width: 4.6rem;
@@ -1663,14 +1576,17 @@ body {
   animation: pm-tx-fade var(--pm-tx-ms, 0.6s) var(--pm-tx-ease) both;
 }
 
+/* FreeShow-style soft fade (De22bDYtucC tip) — sine settle, no hard cut. */
 @keyframes pm-tx-fade {
   from {
     opacity: 0;
-    transform: scale(1.012);
+    transform: scale(1.018);
+    filter: blur(2px);
   }
   to {
     opacity: 1;
     transform: scale(1);
+    filter: blur(0);
   }
 }
 
@@ -1717,17 +1633,21 @@ body {
   }
 }
 
-/* Ken Burns settle — soft push-in, restrained blur. */
+/*
+ * FreeShow transition set (jimena_hidalgo__ De22bDYtucC / FreeShow types):
+ * scale | slide | fly | spin — plus legacy softScale alias.
+ */
+.pm-tx-scale,
 .pm-tx-softScale {
   overflow: hidden;
-  animation: pm-tx-soft-scale var(--pm-tx-ms, 0.6s) var(--pm-tx-ease) both;
+  animation: pm-tx-scale var(--pm-tx-ms, 0.55s) var(--pm-tx-ease) both;
 }
 
-@keyframes pm-tx-soft-scale {
+@keyframes pm-tx-scale {
   0% {
     opacity: 0;
-    transform: scale(1.12);
-    filter: blur(14px);
+    transform: scale(1.14);
+    filter: blur(10px);
   }
   100% {
     opacity: 1;
@@ -1736,7 +1656,59 @@ body {
   }
 }
 
-/* Directional whip / motion blur — peak speed mid-transition. */
+.pm-tx-slide {
+  overflow: hidden;
+  animation: pm-tx-slide var(--pm-tx-ms, 0.55s) var(--pm-tx-ease) both;
+}
+
+@keyframes pm-tx-slide {
+  0% {
+    opacity: 0;
+    transform: translateY(12%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pm-tx-fly {
+  overflow: hidden;
+  animation: pm-tx-fly var(--pm-tx-ms, 0.55s) var(--pm-tx-ease) both;
+}
+
+@keyframes pm-tx-fly {
+  0% {
+    opacity: 0;
+    transform: translateX(-14%) scale(0.96);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.pm-tx-spin {
+  overflow: hidden;
+  animation: pm-tx-spin var(--pm-tx-ms, 0.55s) var(--pm-tx-ease) both;
+}
+
+@keyframes pm-tx-spin {
+  0% {
+    opacity: 0;
+    transform: rotate(-8deg) scale(0.92);
+    filter: blur(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Directional whip / motion blur — ProMedia extra. */
 .pm-tx-motionBlur {
   overflow: hidden;
   animation: pm-tx-motion-blur var(--pm-tx-ms, 0.6s) var(--pm-tx-ease) both;
@@ -1813,7 +1785,11 @@ body {
   .pm-tx-fade,
   .pm-tx-crossfade,
   .pm-tx-blur,
+  .pm-tx-scale,
   .pm-tx-softScale,
+  .pm-tx-slide,
+  .pm-tx-fly,
+  .pm-tx-spin,
   .pm-tx-motionBlur {
     animation: pm-tx-reduced 0.2s ease-out both;
   }
@@ -1874,7 +1850,7 @@ body {
   align-items: stretch;
   justify-content: center;
   pointer-events: none;
-  /* Full stage so type can fill like canciones (prefer 2, max 3 lines). */
+  /* Full stage so karaoke type fills center (1–2 rows). */
   height: 100%;
   padding: 0;
   box-sizing: border-box;
@@ -1897,33 +1873,37 @@ body {
   justify-content: center;
 }
 
-/* Same projection surface as library songs; no caption-bar pill.
-   Center H+V on the full stage; slightly tighter safe area so big type
-   owns the middle (IG Reel Dd5Bi1IzCuQ). */
+/* Karaoke / IG Reel surface — no caption-bar pill.
+   Center H+V; plate hugs text (frosted card), not a full-bleed bar. */
 .subtitle-overlay .subtitle-overlay-fit.text-output {
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 2.5vh 4vw;
+  padding: 10vh 7vw;
   align-items: center;
   justify-content: center;
+  text-align: center;
+}
+
+.subtitle-overlay--reel .subtitle-overlay-fit .text-fit-block {
+  /* Hug glyph bounds so the frosted plate matches the Reel card. */
+  width: max-content;
+  max-width: 100%;
+  margin-inline: auto;
 }
 
 /*
- * Reel lyric motion + display type (PM-98).
- * Big weight, tight tracking, soft black shadow only — no purple/neon glow.
- * Enter motion waits for FittedTextStage `[data-fitted="1"]` so it runs at
- * final font size (not during the 28px→fit search).
+ * IG Reel Dd5Bi1IzCuQ (jimena_hidalgo__ — tips proyección iglesia).
+ * Montserrat ExtraBold, ALL CAPS, 1–2 filas centradas, placa oscura
+ * difuminada (frosted card) como en el Reel — sin glow púrpura.
+ * Enter motion waits for FittedTextStage `[data-fitted="1"]`.
  */
-.subtitle-overlay--reel .text-output-line {
-  margin: 0.04em 0;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.12;
-  text-shadow:
-    0 2px 3px rgba(0, 0, 0, 0.88),
-    0 0 0.65em rgba(0, 0, 0, 0.55),
-    0 0.12em 0.35em rgba(0, 0, 0, 0.4);
+.subtitle-overlay--reel .text-fit-block {
+  font-family: "Montserrat", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  font-weight: 800;
+  font-synthesis: none;
+  max-width: min(92%, 22em);
+  text-align: center;
 }
 
 .subtitle-overlay--reel .text-fit-block:not([data-fitted="1"]) {
@@ -1931,23 +1911,66 @@ body {
 }
 
 .subtitle-overlay--reel .text-fit-block[data-fitted="1"] {
+  padding: 0.42em 0.85em;
+  border-radius: 0.42em;
+  background: rgba(18, 12, 10, 0.58);
+  backdrop-filter: blur(14px) saturate(1.05);
+  -webkit-backdrop-filter: blur(14px) saturate(1.05);
+  box-shadow:
+    0 0.08em 0.35em rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Fallback cue motion only when TEMA transición = Ninguna. */
+.subtitle-overlay--reel[data-tx="none"] .text-fit-block[data-fitted="1"],
+.subtitle-overlay--reel:not([data-tx]) .text-fit-block[data-fitted="1"] {
   animation: pm-lyric-block-enter 640ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.subtitle-overlay--reel .text-fit-block[data-fitted="1"] > .text-output-line {
+/* TEMA transición activa (FreeShow tip): enter vive en .pm-tx del cue. */
+.subtitle-overlay--reel[data-tx]:not([data-tx="none"])
+  .text-fit-block[data-fitted="1"] {
+  opacity: 1;
+}
+
+.subtitle-overlay--reel .text-output-line {
+  margin: 0.02em 0;
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.55),
+    0 0.08em 0.28em rgba(0, 0, 0, 0.4);
+}
+
+/* 2 filas: 1ª un poco menor (frase), 2ª dominante — patrón del Reel. */
+.subtitle-overlay--reel
+  .subtitle-overlay-fit[data-line-count="2"]
+  .text-output-line:first-child {
+  font-size: 0.78em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.subtitle-overlay--reel[data-tx="none"]
+  .text-fit-block[data-fitted="1"]
+  > .text-output-line,
+.subtitle-overlay--reel:not([data-tx])
+  .text-fit-block[data-fitted="1"]
+  > .text-output-line {
   animation: pm-lyric-line-enter 580ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-.subtitle-overlay--reel
+.subtitle-overlay--reel[data-tx="none"]
+  .text-fit-block[data-fitted="1"]
+  > .text-output-line:nth-child(2),
+.subtitle-overlay--reel:not([data-tx])
   .text-fit-block[data-fitted="1"]
   > .text-output-line:nth-child(2) {
   animation-delay: 70ms;
-}
-
-.subtitle-overlay--reel
-  .text-fit-block[data-fitted="1"]
-  > .text-output-line:nth-child(3) {
-  animation-delay: 120ms;
 }
 
 @keyframes pm-lyric-block-enter {

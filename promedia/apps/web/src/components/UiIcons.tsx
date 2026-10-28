@@ -267,76 +267,6 @@ export function IconLanguage(props: IconProps) {
   );
 }
 
-export function IconSceneNormal(props: IconProps) {
-  return (
-    <svg {...svgProps({ ...props, size: props.size ?? 20 })}>
-      <rect
-        x="4"
-        y="5"
-        width="16"
-        height="14"
-        rx="1.5"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <path
-        d="M8 15h8M8 11h5"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-export function IconSceneLogo(props: IconProps) {
-  return (
-    <svg {...svgProps({ ...props, size: props.size ?? 20 })}>
-      <rect
-        x="4"
-        y="4"
-        width="16"
-        height="16"
-        rx="3"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <path
-        d="M8 15.5 12 8l4 7.5"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-export function IconSceneBlack(props: IconProps) {
-  return (
-    <svg {...svgProps({ ...props, size: props.size ?? 20 })}>
-      <rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor" />
-    </svg>
-  );
-}
-
-export function IconSceneClear(props: IconProps) {
-  return (
-    <svg {...svgProps({ ...props, size: props.size ?? 20 })}>
-      <rect
-        x="4"
-        y="4"
-        width="16"
-        height="16"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeDasharray="3 2"
-      />
-    </svg>
-  );
-}
-
 export function IconAbout(props: IconProps) {
   return (
     <svg {...svgProps({ ...props, size: props.size ?? 20 })}>
@@ -373,22 +303,6 @@ export function IconLibrary(props: IconProps) {
         strokeWidth="1.6"
         strokeLinejoin="round"
       />
-    </svg>
-  );
-}
-
-export function IconTheme(props: IconProps) {
-  return (
-    <svg {...svgProps({ ...props, size: props.size ?? 20 })}>
-      <path
-        d="M12 3a9 9 0 1 0 0 18c1.4 0 2.2-1.1 2.2-2.2 0-.6-.2-1.1-.6-1.5-.4-.4-.6-.9-.6-1.5a2.2 2.2 0 0 1 2.2-2.2H16a5 5 0 0 0 0-10H12Z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-      <circle cx="7.5" cy="10" r="1.1" fill="currentColor" />
-      <circle cx="10" cy="7" r="1.1" fill="currentColor" />
-      <circle cx="13.5" cy="7.2" r="1.1" fill="currentColor" />
     </svg>
   );
 }

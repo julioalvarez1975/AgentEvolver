@@ -52,7 +52,7 @@ Si el firewall bloquea, permití Node en los puertos **5173** y **8787** (entrad
 
 ### Mac — doble clic (Finder)
 
-**Deps subtítulos (una vez):** `brew install yt-dlp ffmpeg whisper-cpp` — luego reiniciá ProMedia (el hub también busca en `/opt/homebrew/bin` y `/usr/local/bin`).
+**Deps subtítulos (una vez):** `brew install yt-dlp ffmpeg whisper-cpp` — luego reiniciá ProMedia (el hub busca en PATH + `/opt/homebrew/bin` + `/usr/local/bin`).
 
 1. Finder → carpeta del repo → **`promedia`**
 2. Doble clic en **`start-mac.command`** o **`Abrir-ProMedia.command`** (mismo arranque; el segundo es atajo con nombre claro)
@@ -66,14 +66,16 @@ Si el firewall bloquea, permití Node en los puertos **5173** y **8787** (entrad
 1. Explorador → **`promedia`**
 2. Doble clic en **`start-windows.bat`** o **`Abrir-ProMedia.bat`** (llaman a **`start-windows.ps1`**)
 3. Requisitos: Node.js 20+ y `npm install -g pnpm` (una vez). Si falta `node_modules`, el script corre `pnpm install`
-4. Abre **Control** en el puerto real (5173–5178)
+4. **Deps subtítulos (una vez):** instalá `yt-dlp`, `ffmpeg` y `whisper-cli` (p. ej. [Scoop](https://scoop.sh): `scoop install yt-dlp ffmpeg` + build/binario whisper.cpp) y asegurate de que estén en el **PATH**. Alternativa sin Whisper: `.srt`/`.vtt` en `data/subtitles/sidecars/`
+5. Abre **Control** en el puerto real (5173–5178)
 
 ### Linux — doble clic / terminal
 
 1. En **`promedia/`**, la primera vez: `chmod +x start-linux.sh Abrir-ProMedia.sh`
 2. Doble clic o `./start-linux.sh` / `./Abrir-ProMedia.sh`
 3. Atajo: **`ProMedia.desktop`** (editá `Exec`/`Path` si lo copiás al Escritorio; en GNOME: “Permitir iniciar” / Mark as Trusted)
-4. Misma lógica: lock, `pnpm install` si hace falta, `pnpm dev`, abre **`/control`**
+4. **Deps subtítulos (una vez):** `sudo apt install ffmpeg` (o equivalente) + `yt-dlp` + binario `whisper-cli` en PATH; el hub también mira `/usr/bin` y `/usr/local/bin`
+5. Misma lógica: lock, `pnpm install` si hace falta, `pnpm dev`, abre **`/control`**
 
 ### Terminal (cualquier SO)
 
@@ -169,7 +171,7 @@ Si el popup está bloqueado, aparece un aviso con enlace **Abrir salida**. El at
 2. **Barra de herramientas** debajo (peers planos; sin grupos fijos):
    - **Proyectar** — abre Output + fullscreen (busy: «Iniciando…»)
    - **Biblioteca** — mediateca local (canciones, biblias, textos, presentaciones, imágenes, vídeos)
-   - **Agente karaoke** — letra del cancionero + align de tiempos (Whisper/captions solo reloj); vídeo local: captions o Whisper
+   - **Agente subtítulos** — canciones: letra del cancionero + align; YouTube/vídeo sin canción: captions o Whisper; vídeo local: SRT/VTT o Whisper
    - **Idioma** — UI ES / EN / PT / FR / ZH
    - **Acerca de** — diálogo con crédito **`@2026 JulioAlvarez75`**
    - Escenas + **Tema** — presets, fondos, efectos de transición
@@ -265,7 +267,7 @@ YouTube con captions oficiales en el idioma de Control es el camino de referenci
    - **Audio (Guion) y YouTube (karaoke-gen / Lyricsync):** busca en el **cancionero** (Biblioteca → Canciones). Match → letra **exacta** + forced align a captions/Whisper (reloj únicamente; Whisper recibe `-prompt` de la letra). Overlay en grupos de **2 líneas** (máx. **3**); **Adelante −1 s**. Sin match → **modal** (no inventa letra).
    - Vídeo local (archivo): captions sidecar SRT/VTT o softsubs → si faltan, Whisper `-l <idioma de Control>`
    - Se filtran etiquetas no-speech (`[MUSIC]`, `[MÚSICA]`, etc.); un job vacío → hint `no_speech`
-5. Overlay: tipografía grande estilo Reel/LED (`FittedTextStage`), centrada H+V a pantalla, preferente **2 líneas** (máx. absoluto **3**), entrada fluida (fade + leve subida). Captions nativos: **Adelante = 0** + `timingMode=exact`. Cancionero: **−1 s** + `exact` (espera la voz; sin intro-hold que se adelanta; respeta renglones del cancionero). ASR fallback: assisted + intro-hold. Tamaño SM–XL junto al botón.
+5. Overlay: tipografía grande estilo karaoke/IG Reel (`FittedTextStage`), centrada H+V, **1–2 líneas** (máx. **2**), entrada fluida (fade + leve subida). Captions nativos: **Adelante = 0** + `timingMode=exact`. Cancionero: **−1 s** + `exact` (espera la voz; sin intro-hold que se adelanta; respeta renglones del cancionero). ASR fallback: assisted + intro-hold. Tamaño por defecto **XL** (SM–XL junto al botón).
 
 **Primera ejecución (descarga de modelos)**
 

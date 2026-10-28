@@ -18,13 +18,13 @@ export type FittedTextStageProps = {
    */
   widthFrac?: number;
   /**
-   * Absolute px ceiling for auto-fit (default 220). Lyric Reel look may pass
-   * up to ~420; clamped at HARD_CAP_MAX_PX.
+   * Absolute px ceiling for auto-fit (default 220). Karaoke Reel look may
+   * pass up to ~540; clamped at HARD_CAP_MAX_PX.
    */
   hardCapPx?: number;
   /**
    * Hard cap on source + visual lines (default TEXT_PROJECTION_LINES = 5).
-   * Lyric overlay may pass 3 (Julio: prefer 2, absolute max 3).
+   * Karaoke overlay passes 2 (1–2 rows, IG Reel / LED wall).
    */
   maxLines?: number;
 };
@@ -35,8 +35,8 @@ const WIDTH_SAFETY_PX = 4;
 const DEFAULT_HEIGHT_FRAC = 0.4;
 const DEFAULT_WIDTH_FRAC = 0.22;
 const DEFAULT_HARD_CAP_PX = 220;
-/** Absolute ceiling — high enough for Reel-style 1–2 line lyric type. */
-const HARD_CAP_MAX_PX = 480;
+/** Absolute ceiling — high enough for Reel karaoke 1–2 line type. */
+const HARD_CAP_MAX_PX = 560;
 
 type WrapMode = "nowrap" | "wrap";
 
@@ -128,7 +128,7 @@ export function FittedTextStage({
       : DEFAULT_HEIGHT_FRAC;
   const widthFracSafe =
     Number.isFinite(widthFrac) && widthFrac > 0
-      ? Math.min(0.4, Math.max(0.12, widthFrac))
+      ? Math.min(0.45, Math.max(0.12, widthFrac))
       : DEFAULT_WIDTH_FRAC;
   const hardCapSafe =
     Number.isFinite(hardCapPx) && hardCapPx >= 10

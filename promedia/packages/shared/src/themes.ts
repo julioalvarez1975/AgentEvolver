@@ -12,39 +12,57 @@ export const THEME_IDS: readonly ThemeId[] = [
 export const DEFAULT_THEME_ID: ThemeId = "oscuro";
 
 /**
- * Live Output / En vivo transition when the live item changes (TEMA zone).
- * Fixed duration: TRANSITION_DURATION_MS (~0.6s — soft Reel-style settle).
+ * Live Output / En vivo / lyric-cue transitions (TEMA menu).
+ * Primary set mirrors FreeShow (jimena_hidalgo__ Reel De22bDYtucC):
+ * none | blur | fade | crossfade | fly | scale | slide | spin.
+ * ProMedia extras: motionBlur, pixelate. softScale = legacy alias of scale.
  */
 export type TransitionEffect =
   | "none"
   | "fade"
-  | "blur"
-  | "pixelate"
   | "crossfade"
-  | "softScale"
-  | "motionBlur";
+  | "blur"
+  | "scale"
+  | "slide"
+  | "fly"
+  | "spin"
+  | "motionBlur"
+  | "pixelate"
+  /** @deprecated use `scale` — kept for older session snapshots */
+  | "softScale";
 
+/** Menu order — FreeShow defaults first, then ProMedia extras. */
 export const TRANSITION_EFFECTS: readonly TransitionEffect[] = [
   "none",
   "fade",
   "crossfade",
   "blur",
-  "softScale",
+  "scale",
+  "slide",
+  "fly",
+  "spin",
   "motionBlur",
   "pixelate",
 ] as const;
 
-/** SoftScale so TEMA enter motion is visible without hunting the dropdown. */
-export const DEFAULT_TRANSITION_EFFECT: TransitionEffect = "softScale";
+/**
+ * FreeShow-style default (De22bDYtucC tip): soft fade — not a hard cut.
+ */
+export const DEFAULT_TRANSITION_EFFECT: TransitionEffect = "fade";
 
-/** Fixed transition length on Output / En vivo (ms). */
-export const TRANSITION_DURATION_MS = 600;
+/** Fixed transition length on Output / En vivo / lyric cues (ms). */
+export const TRANSITION_DURATION_MS = 550;
 
 export function isTransitionEffect(value: unknown): value is TransitionEffect {
-  return (
-    typeof value === "string" &&
-    (TRANSITION_EFFECTS as readonly string[]).includes(value)
-  );
+  if (typeof value !== "string") return false;
+  if ((TRANSITION_EFFECTS as readonly string[]).includes(value)) return true;
+  return value === "softScale";
+}
+
+/** CSS class suffix (`pm-tx-${id}`) — maps legacy softScale → scale. */
+export function transitionCssId(effect: TransitionEffect): string {
+  if (effect === "softScale") return "scale";
+  return effect;
 }
 
 export type ThemeFontSize = "sm" | "md" | "lg" | "xl";

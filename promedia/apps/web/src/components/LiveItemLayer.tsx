@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import {
   TRANSITION_DURATION_MS,
+  transitionCssId,
   type TransitionEffect,
 } from "@promedia/shared";
 
@@ -34,7 +35,7 @@ export function LiveItemLayer({
   planeOverlay,
 }: LiveItemLayerProps) {
   const txClass =
-    effect !== "none" ? ` pm-tx pm-tx-${effect}` : "";
+    effect !== "none" ? ` pm-tx pm-tx-${transitionCssId(effect)}` : "";
   const extra = className ? ` ${className}` : "";
 
   return (

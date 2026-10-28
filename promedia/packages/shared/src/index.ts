@@ -454,7 +454,7 @@ export function emptySubtitleAgentState(
     enabled: false,
     targetLang,
     status: "off",
-    fontSize: "md",
+    fontSize: "xl",
     leadMs: DEFAULT_SUBTITLE_LEAD_MS,
     timingMode: "exact",
     itemId: null,
@@ -605,6 +605,7 @@ export {
   resolveTheme,
   themeBackgroundPackSrc,
   themeToCssVars,
+  transitionCssId,
 } from "./themes.js";
 
 import type {
@@ -902,12 +903,12 @@ export function itemHasSlides(item: PlaylistItem): boolean {
 export const TEXT_PROJECTION_LINES = 5;
 
 /**
- * Absolute max lines for timed lyric / subtitle overlay (Julio: 2 preferred,
- * hard max 3) so FittedTextStage can stay large. Never overflow.
+ * Absolute max lines for timed lyric / karaoke overlay (IG Reel /
+ * LED-wall look: 1–2 rows only) so FittedTextStage stays huge. Never overflow.
  */
-export const LYRIC_OVERLAY_MAX_LINES = 3;
+export const LYRIC_OVERLAY_MAX_LINES = 2;
 
-/** Preferred visual lines per lyric overlay cue (large type). */
+/** Preferred visual lines per lyric cue — short phrases, dominant type. */
 export const LYRIC_OVERLAY_PREFERRED_LINES = 2;
 
 /**
@@ -917,11 +918,11 @@ export const LYRIC_OVERLAY_PREFERRED_LINES = 2;
 export const TEXT_PROJECTION_SOFT_WRAP_CHARS = 52;
 
 /**
- * Soft-wrap budget for lyric phrases on the subtitle / cancionero overlay.
- * Longer than before so typical hymn lines stay 1–2 rows (max 3) and type
- * can grow; cancionero exact newlines still win when present.
+ * Soft-wrap budget for karaoke / cancionero overlay phrases.
+ * Short enough that cues stay 1–2 rows and type can fill the stage;
+ * cancionero exact newlines still win when present.
  */
-export const LYRIC_PHRASE_SOFT_WRAP_CHARS = 56;
+export const LYRIC_PHRASE_SOFT_WRAP_CHARS = 42;
 
 /**
  * Flatten embedded newlines, drop blanks, and soft-wrap long lines so each
