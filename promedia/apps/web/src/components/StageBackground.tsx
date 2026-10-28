@@ -52,12 +52,14 @@ export function StageBackground({
   return (
     <div className="pm-stage-bg" aria-hidden>
       {showPack && bg.packId ? (
-        <div className={`pm-stage-bg-pack pm-stage-bg-${bg.packId}`}>
+        <div
+          key={`pack:${bg.packId}`}
+          className={`pm-stage-bg-pack pm-stage-bg-${bg.packId} pm-stage-bg-enter`}
+        >
           {/* CSS layers remain as fallback under the looping pack video. */}
           <div className="pm-stage-bg-layer pm-stage-bg-layer-a" />
           <div className="pm-stage-bg-layer pm-stage-bg-layer-b" />
           <video
-            key={bg.packId}
             className="pm-stage-bg-media-el"
             autoPlay
             loop
@@ -76,7 +78,10 @@ export function StageBackground({
         </div>
       ) : null}
       {showAsset && assetSrc ? (
-        <div className="pm-stage-bg-media">
+        <div
+          key={`asset:${bg.assetId ?? assetSrc}`}
+          className="pm-stage-bg-media pm-stage-bg-enter"
+        >
           {bg.mediaKind === "image" ? (
             <img className="pm-stage-bg-media-el" src={assetSrc} alt="" />
           ) : (
