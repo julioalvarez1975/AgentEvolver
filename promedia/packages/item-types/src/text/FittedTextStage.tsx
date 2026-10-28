@@ -16,7 +16,7 @@ export type FittedTextStageProps = {
   hardCapPx?: number;
   /**
    * Hard cap on source + visual lines (default TEXT_PROJECTION_LINES = 5).
-   * Lyric overlay may pass 6 (Julio 4–6).
+   * Lyric overlay may pass 3 (Julio: prefer 2, absolute max 3).
    */
   maxLines?: number;
 };
@@ -85,7 +85,7 @@ function visualLineCount(block: HTMLElement): number {
 }
 
 /**
- * Projection text block: ≤maxLines rows (default 5; lyric overlay up to 6),
+ * Projection text block: ≤maxLines rows (default 5; lyric overlay up to 3),
  * font auto-fit via ResizeObserver so the block fills the stage. Width
  * (content box + padding/safe area) always wins over growing as large as
  * possible. Long unbreakable words may wrap, still capped at maxLines.

@@ -265,7 +265,7 @@ YouTube con captions oficiales en el idioma de Control es el camino de referenci
    - **Audio (Guion) y YouTube:** busca primero en el **cancionero** (Biblioteca → Canciones) por título / nombre de archivo / metadata de YouTube. Si hay match, proyecta las **líneas exactas** del cancionero (estrofa/renglón) en el `mediaClock`. Los captions/ASR solo marcan **cuándo** revelar cada línea (nunca reescriben el texto); **Adelante −1 s** muestra la frase ~1 s antes de la voz. Si **no** está en el cancionero → **modal de aviso** (no inventa letra).
    - Vídeo local (archivo): captions sidecar SRT/VTT o softsubs → si faltan, Whisper `-l <idioma de Control>`
    - Se filtran etiquetas no-speech (`[MUSIC]`, `[MÚSICA]`, etc.); un job vacío → hint `no_speech`
-5. Overlay: tipografía grande tipo canciones (`FittedTextStage`), centrada H+V a pantalla, máx. 4–6 líneas. Captions nativos: **Adelante = 0** + `timingMode=exact`. Cancionero: **−1 s** + `exact` (espera la voz; sin intro-hold que se adelanta). ASR fallback: assisted + intro-hold. Tamaño SM–XL junto al botón.
+5. Overlay: tipografía grande tipo canciones (`FittedTextStage`), centrada H+V a pantalla, preferente **2 líneas** (máx. absoluto **3**). Captions nativos: **Adelante = 0** + `timingMode=exact`. Cancionero: **−1 s** + `exact` (espera la voz; sin intro-hold que se adelanta; respeta renglones del cancionero). ASR fallback: assisted + intro-hold. Tamaño SM–XL junto al botón.
 
 **Primera ejecución (descarga de modelos)**
 

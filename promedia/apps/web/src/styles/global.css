@@ -1730,7 +1730,7 @@ body {
   align-items: stretch;
   justify-content: center;
   pointer-events: none;
-  /* Full stage so type can fill like canciones (≤4–6 lines). */
+  /* Full stage so type can fill like canciones (prefer 2, max 3 lines). */
   height: 100%;
   padding: 0;
   box-sizing: border-box;
@@ -1745,7 +1745,7 @@ body {
 
 /* Same projection typography as library songs; no caption-bar pill.
    Center H+V on the full stage. Shadow from .text-output-line; fit keeps
-   ≤6 short phrases without width/height overflow. */
+   ≤2–3 short phrases without width/height overflow. */
 .subtitle-overlay .subtitle-overlay-fit.text-output {
   width: 100%;
   height: 100%;
