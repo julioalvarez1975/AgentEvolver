@@ -169,7 +169,7 @@ Si el popup está bloqueado, aparece un aviso con enlace **Abrir salida**. El at
 2. **Barra de herramientas** debajo (peers planos; sin grupos fijos):
    - **Proyectar** — abre Output + fullscreen (busy: «Iniciando…»)
    - **Biblioteca** — mediateca local (canciones, biblias, textos, presentaciones, imágenes, vídeos)
-   - **Subtítulos nativos** — captions YouTube/SRT tal cual o Whisper `-l` en el idioma de Control
+   - **Agente karaoke** — letra del cancionero + align de tiempos (Whisper/captions solo reloj); vídeo local: captions o Whisper
    - **Idioma** — UI ES / EN / PT / FR / ZH
    - **Acerca de** — diálogo con crédito **`@2026 JulioAlvarez75`**
    - Escenas + **Tema** — presets, fondos, efectos de transición
@@ -229,9 +229,9 @@ También: `node scripts/import-bibles.mjs` (crea `bibles/import` si falta y llam
 - Columna derecha: **Vista previa** (toolbar: anterior / siguiente / **En vivo**)
 - Preview ≠ live hasta **En vivo**
 - Transporte de vídeo: play/pausa, ±10 s, inicio/fin, scrubber (tiempos en overlay); mute opcional en preview
-- Con **Subtítulos nativos** activo, las cues sincronizadas con `mediaClock` se ven en **Vista previa**, **En vivo** y **Output**
+- Con **Agente karaoke** activo, las cues sincronizadas con `mediaClock` se ven en **Vista previa**, **En vivo** y **Output**
 
-### Subtítulos nativos (agente por defecto)
+### Agente karaoke (cancionero + align — por defecto)
 
 **Nuevo agente** (reemplaza el stack Whisper+Marian parcheado): captions oficiales / SRT-VTT **tal cual** (tiempos y letra), sin Marian ni reloj artificial. 100 % local. YouTube: `yt-dlp` pide la pista del idioma de Control (manual ≫ auto); si faltan, audio + Whisper **`-l <idioma>`** (p. ej. `-l es`). El iframe de YouTube sigue solo en Output.
 
@@ -251,7 +251,7 @@ Sin depender de `whisper-cli` / ggml, Julio puede usar **pistas con tiempo** que
 
 1. Copiá un archivo `.srt` o `.vtt` a `promedia/data/subtitles/sidecars/`
 2. Nombralo como el medio subido (p. ej. `MiCancion.mp4` → `MiCancion.srt` / `MiCancion.vtt`) **o** `{assetId}.vtt`
-3. Activá **Subtítulos nativos** + **En vivo** — el hub carga la pista antes de Whisper
+3. Activá **Agente karaoke** + **En vivo** — el hub carga la pista antes de Whisper
 4. También se leen **softsubs embebidos** del contenedor (ffmpeg/ffprobe) cuando existan
 
 YouTube con captions oficiales en el idioma de Control es el camino de referencia (p. ej. *Cuán grande es Él* `G6P1VnEPvjg`).
@@ -260,16 +260,16 @@ YouTube con captions oficiales en el idioma de Control es el camino de referenci
 
 1. Arrancá ProMedia (`pnpm dev` / launcher) y abrí **Control**
 2. Añadí un **vídeo/audio local** (pestaña Audio del Guion incluida) o un **YouTube** público al Guion
-3. Pulsá **Subtítulos nativos** en la barra (junto a **Proyectar** / **Idioma**; queda activo). El idioma **sigue el selector Idioma** de Control (ES / EN / PT / FR / ZH)
+3. Pulsá **Agente karaoke** en la barra (junto a **Proyectar** / **Idioma**; queda activo). El idioma **sigue el selector Idioma** de Control (ES / EN / PT / FR / ZH)
 4. Poné el ítem **En vivo**. Prioridad **letra real**:
-   - **Audio (Guion) y YouTube:** busca primero en el **cancionero** (Biblioteca → Canciones) por título / nombre de archivo / metadata de YouTube. Si hay match, proyecta las **líneas exactas** del cancionero (estrofa/renglón) en el `mediaClock`. Los captions/ASR solo marcan **cuándo** revelar cada línea (nunca reescriben el texto); **Adelante −1 s** muestra la frase ~1 s antes de la voz. Si **no** está en el cancionero → **modal de aviso** (no inventa letra).
+   - **Audio (Guion) y YouTube (karaoke-gen / Lyricsync):** busca en el **cancionero** (Biblioteca → Canciones). Match → letra **exacta** + forced align a captions/Whisper (reloj únicamente; Whisper recibe `-prompt` de la letra). Overlay en grupos de **2 líneas** (máx. **3**); **Adelante −1 s**. Sin match → **modal** (no inventa letra).
    - Vídeo local (archivo): captions sidecar SRT/VTT o softsubs → si faltan, Whisper `-l <idioma de Control>`
    - Se filtran etiquetas no-speech (`[MUSIC]`, `[MÚSICA]`, etc.); un job vacío → hint `no_speech`
 5. Overlay: tipografía grande tipo canciones (`FittedTextStage`), centrada H+V a pantalla, preferente **2 líneas** (máx. absoluto **3**). Captions nativos: **Adelante = 0** + `timingMode=exact`. Cancionero: **−1 s** + `exact` (espera la voz; sin intro-hold que se adelanta; respeta renglones del cancionero). ASR fallback: assisted + intro-hold. Tamaño SM–XL junto al botón.
 
 **Primera ejecución (descarga de modelos)**
 
-- Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-base.bin` (~142 MB) a `promedia/data/models/whisper/` (gitignore). Override `SUBTITLE_WHISPER_CPP_MODEL=ggml-tiny.bin` si hace falta. El hub pasa `-l <idioma de Control>` (no `auto`), `-ml 48 -sow`. Caché ASR **`_v6`** (borrar `data/subtitles/cache` tras actualizar). Referencia: captions manuales ES de `G6P1VnEPvjg`.
+- Con **whisper-cpp** instalado: red **una vez** para bajar `ggml-base.bin` (~142 MB) a `promedia/data/models/whisper/` (gitignore). Override `SUBTITLE_WHISPER_CPP_MODEL=ggml-tiny.bin` si hace falta. El hub pasa `-l <idioma de Control>` (no `auto`), `-ml 48 -sow`. Caché ASR **`_v7`** (borrar `data/subtitles/cache` tras actualizar; karaoke usa `-prompt` de la letra). Referencia: captions manuales ES de `G6P1VnEPvjg`.
 - Sin whisper-cli: error `whisper_cpp_missing` → `brew install whisper-cpp` (no Xenova por defecto).
 - Caché: `data/subtitles/cache/`, `wav/`, `youtube-cache/` (gitignore)
 - Requiere **`ffmpeg`** + **`whisper-cli`**; YouTube también **`yt-dlp`**
@@ -393,7 +393,7 @@ cd promedia
 - Guion multi-tipo con drag, multi-select, guardar/cargar
 - Texto: import PDF (hub), XML, `.txt`/`.md` → slides
 - Preview ≠ live; transporte vídeo + `mediaClock`
-- **Subtítulos nativos** (captions oficiales / SRT; Whisper `-l` fallback; sin Marian sobre letra)
+- **Agente karaoke** (letra cancionero + forced align; captions/Whisper solo tiempos; modal si no hay match)
 - Escenas, temas, transiciones 0,5 s en Output
 - i18n ES · EN · PT · FR · ZH
 - Banner GAM opcional en Control

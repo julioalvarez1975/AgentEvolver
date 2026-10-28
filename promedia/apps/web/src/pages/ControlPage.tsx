@@ -224,9 +224,11 @@ export function ControlPage() {
           return t("control.subtitleAgentSourceOnly");
         }
         if (
-          hint === "cancionero_match" ||
           hint === "cancionero_match_synced"
         ) {
+          return t("control.subtitleAgentCancioneroSynced");
+        }
+        if (hint === "cancionero_match") {
           return t("control.subtitleAgentCancioneroReady");
         }
         if (

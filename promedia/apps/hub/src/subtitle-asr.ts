@@ -155,8 +155,13 @@ function cacheKey(
   assetId: string,
   targetLang: SubtitleTargetLang,
   translateToEn: boolean,
+  prompt?: string | null,
 ): string {
-  return `${assetId}_${translateToEn ? "en" : "src"}_${targetLang}_v6`;
+  const base = `${assetId}_${translateToEn ? "en" : "src"}_${targetLang}_v7`;
+  const p = prompt?.trim();
+  if (!p) return base;
+  const hash = createHash("sha256").update(p).digest("hex").slice(0, 8);
+  return `${base}_p${hash}`;
 }
 
 function normalizeChunks(
@@ -403,6 +408,8 @@ async function transcribeViaWhisperCpp(options: {
   wavPath: string;
   translateToEn: boolean;
   languageHint?: string | null;
+  /** Karaoke timing: bias clocks toward official lyrics (text discarded). */
+  prompt?: string | null;
   assetId: string;
   onStatus?: (status: "downloading" | "transcribing") => void;
 }): Promise<AsrResult> {
@@ -414,6 +421,7 @@ async function transcribeViaWhisperCpp(options: {
     wavPath: options.wavPath,
     translateToEn: options.translateToEn,
     languageHint: options.languageHint,
+    prompt: options.prompt,
     workDir,
     onStatus: options.onStatus,
   });
@@ -436,12 +444,18 @@ export async function transcribeLocalFile(options: {
   /** When true, Whisper task=translate → English cues. */
   translateToEn: boolean;
   targetLang: SubtitleTargetLang;
+  /**
+   * Karaoke aligner: optional Whisper prompt from cancionero lines.
+   * Improves timing clocks only — callers must never display ASR text.
+   */
+  prompt?: string | null;
   onStatus?: (status: "downloading" | "extracting" | "transcribing") => void;
 }): Promise<AsrResult> {
   const { mediaPath, assetId, translateToEn, targetLang, onStatus } = options;
+  const prompt = options.prompt?.trim() || null;
   const dirs = await ensureSubtitleDirs();
   const sourceHash = await fileSha256(mediaPath);
-  const key = cacheKey(assetId, targetLang, translateToEn);
+  const key = cacheKey(assetId, targetLang, translateToEn, prompt);
   const cachePath = path.join(dirs.cache, `${key}.json`);
 
   try {
@@ -505,6 +519,7 @@ export async function transcribeLocalFile(options: {
         wavPath,
         translateToEn: forceTranslateToEn,
         languageHint: hint,
+        prompt,
         assetId,
         onStatus,
       });
