@@ -123,12 +123,6 @@ export function ThemePanel({
     });
   };
 
-  const patchBackground = (partial: Partial<ThemeBackground>) => {
-    onChange({
-      themeBackground: normalizeThemeBackground({ ...bg, ...partial }),
-    });
-  };
-
   const onBackgroundSelect = (raw: string) => {
     if (raw === SOLID_VALUE) {
       onChange({
@@ -259,19 +253,6 @@ export function ThemePanel({
       >
         {uploadingBackground ? t("theme.bgUploading") : t("theme.bgUpload")}
       </button>
-
-      <label
-        className="toolbar-tool theme-bg-dots-toggle"
-        title={t("theme.bgDotsHint")}
-      >
-        <input
-          type="checkbox"
-          checked={bg.dotsOverlay === true}
-          disabled={disabled}
-          onChange={(e) => patchBackground({ dotsOverlay: e.target.checked })}
-        />
-        <span>{t("theme.bgDots")}</span>
-      </label>
     </Fragment>
   );
 }

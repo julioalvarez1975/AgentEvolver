@@ -420,6 +420,23 @@ export function ControlPage() {
     subtitleAgent.itemId,
   ]);
 
+  // Karaoke agent always uses the dots pattern for lyric contrast on video.
+  useEffect(() => {
+    if (!subtitleAgent.enabled || !canMutate) {
+      return;
+    }
+    if (themeBackground.dotsOverlay === true) {
+      return;
+    }
+    session.setTheme({
+      themeBackground: normalizeThemeBackground({
+        ...themeBackground,
+        dotsOverlay: true,
+      }),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtitleAgent.enabled, canMutate, themeBackground.dotsOverlay]);
+
   // When agent is on, re-target ASR if focus item changed (live preferred).
   useEffect(() => {
     if (!subtitleAgent.enabled || !canMutate) {
@@ -1293,6 +1310,14 @@ export function ControlPage() {
                   itemId:
                     (liveItemId || selectedItemId || undefined) ?? undefined,
                 });
+                if (next) {
+                  session.setTheme({
+                    themeBackground: normalizeThemeBackground({
+                      ...themeBackground,
+                      dotsOverlay: true,
+                    }),
+                  });
+                }
               }}
               sessionFallback={
                 <>

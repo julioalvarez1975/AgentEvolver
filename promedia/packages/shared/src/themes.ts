@@ -103,7 +103,7 @@ export type ThemeBackground = {
   mediaKind?: ThemeBackgroundMediaKind | null;
   /**
    * Black dots pattern overlay to darken busy/video backgrounds
-   * so light text stays readable (TEMA toggle).
+   * so light text stays readable. Applied automatically with Karaoke agent.
    */
   dotsOverlay?: boolean;
 };
