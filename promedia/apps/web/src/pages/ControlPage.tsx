@@ -40,7 +40,6 @@ import { LinkAddDialog } from "../components/LinkAddDialog";
 import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { SchedulePanel } from "../components/SchedulePanel";
 import { SongEditor } from "../components/SongEditor";
-import { LiveItemLayer } from "../components/LiveItemLayer";
 import {
   StageBackground,
   StageDotsOverlay,
@@ -189,8 +188,7 @@ export function ControlPage() {
     session.snapshot?.live.themeBackground ?? DEFAULT_THEME_BACKGROUND,
   );
   const dotsOverlay = themeBackground.dotsOverlay === true;
-  /** Dots on the video plane so Preview/Live captions stay above the tile. */
-  const liveVideoPlaneDots = dotsOverlay && liveItem?.type === "video";
+  /** Dots on the video plane so Preview captions stay above the tile. */
   const previewVideoPlaneDots =
     dotsOverlay && selectedItem?.type === "video";
   const transitionEffect: TransitionEffect =
@@ -1229,24 +1227,13 @@ export function ControlPage() {
   const previewModule = selectedItem
     ? getItemType(selectedItem.type)
     : undefined;
-  const liveModule = liveItem ? getItemType(liveItem.type) : undefined;
   const Preview = previewModule?.Preview;
-  const LivePanel = liveModule?.LivePanel;
   const previewSrc = assetSrcFor(
     session.sessionId,
     session.wsTicket,
     selectedItem,
     previewSlideIndex,
   );
-  const liveSrc = assetSrcFor(
-    session.sessionId,
-    session.wsTicket,
-    liveItem,
-    liveSlideIndex,
-  );
-
-  const liveDurationMs =
-    (liveItemId && durationByItemId[liveItemId]) || 0;
 
   return (
     <div className="control-shell">
@@ -1554,10 +1541,7 @@ export function ControlPage() {
       />
 
       <div className="control-zones control-zones-stacked">
-        {/*
-          Left column: Guion list on top + compact En vivo monitor below
-          (Julio red layout — live stage relocates under Guion).
-        */}
+        {/* Left column: Guion list (full height). Live goes via Output / En vivo. */}
         <div className="control-guion-column">
           <SchedulePanel
             items={items}
@@ -1690,69 +1674,6 @@ export function ControlPage() {
               ) : null
             }
           />
-
-          <section
-            className="zone zone-live zone-live-sidebar"
-            aria-label={t("control.live")}
-          >
-            <div className="zone-body zone-stage pm-theme" style={themeStyle}>
-              <StageBackground
-                background={themeBackground}
-                assetSrc={themeBgAssetSrc}
-                showDots={!liveVideoPlaneDots}
-              />
-              {/* En vivo = content only; same TEMA enter transitions as Output. */}
-              {liveItem && LivePanel ? (
-                <LiveItemLayer
-                  key={liveItem.id}
-                  effect={transitionEffect}
-                  dataContent={liveItem.type}
-                  className={
-                    liveVideoPlaneDots
-                      ? "pm-stage-video-plane"
-                      : "pm-stage-item-plane"
-                  }
-                  planeOverlay={
-                    liveVideoPlaneDots ? <StageDotsOverlay /> : null
-                  }
-                >
-                  <LivePanel
-                    item={liveItem}
-                    slideIndex={liveSlideIndex}
-                    assetSrc={liveSrc}
-                    mediaClock={mediaClock}
-                    durationMsHint={liveDurationMs}
-                    onDurationMs={(ms) => rememberDuration(liveItem.id, ms)}
-                    onMediaClockSet={
-                      liveItem.type === "video" || liveItem.type === "audio"
-                        ? (patch) => session.setMediaClock(patch)
-                        : undefined
-                    }
-                    onPrev={
-                      itemHasSlides(liveItem)
-                        ? () => session.setSlide(liveSlideIndex - 1)
-                        : undefined
-                    }
-                    onNext={
-                      itemHasSlides(liveItem)
-                        ? () => session.setSlide(liveSlideIndex + 1)
-                        : undefined
-                    }
-                  />
-                </LiveItemLayer>
-              ) : (
-                <LiveItemLayer key="__empty__" effect={transitionEffect}>
-                  <p>{t("control.liveEmpty")}</p>
-                </LiveItemLayer>
-              )}
-              <SubtitleOverlay
-                agent={subtitleAgent}
-                mediaClock={mediaClock}
-                itemId={liveItem?.id ?? null}
-                transitionEffect={transitionEffect}
-              />
-            </div>
-          </section>
         </div>
 
         {/* Right column: maximized Vista previa. */}

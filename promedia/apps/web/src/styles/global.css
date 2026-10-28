@@ -727,7 +727,7 @@ body {
   }
 }
 
-/* Phone-narrow: stack zones, prioritize Guion + En vivo admin actions. */
+/* Phone-narrow: stack zones, prioritize Guion admin actions. */
 @media (max-width: 560px) {
   .control-shell {
     height: auto;
@@ -747,12 +747,6 @@ body {
   .control-guion-column {
     min-height: 22rem;
     order: 0;
-  }
-
-  .control-guion-column > .zone-live-sidebar {
-    height: auto;
-    min-height: 10rem;
-    max-height: none;
   }
 
   .control-stages-preview-only {
@@ -975,12 +969,12 @@ body {
   max-height: none;
 }
 
-/* Guion+En vivo left | maximized Vista previa right */
+/* Guion left | maximized Vista previa right */
 .control-zones-stacked {
   grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
 }
 
-/* Left: Guion list above, compact En vivo below. */
+/* Left: Guion list fills the column. */
 .control-guion-column {
   display: flex;
   flex-direction: column;
@@ -994,15 +988,6 @@ body {
 .control-guion-column > .zone-schedule {
   flex: 1 1 0;
   min-height: 0;
-}
-
-.control-guion-column > .zone-live-sidebar {
-  flex: 0 0 auto;
-  height: clamp(12.5rem, 34vh, 18rem);
-  min-height: 12.5rem;
-  max-height: 46%;
-  display: flex;
-  flex-direction: column;
 }
 
 .control-stages {
@@ -1324,11 +1309,6 @@ body {
     min-height: 28rem;
   }
 
-  .control-guion-column > .zone-live-sidebar {
-    height: 12rem;
-    max-height: none;
-  }
-
   .control-stages-preview-only {
     min-height: 18rem;
   }
@@ -1399,15 +1379,6 @@ body {
 
 .zone-live .zone-stage {
   flex: 1;
-  min-height: 0;
-}
-
-.zone-live-sidebar {
-  background: #0e141c;
-}
-
-.zone-live-sidebar .zone-stage {
-  margin: 0.35rem;
   min-height: 0;
 }
 
@@ -2271,18 +2242,29 @@ body {
 }
 
 .schedule-toolbar-unified {
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: stretch;
   width: 100%;
   box-sizing: border-box;
-  gap: 0.35rem;
+  gap: 0.25rem;
 }
 
-/* Action solapas — same handlers as the former Añadir dropdown */
+.schedule-toolbar-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 0.2rem;
+  min-width: 0;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* Action solapas — icon strip in one row (+ / load / save beside). */
 .schedule-add-tabs {
   display: flex;
-  flex: 1 1 auto;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   align-items: stretch;
   gap: 0.2rem;
   min-width: 0;
@@ -2290,35 +2272,38 @@ body {
 
 .schedule-add-tab {
   appearance: none;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.28rem;
-  min-width: 0;
-  padding: 0.32rem 0.4rem;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: #0e1620;
   color: var(--fg);
   font: inherit;
-  font-size: 0.68rem;
-  font-weight: 600;
-  line-height: 1.15;
   cursor: pointer;
-  white-space: nowrap;
 }
 
 .schedule-add-tab .schedule-type-icon,
 .schedule-add-tab svg {
   flex: 0 0 auto;
-  width: 0.95rem;
-  height: 0.95rem;
+  width: 1rem;
+  height: 1rem;
 }
 
 .schedule-add-tab span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .schedule-add-tab:disabled {
@@ -2342,7 +2327,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.35rem;
+  width: 2.1rem;
+  height: 2.1rem;
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -2367,7 +2353,7 @@ body {
 
 .schedule-remove-checked {
   margin-left: 0;
-  flex: 0 0 auto;
+  width: 100%;
 }
 
 .zone-schedule.is-file-drop {

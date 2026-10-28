@@ -188,103 +188,111 @@ export function SchedulePanel({
         role="toolbar"
         aria-label={t("playlist.addMenu")}
       >
-        <div
-          className="schedule-add-tabs"
-          role="group"
-          aria-label={t("playlist.addTabs")}
-        >
+        <div className="schedule-toolbar-row">
+          <div
+            className="schedule-add-tabs"
+            role="group"
+            aria-label={t("playlist.addTabs")}
+          >
+            <button
+              type="button"
+              className="schedule-add-tab"
+              disabled={addDisabled}
+              title={t("playlist.addLink")}
+              aria-label={t("playlist.addLink")}
+              onClick={onAddLink}
+            >
+              <ScheduleTypeIcon kind="youtube" />
+              <span>{t("playlist.addLink")}</span>
+            </button>
+            <button
+              type="button"
+              className="schedule-add-tab"
+              disabled={addDisabled}
+              title={t("itemTypes.bible")}
+              aria-label={t("itemTypes.bible")}
+              onClick={onAddBible}
+            >
+              <ScheduleTypeIcon kind="bible" />
+              <span>{t("itemTypes.bible")}</span>
+            </button>
+            <button
+              type="button"
+              className="schedule-add-tab"
+              disabled={addDisabled}
+              title={t("text.blankManual")}
+              aria-label={t("text.blankManual")}
+              onClick={onAddTextBlank}
+            >
+              <ScheduleTypeIcon kind="text" />
+              <span>{t("text.blankManual")}</span>
+            </button>
+            <button
+              type="button"
+              className="schedule-add-tab"
+              disabled={addDisabled}
+              title={t("library.createSong")}
+              aria-label={t("library.createSong")}
+              onClick={onCreateSong}
+            >
+              <ScheduleTypeIcon kind="text" />
+              <span>{t("library.createSong")}</span>
+            </button>
+            <button
+              type="button"
+              className="schedule-add-tab"
+              disabled={addDisabled}
+              title={t("playlist.addAudioTip")}
+              aria-label={t("playlist.addAudio")}
+              onClick={onAddAudio}
+            >
+              <ScheduleTypeIcon kind="audio" />
+              <span>{t("playlist.addAudio")}</span>
+            </button>
+            <button
+              type="button"
+              className="schedule-add-tab"
+              disabled={addDisabled}
+              title={t("library.open")}
+              aria-label={t("library.open")}
+              onClick={onOpenLibrary}
+            >
+              <ScheduleTypeIcon kind="image" />
+              <span>{t("library.open")}</span>
+            </button>
+          </div>
+
           <button
             type="button"
-            className="schedule-add-tab"
+            className="schedule-icon-btn"
             disabled={addDisabled}
-            title={t("playlist.addLink")}
-            onClick={onAddLink}
+            title={t("playlist.addFilesTip")}
+            aria-label={t("playlist.addFilesTip")}
+            onClick={onAddFiles}
           >
-            <ScheduleTypeIcon kind="youtube" />
-            <span>{t("playlist.addLink")}</span>
+            <IconAddFiles className="schedule-icon-svg" size={18} />
           </button>
           <button
             type="button"
-            className="schedule-add-tab"
-            disabled={addDisabled}
-            title={t("itemTypes.bible")}
-            onClick={onAddBible}
+            className="schedule-icon-btn"
+            disabled={!sessionReady || uploading}
+            title={t("playlist.load")}
+            aria-label={t("playlist.load")}
+            onClick={onOpenLoad}
           >
-            <ScheduleTypeIcon kind="bible" />
-            <span>{t("itemTypes.bible")}</span>
+            <IconFolderOpen className="schedule-icon-svg" size={18} />
           </button>
           <button
             type="button"
-            className="schedule-add-tab"
-            disabled={addDisabled}
-            title={t("text.blankManual")}
-            onClick={onAddTextBlank}
+            className="schedule-icon-btn"
+            disabled={!canMutate}
+            title={t("playlist.save")}
+            aria-label={t("playlist.save")}
+            onClick={onOpenSave}
           >
-            <ScheduleTypeIcon kind="text" />
-            <span>{t("text.blankManual")}</span>
-          </button>
-          <button
-            type="button"
-            className="schedule-add-tab"
-            disabled={addDisabled}
-            title={t("library.createSong")}
-            onClick={onCreateSong}
-          >
-            <ScheduleTypeIcon kind="text" />
-            <span>{t("library.createSong")}</span>
-          </button>
-          <button
-            type="button"
-            className="schedule-add-tab"
-            disabled={addDisabled}
-            title={t("playlist.addAudioTip")}
-            onClick={onAddAudio}
-          >
-            <ScheduleTypeIcon kind="audio" />
-            <span>{t("playlist.addAudio")}</span>
-          </button>
-          <button
-            type="button"
-            className="schedule-add-tab"
-            disabled={addDisabled}
-            title={t("library.open")}
-            onClick={onOpenLibrary}
-          >
-            <ScheduleTypeIcon kind="image" />
-            <span>{t("library.open")}</span>
+            <IconSave className="schedule-icon-svg" size={18} />
           </button>
         </div>
-
-        <button
-          type="button"
-          className="schedule-icon-btn"
-          disabled={addDisabled}
-          title={t("playlist.addFilesTip")}
-          aria-label={t("playlist.addFilesTip")}
-          onClick={onAddFiles}
-        >
-          <IconAddFiles className="schedule-icon-svg" size={18} />
-        </button>
-        <button
-          type="button"
-          className="schedule-icon-btn"
-          disabled={!sessionReady || uploading}
-          title={t("playlist.load")}
-          aria-label={t("playlist.load")}
-          onClick={onOpenLoad}
-        >
-          <IconFolderOpen className="schedule-icon-svg" size={18} />
-        </button>
-        <button
-          type="button"
-          className="schedule-icon-btn"
-          disabled={!canMutate}
-          title={t("playlist.save")}
-          aria-label={t("playlist.save")}
-          onClick={onOpenSave}
-        >
-          <IconSave className="schedule-icon-svg" size={18} />
-        </button>
 
         {checkedIds.size > 0 ? (
           <button
