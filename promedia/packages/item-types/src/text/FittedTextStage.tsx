@@ -12,7 +12,15 @@ export type FittedTextStageProps = {
    * Subtitle SM–XL biases this so XL targets larger type, still capped by fit.
    */
   heightFrac?: number;
-  /** Absolute px ceiling for auto-fit (default 220). */
+  /**
+   * Max font as a fraction of the shell content width (default 0.22).
+   * Lyric overlay may raise this (~0.28) so short 2-line cues fill center stage.
+   */
+  widthFrac?: number;
+  /**
+   * Absolute px ceiling for auto-fit (default 220). Lyric Reel look may pass
+   * up to ~420; clamped at HARD_CAP_MAX_PX.
+   */
   hardCapPx?: number;
   /**
    * Hard cap on source + visual lines (default TEXT_PROJECTION_LINES = 5).
@@ -27,6 +35,8 @@ const WIDTH_SAFETY_PX = 4;
 const DEFAULT_HEIGHT_FRAC = 0.4;
 const DEFAULT_WIDTH_FRAC = 0.22;
 const DEFAULT_HARD_CAP_PX = 220;
+/** Absolute ceiling — high enough for Reel-style 1–2 line lyric type. */
+const HARD_CAP_MAX_PX = 480;
 
 type WrapMode = "nowrap" | "wrap";
 
@@ -96,6 +106,7 @@ export function FittedTextStage({
   className = "text-output",
   lineClassName = "text-output-line",
   heightFrac = DEFAULT_HEIGHT_FRAC,
+  widthFrac = DEFAULT_WIDTH_FRAC,
   hardCapPx = DEFAULT_HARD_CAP_PX,
   maxLines = TEXT_PROJECTION_LINES,
 }: FittedTextStageProps) {
@@ -115,9 +126,13 @@ export function FittedTextStage({
     Number.isFinite(heightFrac) && heightFrac > 0
       ? Math.min(0.85, Math.max(0.12, heightFrac))
       : DEFAULT_HEIGHT_FRAC;
+  const widthFracSafe =
+    Number.isFinite(widthFrac) && widthFrac > 0
+      ? Math.min(0.4, Math.max(0.12, widthFrac))
+      : DEFAULT_WIDTH_FRAC;
   const hardCapSafe =
     Number.isFinite(hardCapPx) && hardCapPx >= 10
-      ? Math.min(320, Math.max(10, hardCapPx))
+      ? Math.min(HARD_CAP_MAX_PX, Math.max(10, hardCapPx))
       : DEFAULT_HARD_CAP_PX;
 
   useLayoutEffect(() => {
@@ -146,7 +161,7 @@ export function FittedTextStage({
         minPx,
         Math.min(
           availH * heightFracSafe,
-          availW * DEFAULT_WIDTH_FRAC,
+          availW * widthFracSafe,
           hardCapSafe,
         ),
       );
@@ -205,7 +220,14 @@ export function FittedTextStage({
     });
     ro.observe(shell);
     return () => ro.disconnect();
-  }, [linesSignature, lineKey, heightFracSafe, hardCapSafe, lineCap]);
+  }, [
+    linesSignature,
+    lineKey,
+    heightFracSafe,
+    widthFracSafe,
+    hardCapSafe,
+    lineCap,
+  ]);
 
   return (
     <div

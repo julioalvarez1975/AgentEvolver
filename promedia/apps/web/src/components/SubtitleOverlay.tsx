@@ -31,17 +31,18 @@ export type SubtitleOverlayProps = {
 };
 
 /**
- * SM–XL biases fit toward song-stage size (full-bleed FittedTextStage).
- * With ≤2–3 lines, heightFrac/hardCap lean larger so type fills the stage.
+ * SM–XL biases fit toward Reel / LED-wall lyric size (full-bleed FittedTextStage).
+ * Prefer 1–2 short phrases: heightFrac + widthFrac + hardCap lean large so
+ * type owns center stage (IG Reel Dd5Bi1IzCuQ aesthetic).
  */
 const SUBTITLE_FIT_BY_SIZE: Record<
   SubtitleFontSize,
-  { heightFrac: number; hardCapPx: number }
+  { heightFrac: number; widthFrac: number; hardCapPx: number }
 > = {
-  sm: { heightFrac: 0.42, hardCapPx: 200 },
-  md: { heightFrac: 0.5, hardCapPx: 240 },
-  lg: { heightFrac: 0.58, hardCapPx: 280 },
-  xl: { heightFrac: 0.68, hardCapPx: 320 },
+  sm: { heightFrac: 0.48, widthFrac: 0.26, hardCapPx: 260 },
+  md: { heightFrac: 0.58, widthFrac: 0.28, hardCapPx: 320 },
+  lg: { heightFrac: 0.66, widthFrac: 0.3, hardCapPx: 380 },
+  xl: { heightFrac: 0.74, widthFrac: 0.32, hardCapPx: 420 },
 };
 
 /**
@@ -91,13 +92,14 @@ function lyricOverlayDisplayLines(raw: string): string[] {
 }
 
 /**
- * Full-stage lyric projection (cancionero look via FittedTextStage).
+ * Full-stage lyric projection — Instagram Reel / LED-wall look via
+ * FittedTextStage: big centered type, fluid cue enter, no purple glow.
  * Prefer 2 short phrases (absolute max 3), largest type that fits (no
- * overflow), theme shadow, centered H+V on the stage. Timing prefers hub
- * mediaClock; negative `leadMs` (adelante) shows the cue early. Assisted
- * timingMode holds the first lyric through musical lead-in; exact (native
- * captions / cancionero) uses cue windows only. Manual ←/→ song slides do
- * not use this path.
+ * overflow), theme shadow, centered H+V. Timing prefers hub mediaClock;
+ * negative `leadMs` (adelante) shows the cue early. Assisted timingMode
+ * holds the first lyric through musical lead-in; exact (native captions /
+ * cancionero) uses cue windows only. Manual ←/→ song slides do not use
+ * this path.
  */
 export function SubtitleOverlay({
   agent,
@@ -178,21 +180,29 @@ export function SubtitleOverlay({
     return null;
   }
 
+  const cueMotionKey = `${cue.id}-${cue.startMs}`;
+
   return (
     <div
-      className="subtitle-overlay"
+      className="subtitle-overlay subtitle-overlay--reel"
       data-size={fontSize}
+      data-motion="reel"
+      data-cue={cueMotionKey}
       aria-live="polite"
     >
-      <FittedTextStage
-        lines={displayLines}
-        lineKey={`${cue.id}-${cue.startMs}-${fontSize}`}
-        className="subtitle-overlay-fit text-output"
-        lineClassName="text-output-line"
-        heightFrac={fit.heightFrac}
-        hardCapPx={fit.hardCapPx}
-        maxLines={LYRIC_OVERLAY_MAX_LINES}
-      />
+      {/* Key remounts the fit block so Reel enter motion restarts per cue. */}
+      <div key={cueMotionKey} className="subtitle-overlay-cue">
+        <FittedTextStage
+          lines={displayLines}
+          lineKey={`${cueMotionKey}-${fontSize}`}
+          className="subtitle-overlay-fit text-output"
+          lineClassName="text-output-line"
+          heightFrac={fit.heightFrac}
+          widthFrac={fit.widthFrac}
+          hardCapPx={fit.hardCapPx}
+          maxLines={LYRIC_OVERLAY_MAX_LINES}
+        />
+      </div>
     </div>
   );
 }

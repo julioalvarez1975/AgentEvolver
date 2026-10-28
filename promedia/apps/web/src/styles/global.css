@@ -1862,9 +1862,9 @@ body {
   }
 }
 
-/* Lyric / AI captions — full-stage cancionero look (FittedTextStage), centered
-   H+V like library songs. Under scene overlays (z 5); above the video plane
-   (z 1) that owns the dots tile — captions never sit under the pattern. */
+/* Lyric / AI captions — full-stage Reel / LED-wall look (FittedTextStage),
+   centered H+V. Under scene overlays (z 5); above the video plane (z 1)
+   that owns the dots tile — captions never sit under the pattern. */
 .subtitle-overlay {
   position: absolute;
   inset: 0;
@@ -1887,16 +1887,86 @@ body {
   height: 100%;
 }
 
-/* Same projection typography as library songs; no caption-bar pill.
-   Center H+V on the full stage. Shadow from .text-output-line; fit keeps
-   ≤2–3 short phrases without width/height overflow. */
+/* Cue remount wrapper — fills the stage so FittedTextStage can measure. */
+.subtitle-overlay-cue {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+/* Same projection surface as library songs; no caption-bar pill.
+   Center H+V on the full stage; slightly tighter safe area so big type
+   owns the middle (IG Reel Dd5Bi1IzCuQ). */
 .subtitle-overlay .subtitle-overlay-fit.text-output {
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 3.5vh 3vw;
+  padding: 2.5vh 4vw;
   align-items: center;
   justify-content: center;
+}
+
+/*
+ * Reel lyric motion + display type (PM-98).
+ * Big weight, tight tracking, soft black shadow only — no purple/neon glow.
+ * Cue enter: slight rise + fade + micro-blur dissolve; line stagger.
+ */
+.subtitle-overlay--reel .text-fit-block {
+  animation: pm-lyric-block-enter 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.subtitle-overlay--reel .text-output-line {
+  margin: 0.04em 0;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  text-shadow:
+    0 2px 3px rgba(0, 0, 0, 0.88),
+    0 0 0.65em rgba(0, 0, 0, 0.55),
+    0 0.12em 0.35em rgba(0, 0, 0, 0.4);
+  animation: pm-lyric-line-enter 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.subtitle-overlay--reel .text-fit-block > .text-output-line:nth-child(2) {
+  animation-delay: 55ms;
+}
+
+.subtitle-overlay--reel .text-fit-block > .text-output-line:nth-child(3) {
+  animation-delay: 100ms;
+}
+
+@keyframes pm-lyric-block-enter {
+  from {
+    opacity: 0.55;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pm-lyric-line-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.28em);
+    filter: blur(2.5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subtitle-overlay--reel .text-fit-block,
+  .subtitle-overlay--reel .text-output-line {
+    animation: none;
+  }
 }
 
 /* Subtitle target lang follows Control language; no separate Subs select. */
