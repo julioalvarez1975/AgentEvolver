@@ -11,9 +11,10 @@ import {
   emptySubtitleAgentState,
   isSubtitleFontSize,
   LYRIC_OVERLAY_MAX_LINES,
+  LYRIC_OVERLAY_PREFERRED_LINES,
   LYRIC_PHRASE_SOFT_WRAP_CHARS,
-  normalizeProjectionLines,
   normalizeSubtitleLeadMs,
+  softWrapProjectionLine,
 } from "@promedia/shared";
 
 export type SubtitleOverlayProps = {
@@ -31,25 +32,72 @@ export type SubtitleOverlayProps = {
 
 /**
  * SM–XL biases fit toward song-stage size (full-bleed FittedTextStage).
- * Band is the full stage; heightFrac/hardCap match canciones, XL a bit larger.
+ * With ≤2–3 lines, heightFrac/hardCap lean larger so type fills the stage.
  */
 const SUBTITLE_FIT_BY_SIZE: Record<
   SubtitleFontSize,
   { heightFrac: number; hardCapPx: number }
 > = {
-  sm: { heightFrac: 0.36, hardCapPx: 180 },
-  md: { heightFrac: 0.44, hardCapPx: 220 },
-  lg: { heightFrac: 0.52, hardCapPx: 260 },
-  xl: { heightFrac: 0.6, hardCapPx: 300 },
+  sm: { heightFrac: 0.42, hardCapPx: 200 },
+  md: { heightFrac: 0.5, hardCapPx: 240 },
+  lg: { heightFrac: 0.58, hardCapPx: 280 },
+  xl: { heightFrac: 0.68, hardCapPx: 320 },
 };
 
 /**
+ * Prefer ≤2 visual rows; absolute max 3. Cancionero exact newlines win when
+ * present (sliced only if over the hard max). Soft-wrap widens the char
+ * budget before spilling past preferred / max so FittedTextStage stays large.
+ */
+function lyricOverlayDisplayLines(raw: string): string[] {
+  const exact = String(raw ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (exact.length > 1) {
+    return exact.slice(0, LYRIC_OVERLAY_MAX_LINES);
+  }
+  const single = (exact[0] ?? String(raw ?? "").trim()).trim();
+  if (!single) {
+    return ["\u00a0"];
+  }
+
+  const tryBudget = (budget: number) =>
+    softWrapProjectionLine(single, Math.max(12, Math.trunc(budget)));
+
+  let rows = tryBudget(LYRIC_PHRASE_SOFT_WRAP_CHARS);
+  if (rows.length <= LYRIC_OVERLAY_PREFERRED_LINES) {
+    return rows;
+  }
+
+  // Widen wrap so a long cue lands in preferred (2) rows when possible.
+  rows = tryBudget(
+    Math.max(
+      LYRIC_PHRASE_SOFT_WRAP_CHARS,
+      Math.ceil(single.length / LYRIC_OVERLAY_PREFERRED_LINES),
+    ),
+  );
+  if (rows.length <= LYRIC_OVERLAY_PREFERRED_LINES) {
+    return rows;
+  }
+
+  // Absolute max 3 — force-fit before FittedTextStage hard-caps.
+  rows = tryBudget(
+    Math.max(12, Math.ceil(single.length / LYRIC_OVERLAY_MAX_LINES)),
+  );
+  return rows.slice(0, LYRIC_OVERLAY_MAX_LINES);
+}
+
+/**
  * Full-stage lyric projection (cancionero look via FittedTextStage).
- * Soft-wrap ≤6 short phrases, largest type that fits (no overflow), theme
- * shadow, centered H+V on the stage. Timing prefers hub mediaClock; negative
- * `leadMs` (adelante) shows the cue early. Assisted timingMode holds the first
- * lyric through musical lead-in; exact (native captions) uses cue windows only.
- * Manual ←/→ song slides do not use this path.
+ * Prefer 2 short phrases (absolute max 3), largest type that fits (no
+ * overflow), theme shadow, centered H+V on the stage. Timing prefers hub
+ * mediaClock; negative `leadMs` (adelante) shows the cue early. Assisted
+ * timingMode holds the first lyric through musical lead-in; exact (native
+ * captions / cancionero) uses cue windows only. Manual ←/→ song slides do
+ * not use this path.
  */
 export function SubtitleOverlay({
   agent,
@@ -122,21 +170,8 @@ export function SubtitleOverlay({
       return null;
     }
     // Prefer exact cue newlines (cancionero Biblioteca lines). Soft-wrap only
-    // when a single source line has no breaks and would otherwise overflow.
-    const exact = String(cue.text)
-      .replace(/\r\n/g, "\n")
-      .replace(/\r/g, "\n")
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    if (exact.length > 1) {
-      return exact.slice(0, LYRIC_OVERLAY_MAX_LINES);
-    }
-    const lines = normalizeProjectionLines(
-      exact.length ? exact : [cue.text],
-      LYRIC_PHRASE_SOFT_WRAP_CHARS,
-    ).slice(0, LYRIC_OVERLAY_MAX_LINES);
-    return lines.length > 0 ? lines : [cue.text.trim() || "\u00a0"];
+    // when a single source line has no breaks — prefer 2 rows, hard max 3.
+    return lyricOverlayDisplayLines(cue.text);
   }, [cue?.text]);
 
   if (!cue?.text || !displayLines) {

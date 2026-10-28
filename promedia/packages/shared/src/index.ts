@@ -902,13 +902,13 @@ export function itemHasSlides(item: PlaylistItem): boolean {
 export const TEXT_PROJECTION_LINES = 5;
 
 /**
- * Max lines for timed lyric / subtitle overlay (Julio: 4–6, no overflow).
- * Cue synthesis prefers fewer (~4) so FittedTextStage can stay large.
+ * Absolute max lines for timed lyric / subtitle overlay (Julio: 2 preferred,
+ * hard max 3) so FittedTextStage can stay large. Never overflow.
  */
-export const LYRIC_OVERLAY_MAX_LINES = 6;
+export const LYRIC_OVERLAY_MAX_LINES = 3;
 
-/** Preferred lines per cancionero / lyric cue chunk (large type). */
-export const LYRIC_OVERLAY_PREFERRED_LINES = 4;
+/** Preferred visual lines per lyric overlay cue (large type). */
+export const LYRIC_OVERLAY_PREFERRED_LINES = 2;
 
 /**
  * Soft-wrap budget (characters) before a source line becomes multiple
@@ -918,9 +918,10 @@ export const TEXT_PROJECTION_SOFT_WRAP_CHARS = 52;
 
 /**
  * Soft-wrap budget for lyric phrases on the subtitle / cancionero overlay.
- * Shorter than bible prose so lines stay singable and type stays large.
+ * Longer than before so typical hymn lines stay 1–2 rows (max 3) and type
+ * can grow; cancionero exact newlines still win when present.
  */
-export const LYRIC_PHRASE_SOFT_WRAP_CHARS = 40;
+export const LYRIC_PHRASE_SOFT_WRAP_CHARS = 56;
 
 /**
  * Flatten embedded newlines, drop blanks, and soft-wrap long lines so each
