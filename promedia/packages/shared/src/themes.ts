@@ -12,22 +12,32 @@ export const THEME_IDS: readonly ThemeId[] = [
 export const DEFAULT_THEME_ID: ThemeId = "oscuro";
 
 /**
- * Live Output transition when the live item changes (TEMA zone).
- * Fixed duration: TRANSITION_DURATION_MS (0.5s).
+ * Live Output / En vivo transition when the live item changes (TEMA zone).
+ * Fixed duration: TRANSITION_DURATION_MS (~0.6s — soft Reel-style settle).
  */
-export type TransitionEffect = "none" | "fade" | "blur" | "pixelate";
+export type TransitionEffect =
+  | "none"
+  | "fade"
+  | "blur"
+  | "pixelate"
+  | "crossfade"
+  | "softScale"
+  | "motionBlur";
 
 export const TRANSITION_EFFECTS: readonly TransitionEffect[] = [
   "none",
   "fade",
+  "crossfade",
   "blur",
+  "softScale",
+  "motionBlur",
   "pixelate",
 ] as const;
 
 export const DEFAULT_TRANSITION_EFFECT: TransitionEffect = "none";
 
-/** Fixed transition length on Output (ms). */
-export const TRANSITION_DURATION_MS = 500;
+/** Fixed transition length on Output / En vivo (ms). */
+export const TRANSITION_DURATION_MS = 600;
 
 export function isTransitionEffect(value: unknown): value is TransitionEffect {
   return (

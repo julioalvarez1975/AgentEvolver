@@ -43,6 +43,7 @@ import { LinkAddDialog } from "../components/LinkAddDialog";
 import { SavedPlaylistPanel } from "../components/SavedPlaylistPanel";
 import { SchedulePanel } from "../components/SchedulePanel";
 import { SongEditor } from "../components/SongEditor";
+import { LiveItemLayer } from "../components/LiveItemLayer";
 import {
   StageBackground,
   StageDotsOverlay,
@@ -1704,13 +1705,19 @@ export function ControlPage() {
                 assetSrc={themeBgAssetSrc}
                 showDots={!liveVideoPlaneDots}
               />
-              {/* En vivo = content only (no label / badge / transport chrome). */}
+              {/* En vivo = content only; same TEMA enter transitions as Output. */}
               {liveItem && LivePanel ? (
-                <div
+                <LiveItemLayer
+                  key={liveItem.id}
+                  effect={transitionEffect}
+                  dataContent={liveItem.type}
                   className={
                     liveVideoPlaneDots
                       ? "pm-stage-video-plane"
                       : "pm-stage-item-plane"
+                  }
+                  planeOverlay={
+                    liveVideoPlaneDots ? <StageDotsOverlay /> : null
                   }
                 >
                   <LivePanel
@@ -1736,10 +1743,11 @@ export function ControlPage() {
                         : undefined
                     }
                   />
-                  {liveVideoPlaneDots ? <StageDotsOverlay /> : null}
-                </div>
+                </LiveItemLayer>
               ) : (
-                <p>{t("control.liveEmpty")}</p>
+                <LiveItemLayer key="__empty__" effect={transitionEffect}>
+                  <p>{t("control.liveEmpty")}</p>
+                </LiveItemLayer>
               )}
               <SubtitleOverlay
                 agent={subtitleAgent}

@@ -55,7 +55,10 @@ export type ThemePanelProps = {
 const TRANSITION_LABEL_KEYS: Record<TransitionEffect, string> = {
   none: "theme.transitionNone",
   fade: "theme.transitionFade",
+  crossfade: "theme.transitionCrossfade",
   blur: "theme.transitionBlur",
+  softScale: "theme.transitionSoftScale",
+  motionBlur: "theme.transitionMotionBlur",
   pixelate: "theme.transitionPixelate",
 };
 

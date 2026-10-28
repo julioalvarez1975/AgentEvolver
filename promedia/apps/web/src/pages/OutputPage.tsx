@@ -1,10 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-} from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getItemType } from "@promedia/item-types";
 import { DEFAULT_LOCALE, t } from "@promedia/i18n";
@@ -13,10 +7,10 @@ import {
   DEFAULT_THEME_BACKGROUND,
   DEFAULT_THEME_ID,
   DEFAULT_TRANSITION_EFFECT,
-  TRANSITION_DURATION_MS,
   emptySubtitleAgentState,
   normalizeThemeBackground,
 } from "@promedia/shared";
+import { LiveItemLayer } from "../components/LiveItemLayer";
 import { SceneOverlay } from "../components/SceneOverlay";
 import {
   StageBackground,
@@ -92,13 +86,6 @@ export function OutputPage() {
     wsTicket
       ? buildAssetUrl(sessionId, themeBackground.assetId, wsTicket)
       : undefined;
-
-  // Remount item layer on live item change so CSS enter transition can run.
-  // Single layer only — keeps YouTube to one iframe (no dual-embed).
-  const txClass =
-    transitionEffect !== "none"
-      ? ` pm-tx pm-tx-${transitionEffect}`
-      : "";
 
   const assetSrc = (() => {
     if (!liveItem || !sessionId || !wsTicket) {
@@ -251,49 +238,33 @@ export function OutputPage() {
           <>
             {/* Keep item mounted under overlays so video clock/audio continue (Q1). */}
             {liveItem && OutputRenderer ? (
-              <div
+              <LiveItemLayer
                 key={liveItemKey}
-                className={`output-item-layer${txClass}`}
-                data-content={liveItem.type}
-                style={
-                  {
-                    "--pm-tx-ms": `${TRANSITION_DURATION_MS}ms`,
-                  } as CSSProperties
+                effect={transitionEffect}
+                dataContent={liveItem.type}
+                ariaHidden={sceneMode !== "normal"}
+                planeOverlay={
+                  videoPlaneDots ? <StageDotsOverlay /> : null
                 }
-                aria-hidden={sceneMode !== "normal"}
               >
-                <div className="output-item-transition-inner">
-                  <OutputRenderer
-                    item={liveItem}
-                    slideIndex={liveSlideIndex}
-                    assetSrc={assetSrc}
-                    mediaClock={mediaClock}
-                    onMediaClockSet={
-                      liveItem.type === "video" || liveItem.type === "audio"
-                        ? (patch) => setMediaClock(patch)
-                        : undefined
-                    }
-                  />
-                </div>
-                {/* Video plane only — never a stage sibling above captions. */}
-                {videoPlaneDots ? <StageDotsOverlay /> : null}
-              </div>
+                <OutputRenderer
+                  item={liveItem}
+                  slideIndex={liveSlideIndex}
+                  assetSrc={assetSrc}
+                  mediaClock={mediaClock}
+                  onMediaClockSet={
+                    liveItem.type === "video" || liveItem.type === "audio"
+                      ? (patch) => setMediaClock(patch)
+                      : undefined
+                  }
+                />
+              </LiveItemLayer>
             ) : sceneMode === "normal" ? (
-              <div
-                key={liveItemKey}
-                className={`output-item-layer${txClass}`}
-                style={
-                  {
-                    "--pm-tx-ms": `${TRANSITION_DURATION_MS}ms`,
-                  } as CSSProperties
-                }
-              >
-                <div className="output-item-transition-inner">
-                  <p className="output-waiting">
-                    {t(locale, "output.waiting")}
-                  </p>
-                </div>
-              </div>
+              <LiveItemLayer key={liveItemKey} effect={transitionEffect}>
+                <p className="output-waiting">
+                  {t(locale, "output.waiting")}
+                </p>
+              </LiveItemLayer>
             ) : null}
             <SubtitleOverlay
               agent={subtitleAgent}
