@@ -18,6 +18,11 @@ export type TextPayload = {
   title?: string;
   slides: TextSlide[];
   align?: TextAlign;
+  /**
+   * When false, keep stored slides as-is (no 5-line ←/→ chunking).
+   * Used for cancionero songs: one lyric block; karaoke agent advances lines.
+   */
+  chunkLines?: boolean;
 };
 
 export type ImageFit = "contain" | "cover" | "fill";
@@ -1033,6 +1038,19 @@ export function projectionTextSlides(
   return out.length > 0 ? out : [{ id: "empty", lines: [""] }];
 }
 
+/** Resolve slides for projection (respects text.chunkLines === false). */
+export function resolveProjectionTextSlides(payload: {
+  slides: TextSlide[];
+  chunkLines?: boolean;
+}): TextSlide[] {
+  if (payload.chunkLines === false) {
+    return Array.isArray(payload.slides) && payload.slides.length > 0
+      ? payload.slides
+      : [{ id: "empty", lines: [""] }];
+  }
+  return projectionTextSlides(payload.slides);
+}
+
 /** Slide count used by ←/→ (text/bible after 5-line chunking; presentation = pages). */
 export function itemProjectionSlideCount(item: PlaylistItem): number {
   if (item.type === "presentation") {
@@ -1041,24 +1059,41 @@ export function itemProjectionSlideCount(item: PlaylistItem): number {
   if (item.type !== "text" && item.type !== "bible") {
     return 0;
   }
-  return projectionTextSlides(item.payload.slides).length;
+  return resolveProjectionTextSlides(item.payload).length;
 }
 
-/** Convert library song stanzas → text slides, then 5-line projection chunks. */
+/** Flatten song stanzas into one lyric block (agent + karaoke sync). */
+export function flattenSongLyrics(song: LibrarySongPayload): LibrarySongPayload {
+  const lines: string[] = [];
+  for (const stanza of song.stanzas ?? []) {
+    for (const line of stanza.lines ?? []) {
+      lines.push(String(line));
+    }
+  }
+  const id =
+    (song.stanzas?.[0]?.id && String(song.stanzas[0].id)) || "lyrics";
+  return {
+    title: song.title,
+    artist: song.artist,
+    stanzas: [{ id, lines: lines.length > 0 ? lines : [""] }],
+  };
+}
+
+/**
+ * Convert library song → one text slide with the full lyric block.
+ * No 5-line slider: karaoke agent takes lines and syncs display.
+ */
 export function songToTextPayload(song: LibrarySongPayload): TextPayload {
-  const stanzas =
-    song.stanzas.length > 0
-      ? song.stanzas
-      : [{ id: "empty", lines: [""] as string[] }];
-  const slides: TextSlide[] = stanzas.map((stanza, index) => ({
-    id: stanza.id || `stanza_${index}`,
-    lines: stanza.lines.length > 0 ? stanza.lines.map((l) => String(l)) : [""],
-  }));
-  const title = song.title.trim();
-  const artist = song.artist?.trim();
+  const flat = flattenSongLyrics(song);
+  const stanza = flat.stanzas[0]!;
+  const lines =
+    stanza.lines.length > 0 ? stanza.lines.map((l) => String(l)) : [""];
+  const title = flat.title.trim();
+  const artist = flat.artist?.trim();
   return {
     title: artist ? `${title} — ${artist}` : title || undefined,
     align: "center",
-    slides: projectionTextSlides(slides),
+    chunkLines: false,
+    slides: [{ id: stanza.id || "lyrics", lines }],
   };
 }

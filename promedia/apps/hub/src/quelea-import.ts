@@ -51,9 +51,9 @@ function firstTagText(xml: string, tag: string): string {
 }
 
 /**
- * Quelea stanza body: each non-empty newline is one projected row; blank lines
- * and a lone "." (Quelea blank placeholder) are skipped. Multi-line blobs are
- * already split here so song→text uses the same 5-line projection path.
+ * Quelea stanza body: each non-empty newline is one lyric row; blank lines
+ * and a lone "." (Quelea blank placeholder) are skipped. Import stores all
+ * rows in one block so the karaoke agent syncs lines (no ←/→ slider).
  */
 export function parseQueleaLyricBody(raw: string): string[] {
   const text = decodeXmlEntities(raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n"));
@@ -132,7 +132,8 @@ export function parseQueleaSongXml(
 
   const author = firstTagText(trimmed, "author");
   const sections = [...trimmed.matchAll(/<section\b[^>]*>([\s\S]*?)<\/section>/gi)];
-  const stanzas: LibrarySongStanza[] = [];
+  // One lyric block (section order preserved) — karaoke agent splits by line.
+  const allLines: string[] = [];
 
   for (const match of sections) {
     const body = sectionInnerLyrics(match[1] ?? "");
@@ -143,30 +144,34 @@ export function parseQueleaSongXml(
     if (lines.length === 0) {
       continue;
     }
-    stanzas.push({ id: newStanzaId(), lines });
+    allLines.push(...lines);
   }
 
   // Fallback: some minimal songs may only have a flat lyrics block.
-  if (stanzas.length === 0) {
+  if (allLines.length === 0) {
     const flat = trimmed.match(/<lyrics\b[^>]*>([\s\S]*?)<\/lyrics>/i);
     if (flat) {
       const inner = flat[1] ?? "";
       if (!/<section\b/i.test(inner)) {
         const lines = parseQueleaLyricBody(inner);
         if (lines.length > 0) {
-          stanzas.push({ id: newStanzaId(), lines });
+          allLines.push(...lines);
         }
       }
     }
   }
 
-  if (stanzas.length === 0) {
+  if (allLines.length === 0) {
     return {
       ok: false,
       error: "no_lyrics",
       message: `«${title}» no tiene estrofas con letra.`,
     };
   }
+
+  const stanzas: LibrarySongStanza[] = [
+    { id: newStanzaId(), lines: allLines },
+  ];
 
   const song: LibrarySongPayload = {
     title,
