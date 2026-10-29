@@ -7,7 +7,17 @@ import {
   scheduleKindOf,
   type ScheduleKind,
 } from "./ScheduleTypeIcon";
-import { IconAddFiles, IconFolderOpen, IconSave } from "./UiIcons";
+import {
+  IconAddFiles,
+  IconBible,
+  IconFolderOpen,
+  IconHeadphones,
+  IconLibrary,
+  IconMusicNote,
+  IconSave,
+  IconType,
+  IconYoutube,
+} from "./UiIcons";
 
 export type SchedulePanelProps = {
   items: PlaylistItem[];
@@ -202,7 +212,7 @@ export function SchedulePanel({
               aria-label={t("playlist.addLink")}
               onClick={onAddLink}
             >
-              <ScheduleTypeIcon kind="youtube" />
+              <IconYoutube className="schedule-icon-svg" size={16} />
               <span>{t("playlist.addLink")}</span>
             </button>
             <button
@@ -213,7 +223,7 @@ export function SchedulePanel({
               aria-label={t("itemTypes.bible")}
               onClick={onAddBible}
             >
-              <ScheduleTypeIcon kind="bible" />
+              <IconBible className="schedule-icon-svg" size={16} />
               <span>{t("itemTypes.bible")}</span>
             </button>
             <button
@@ -224,7 +234,7 @@ export function SchedulePanel({
               aria-label={t("text.blankManual")}
               onClick={onAddTextBlank}
             >
-              <ScheduleTypeIcon kind="text" />
+              <IconType className="schedule-icon-svg" size={16} />
               <span>{t("text.blankManual")}</span>
             </button>
             <button
@@ -235,7 +245,7 @@ export function SchedulePanel({
               aria-label={t("library.createSong")}
               onClick={onCreateSong}
             >
-              <ScheduleTypeIcon kind="text" />
+              <IconMusicNote className="schedule-icon-svg" size={16} />
               <span>{t("library.createSong")}</span>
             </button>
             <button
@@ -246,7 +256,7 @@ export function SchedulePanel({
               aria-label={t("playlist.addAudio")}
               onClick={onAddAudio}
             >
-              <ScheduleTypeIcon kind="audio" />
+              <IconHeadphones className="schedule-icon-svg" size={16} />
               <span>{t("playlist.addAudio")}</span>
             </button>
             <button
@@ -257,7 +267,7 @@ export function SchedulePanel({
               aria-label={t("library.open")}
               onClick={onOpenLibrary}
             >
-              <ScheduleTypeIcon kind="image" />
+              <IconLibrary className="schedule-icon-svg" size={16} />
               <span>{t("library.open")}</span>
             </button>
           </div>
@@ -270,7 +280,7 @@ export function SchedulePanel({
             aria-label={t("playlist.addFilesTip")}
             onClick={onAddFiles}
           >
-            <IconAddFiles className="schedule-icon-svg" size={18} />
+            <IconAddFiles className="schedule-icon-svg" size={16} />
           </button>
           <button
             type="button"
@@ -280,7 +290,7 @@ export function SchedulePanel({
             aria-label={t("playlist.load")}
             onClick={onOpenLoad}
           >
-            <IconFolderOpen className="schedule-icon-svg" size={18} />
+            <IconFolderOpen className="schedule-icon-svg" size={16} />
           </button>
           <button
             type="button"
@@ -290,7 +300,7 @@ export function SchedulePanel({
             aria-label={t("playlist.save")}
             onClick={onOpenSave}
           >
-            <IconSave className="schedule-icon-svg" size={18} />
+            <IconSave className="schedule-icon-svg" size={16} />
           </button>
         </div>
 
