@@ -19,6 +19,7 @@ import {
 import { SubtitleOverlay } from "../components/SubtitleOverlay";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import { buildAssetUrl, buildBrandingLogoUrl } from "../lib/assets";
+import { OUTPUT_BROADCAST_CHANNEL } from "../lib/openOutputWindow";
 import { themeSurfaceStyle } from "../lib/theme";
 
 const locale = DEFAULT_LOCALE;
@@ -221,13 +222,9 @@ export function OutputPage() {
     await exitOutputFullscreen();
   };
 
-  // postMessage from Control — fullscreen + unmute after En vivo.
+  // Control → Output: postMessage (desktop popup) + BroadcastChannel (mobile-safe).
   useEffect(() => {
-    const onMessage = (ev: MessageEvent) => {
-      if (ev.origin !== window.location.origin) {
-        return;
-      }
-      const data = ev.data as { type?: string } | null;
+    const handleControlMessage = (data: { type?: string } | null) => {
       if (data?.type === "promedia.requestFullscreen") {
         if (!readFullscreenElement()) {
           void requestOutputFullscreen(stageRef.current);
@@ -238,8 +235,28 @@ export function OutputPage() {
         window.dispatchEvent(new CustomEvent("promedia:unmute"));
       }
     };
+    const onMessage = (ev: MessageEvent) => {
+      if (ev.origin !== window.location.origin) {
+        return;
+      }
+      handleControlMessage(ev.data as { type?: string } | null);
+    };
     window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
+
+    let bus: BroadcastChannel | null = null;
+    try {
+      bus = new BroadcastChannel(OUTPUT_BROADCAST_CHANNEL);
+      bus.onmessage = (ev: MessageEvent) => {
+        handleControlMessage(ev.data as { type?: string } | null);
+      };
+    } catch {
+      bus = null;
+    }
+
+    return () => {
+      window.removeEventListener("message", onMessage);
+      bus?.close();
+    };
   }, []);
 
   // ?autofullscreen=1 — try after load / join (may be blocked without gesture).

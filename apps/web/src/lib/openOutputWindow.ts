@@ -8,6 +8,16 @@
 
 export const OUTPUT_WINDOW_NAME = "promedia-output";
 
+/** Same-origin Control ↔ Output bus (avoids window.open blank tabs on mobile). */
+export const OUTPUT_BROADCAST_CHANNEL = "promedia-output-bus";
+
+/** Last Output window opened from this Control tab (may be null / closed). */
+let retainedOutputWindow: Window | null = null;
+
+function rememberOutputWindow(win: Window | null): void {
+  retainedOutputWindow = win && !win.closed ? win : null;
+}
+
 export type OutputPlacement = {
   left: number;
   top: number;
@@ -152,22 +162,42 @@ function postAutofullscreen(win: Window): void {
   }
 }
 
-/** Ask Output to unmute + play after Control En vivo (best-effort). */
-export function postOutputUnmute(): void {
+function postToOutputBus(message: { type: string }): void {
   try {
-    const win = window.open("", OUTPUT_WINDOW_NAME);
+    const bus = new BroadcastChannel(OUTPUT_BROADCAST_CHANNEL);
+    bus.postMessage(message);
+    bus.close();
+  } catch {
+    // BroadcastChannel unsupported
+  }
+}
+
+/**
+ * Ask Output to unmute + play after Control En vivo (best-effort).
+ * Never calls window.open — on mobile that created a blank tab when Output
+ * was not already open. Uses BroadcastChannel + a retained window handle.
+ */
+export function postOutputUnmute(): void {
+  const message = { type: "promedia.requestUnmute" as const };
+  postToOutputBus(message);
+
+  try {
+    const win = retainedOutputWindow;
     if (!win || win.closed) {
+      retainedOutputWindow = null;
       return;
     }
-    win.postMessage(
-      { type: "promedia.requestUnmute" },
-      window.location.origin,
-    );
+    // Only message a window that is actually on /output (never about:blank).
     try {
-      win.focus();
+      const href = win.location.href;
+      if (!href || href === "about:blank" || !href.includes("/output")) {
+        return;
+      }
     } catch {
-      // ignore
+      // Cross-origin — skip
+      return;
     }
+    win.postMessage(message, window.location.origin);
   } catch {
     // ignore
   }
@@ -232,6 +262,7 @@ export async function openOutputWindow(
       popupBlocked: true,
     };
   }
+  rememberOutputWindow(win);
 
   let placement: OutputPlacement | null = null;
   if (preferSecondary) {
@@ -312,8 +343,10 @@ export async function startProjection(opts: {
         popupBlocked: true,
       };
     }
+    rememberOutputWindow(retry);
     return { code, ...navigateAndFinish(retry, url, placement, false) };
   }
 
+  rememberOutputWindow(popup);
   return { code, ...navigateAndFinish(popup, url, placement, false) };
 }
