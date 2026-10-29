@@ -1788,6 +1788,7 @@ export function ControlPage() {
                 <SavedPlaylistPanel
                   sessionId={session.sessionId}
                   wsTicket={session.wsTicket}
+                  items={items}
                   disabled={!canMutate}
                   onHint={setUploadHint}
                   dialogMode

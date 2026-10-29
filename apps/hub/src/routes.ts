@@ -353,6 +353,63 @@ export function createApiRoutes(): Hono {
     return c.json({ playlist: result }, 201);
   });
 
+  /**
+   * Import a guion file payload into the session playlist (control).
+   * Used after the operator picks a `.promedia-guion.json` / `.json` on disk.
+   */
+  api.post("/sessions/:sessionId/playlists/import", async (c) => {
+    const sessionId = c.req.param("sessionId");
+    const credential =
+      bearerToken(c.req.header("authorization")) ?? c.req.query("credential");
+    const access = authorizeSessionAccess(sessionId, {
+      credential,
+      accessToken: c.req.query("accessToken") ?? c.req.query("token"),
+      requireRole: "control",
+    });
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
+    }
+    const session = sessionStore.get(sessionId);
+    if (!session) {
+      return c.json({ error: "not_found" }, 404);
+    }
+    let body: { name?: string; items?: unknown[] } = {};
+    try {
+      body = (await c.req.json()) as { name?: string; items?: unknown[] };
+    } catch {
+      return c.json({ error: "invalid_json" }, 400);
+    }
+    if (!Array.isArray(body.items)) {
+      return c.json({ error: "missing_items" }, 400);
+    }
+    const cloned = body.items.map((raw, order) => {
+      if (!raw || typeof raw !== "object") {
+        return raw;
+      }
+      const item = raw as { id?: string };
+      const baseId =
+        typeof item.id === "string" && item.id.trim()
+          ? item.id.trim().slice(0, 8)
+          : "item";
+      return {
+        ...(raw as object),
+        id: `${baseId}-${Date.now().toString(36)}-${order}`,
+        order,
+      };
+    });
+    const result = sessionStore.replacePlaylist(session, cloned);
+    if ("error" in result) {
+      return c.json({ error: result.error }, 400);
+    }
+    broadcastSession(sessionId, result.message);
+    return c.json({
+      snapshot: sessionStore.toSnapshot(session),
+      skipped: result.skipped,
+      name: typeof body.name === "string" ? body.name : undefined,
+      note: "File image/video assets are session-scoped; missing media were skipped.",
+    });
+  });
+
   /** Load a SavedPlaylist into the session playlist (control). */
   api.post("/sessions/:sessionId/playlists/:playlistId/load", async (c) => {
     const sessionId = c.req.param("sessionId");
