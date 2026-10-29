@@ -209,13 +209,22 @@ export function scoreSongMatch(
   return score;
 }
 
+export type CancioneroCandidateList = {
+  tried: string[];
+  reason?: "no_songs" | "no_query";
+  candidates: CancioneroMatchHit[];
+};
+
 /**
- * Find the best Biblioteca canción for the given media titles.
- * Threshold: score ≥ 55 to accept (exact / strong contains / solid token overlap).
+ * Rank Biblioteca songs for media titles (best first).
+ * `minScore` default 40 casts a wider net for lyric verification.
  */
-export async function findCancioneroSong(
+export async function findCancioneroSongCandidates(
   query: CancioneroMatchQuery,
-): Promise<CancioneroMatchResult> {
+  options?: { minScore?: number; limit?: number },
+): Promise<CancioneroCandidateList> {
+  const minScore = options?.minScore ?? 40;
+  const limit = Math.max(1, options?.limit ?? 5);
   const tried: string[] = [];
   const titleSet = new Set<string>();
   for (const raw of query.titles) {
@@ -226,48 +235,112 @@ export async function findCancioneroSong(
   }
   const titles = [...titleSet];
   if (titles.length === 0) {
-    return { ok: false, reason: "no_query", tried };
+    return { tried, reason: "no_query", candidates: [] };
   }
 
-  // Lazy import so pure match helpers (smoke) do not load the full hub graph.
   const { libraryStore } = await import("./library-store.js");
   const songs = await libraryStore.list({ category: "canciones" });
   const withSong = songs.filter((i) => i.song && i.song.title.trim());
   if (withSong.length === 0) {
-    return { ok: false, reason: "no_songs", tried };
+    return { tried, reason: "no_songs", candidates: [] };
   }
 
   const artists = (query.artists ?? [])
     .map((a) => normalizeMatchTitle(a))
     .filter(Boolean);
 
-  let best: CancioneroMatchHit | null = null;
+  const byId = new Map<string, CancioneroMatchHit>();
   for (const item of withSong) {
     const song = item.song!;
     for (const q of titles) {
-      // Try with and without each artist hint.
       const attempts: (string | undefined)[] =
         artists.length > 0 ? [...artists, undefined] : [undefined];
       for (const artist of attempts) {
         const score = scoreSongMatch(song, q, artist);
-        if (score < 55) continue;
-        if (!best || score > best.score) {
-          best = {
+        if (score < minScore) continue;
+        const prev = byId.get(item.id);
+        if (!prev || score > prev.score) {
+          byId.set(item.id, {
             ok: true,
             item,
             song,
             score,
             matchedQuery: q,
-          };
+          });
         }
       }
     }
   }
 
-  if (!best) {
+  const candidates = [...byId.values()].sort((a, b) => b.score - a.score);
+  return { tried, candidates: candidates.slice(0, limit) };
+}
+
+/**
+ * How well cancionero lines overlap timing/caption words (0–100).
+ * Used to learn the right song when YouTube titles mention another hymn.
+ */
+export function scoreSongLyricOverlap(
+  song: LibrarySongPayload,
+  timingTexts: readonly string[],
+): number {
+  const songBlob = songCancioneroLines(song).join(" ");
+  const timingBlob = timingTexts.join(" ");
+  const songTok = new Set(
+    normalizeAlignText(songBlob)
+      .split(/\s+/)
+      .filter((t) => t.length >= 3),
+  );
+  const timingTok = new Set(
+    normalizeAlignText(timingBlob)
+      .split(/\s+/)
+      .filter((t) => t.length >= 3),
+  );
+  if (songTok.size < 4 || timingTok.size < 4) return 0;
+  return Math.round(jaccard(songTok, timingTok) * 100);
+}
+
+/**
+ * Find the best Biblioteca canción for the given media titles.
+ * Threshold: score ≥ 55 to accept (exact / strong contains / solid token overlap).
+ */
+export async function findCancioneroSong(
+  query: CancioneroMatchQuery,
+): Promise<CancioneroMatchResult> {
+  const { tried, reason, candidates } = await findCancioneroSongCandidates(
+    query,
+    { minScore: 55, limit: 1 },
+  );
+  if (reason === "no_query") {
+    return { ok: false, reason: "no_query", tried };
+  }
+  if (reason === "no_songs") {
+    return { ok: false, reason: "no_songs", tried };
+  }
+  const best = candidates[0];
+  if (!best || best.score < 55) {
     return { ok: false, reason: "no_match", tried };
   }
   return best;
+}
+
+/** Resolve a remembered library song id, if it still exists. */
+export async function resolveCancioneroSongById(
+  songId: string,
+): Promise<CancioneroMatchHit | null> {
+  const id = songId.trim();
+  if (!id) return null;
+  const { libraryStore } = await import("./library-store.js");
+  const songs = await libraryStore.list({ category: "canciones" });
+  const item = songs.find((s) => s.id === id && s.song?.title.trim());
+  if (!item?.song) return null;
+  return {
+    ok: true,
+    item,
+    song: item.song,
+    score: 120,
+    matchedQuery: `memory:${id}`,
+  };
 }
 
 /**
@@ -435,10 +508,17 @@ export function packKaraokeDisplayCues(
     const group = lineCues.slice(i, i + size);
     const first = group[0]!;
     const last = group[group.length - 1]!;
+    const next = lineCues[i + size];
+    // Hold group until the next pack starts so mid-song gaps stay filled.
+    const endMs = Math.max(
+      first.startMs + 800,
+      last.endMs,
+      next ? next.startMs : last.endMs,
+    );
     out.push({
       id: `karaoke_${out.length}`,
       startMs: first.startMs,
-      endMs: Math.max(first.startMs + 500, last.endMs),
+      endMs,
       text: group.map((c) => c.text).join("\n"),
     });
   }
@@ -479,6 +559,10 @@ export function alignCancioneroLinesToTiming(
   const starts: number[] = new Array(exactLines.length).fill(-1);
   let cursor = 0;
   let alignedCount = 0;
+  /** Local search ahead of cursor — was 48 and missed late verses → mid-song stall. */
+  const TOKEN_SEARCH_AHEAD = 180;
+  const CUE_SEARCH_AHEAD = 28;
+  const MIN_LINE_GAP_MS = 850;
 
   for (let li = 0; li < exactLines.length; li++) {
     const lineTok = alignTokens(exactLines[li]!);
@@ -490,19 +574,22 @@ export function alignCancioneroLinesToTiming(
 
     // Primary: sequential token-stream match (karaoke-gen forced align).
     if (stream.length > 0) {
-      const searchEnd = Math.min(stream.length, cursor + 48);
       const need = Math.max(1, lineTok.length);
+      const searchEnd = Math.min(
+        stream.length,
+        cursor + Math.max(TOKEN_SEARCH_AHEAD, need * 10),
+      );
       for (let i = cursor; i < searchEnd; i++) {
-        const maxJ = Math.min(stream.length, i + need + 3);
+        const maxJ = Math.min(stream.length, i + need + 4);
         for (let j = i; j < maxJ; j++) {
           const windowToks = stream.slice(i, j + 1).map((t) => t.token);
           const windowText = windowToks.join(" ");
           const score = lineTimingScore(lineTok, windowText);
-          const earlierBonus = (searchEnd - i) * 0.0005;
+          const earlierBonus = (searchEnd - i) * 0.00035;
           const adjusted = score + earlierBonus;
           if (
-            score >= 0.4 &&
-            (adjusted > bestScore + 0.015 ||
+            score >= 0.38 &&
+            (adjusted > bestScore + 0.012 ||
               (adjusted >= bestScore && bestStart < 0))
           ) {
             bestScore = score;
@@ -522,17 +609,20 @@ export function alignCancioneroLinesToTiming(
           speech.findIndex((c) => c.startMs >= (stream[cursor]?.startMs ?? 0)),
         ),
       );
-      const searchEnd = Math.min(speech.length, Math.max(0, cueCursor) + 14);
+      const searchEnd = Math.min(
+        speech.length,
+        Math.max(0, cueCursor) + CUE_SEARCH_AHEAD,
+      );
       for (let i = Math.max(0, cueCursor); i < searchEnd; i++) {
         let window = "";
-        for (let j = i; j < Math.min(speech.length, i + 4); j++) {
+        for (let j = i; j < Math.min(speech.length, i + 5); j++) {
           window = window ? `${window} ${speech[j]!.text}` : speech[j]!.text;
           const score = lineTimingScore(lineTok, window);
-          const earlierBonus = (searchEnd - i) * 0.001;
+          const earlierBonus = (searchEnd - i) * 0.0008;
           const adjusted = score + earlierBonus;
           if (
-            score >= 0.45 &&
-            (adjusted > bestScore + 0.02 ||
+            score >= 0.42 &&
+            (adjusted > bestScore + 0.015 ||
               (adjusted >= bestScore && bestStart < 0))
           ) {
             bestScore = score;
@@ -552,7 +642,7 @@ export function alignCancioneroLinesToTiming(
       }
     }
 
-    if (bestStart >= 0 && bestScore >= 0.4) {
+    if (bestStart >= 0 && bestScore >= 0.38) {
       starts[li] = bestStart;
       cursor = Math.max(cursor + 1, bestEndCursor);
       alignedCount += 1;
@@ -615,19 +705,34 @@ export function alignCancioneroLinesToTiming(
     }
   }
 
-  // Enforce non-decreasing starts (voice never goes backward).
+  // Enforce non-decreasing starts with a minimum gap so mid-song lines
+  // do not collapse onto one timestamp (looks like lyrics "froze").
   for (let i = 1; i < starts.length; i++) {
-    if (starts[i]! < starts[i - 1]!) {
-      starts[i] = starts[i - 1]!;
+    const minNext = starts[i - 1]! + MIN_LINE_GAP_MS;
+    if (starts[i]! < minNext) {
+      starts[i] = minNext;
     }
   }
+
+  // Captions/ASR often end before the song — keep room for remaining lines.
+  const speechEnd =
+    speech.length > 0 ? speech[speech.length - 1]!.endMs : 0;
+  const lastStart = starts[starts.length - 1] ?? 0;
+  const paddedTotal = Math.max(
+    total,
+    durationMs > 0 ? durationMs : 0,
+    lastStart + MIN_LINE_GAP_MS * 2,
+    speechEnd > 0 && durationMs <= 0
+      ? speechEnd + Math.max(0, exactLines.length - alignedCount) * 3_500
+      : 0,
+  );
 
   const cues: SubtitleCue[] = exactLines.map((text, index) => {
     const startMs = Math.max(0, Math.round(starts[index]!));
     const endMs = Math.max(
       startMs + 500,
       index === exactLines.length - 1
-        ? total
+        ? paddedTotal
         : Math.round(starts[index + 1]!),
     );
     return {
@@ -639,15 +744,15 @@ export function alignCancioneroLinesToTiming(
   });
 
   const synced =
-    alignedCount >= Math.max(2, Math.ceil(exactLines.length * 0.4));
+    alignedCount >= Math.max(2, Math.ceil(exactLines.length * 0.35));
   return { cues, alignedCount, synced };
 }
 
 /** Musical intro before equal-time fallback starts advancing lines. */
 function conservativeIntroMs(totalMs: number, lineCount: number): number {
-  // Prefer waiting through a real intro rather than racing the voice.
-  const byPct = Math.floor(totalMs * 0.14);
-  const capped = Math.min(18_000, Math.max(8_000, byPct));
+  // Keep short — long intros made karaoke look like it "started late".
+  const byPct = Math.floor(totalMs * 0.05);
+  const capped = Math.min(7_000, Math.max(2_000, byPct));
   const maxIntro = Math.max(0, totalMs - lineCount * 2_000);
   return Math.min(capped, maxIntro);
 }

@@ -127,13 +127,15 @@ export function SubtitleOverlay({
     if (!state.enabled || state.status !== "ready" || !state.cues.length) {
       return;
     }
-    if (mediaClock?.playing) {
-      const id = window.setInterval(() => setNowMs(Date.now()), 200);
+    // Keep ticking whenever we have a mediaClock — brief YouTube pause/buffer
+    // used to stop the interval and freeze lyrics mid-song ("se colgó").
+    if (mediaClock) {
+      const id = window.setInterval(() => setNowMs(Date.now()), 100);
       return () => window.clearInterval(id);
     }
     setNowMs(Date.now());
     return undefined;
-  }, [state.enabled, state.status, state.cues.length, mediaClock?.playing, mediaClock?.updatedAt]);
+  }, [state.enabled, state.status, state.cues.length, mediaClock, mediaClock?.updatedAt]);
 
   const cue = useMemo(() => {
     if (!state.enabled) {

@@ -18,6 +18,7 @@ import {
   IconLibrary,
   IconProject,
   IconSubtitles,
+  IconTeach,
 } from "./UiIcons";
 
 export type ControlHeaderToolbarProps = {
@@ -55,6 +56,8 @@ export type ControlHeaderToolbarProps = {
    */
   subtitleAgentErrorMessage?: string | null;
   onToggleSubtitleAgent?: () => void;
+  /** Open dialog to teach / correct cancionero song for karaoke. */
+  onTeachCancionero?: () => void;
 };
 
 function ToolbarBtn({
@@ -118,6 +121,7 @@ export function ControlHeaderToolbar({
   subtitleAgentTitle,
   subtitleAgentErrorMessage,
   onToggleSubtitleAgent,
+  onTeachCancionero,
 }: ControlHeaderToolbarProps) {
   const { t, locale, setLocale, locales } = useLocale();
 
@@ -160,6 +164,16 @@ export function ControlHeaderToolbar({
             tone="error"
             label={t("control.subtitleAgentError")}
             message={depsError}
+          />
+        ) : null}
+        {subtitleAgentEnabled && onTeachCancionero ? (
+          <ToolbarBtn
+            className="toolbar-cancionero-teach"
+            disabled={!canMutate}
+            title={t("control.cancioneroTeachTitle")}
+            label={t("control.cancioneroTeach")}
+            icon={<IconTeach />}
+            onClick={onTeachCancionero}
           />
         ) : null}
       </span>

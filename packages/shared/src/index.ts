@@ -760,6 +760,20 @@ export type LiveSubtitleAgentSetMessage = {
   };
 };
 
+/**
+ * Operator teaches karaoke which Biblioteca song matches the current
+ * Audio/YouTube item — saved to cancionero memory and forces a re-align.
+ */
+export type LiveSubtitleAgentTeachMessage = {
+  type: "live.subtitleAgent.teach";
+  payload: {
+    /** Biblioteca → Canciones item id. */
+    songId: string;
+    /** Playlist item to bind (defaults to live / focused A/V). */
+    itemId?: string;
+  };
+};
+
 export type LiveSetSceneModeMessage = {
   type: "live.setSceneMode";
   payload: { sceneMode: SceneMode };
@@ -788,6 +802,7 @@ export type ClientToHubMessage =
   | LiveSetSlideMessage
   | LiveMediaClockSetMessage
   | LiveSubtitleAgentSetMessage
+  | LiveSubtitleAgentTeachMessage
   | LiveSetSceneModeMessage
   | LiveSetThemeMessage;
 

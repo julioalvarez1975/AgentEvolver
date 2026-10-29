@@ -7,6 +7,8 @@ export type CancioneroNoMatchDialogProps = {
   mediaTitle?: string | null;
   /** Hub hint: cancionero_no_match | cancionero_no_songs | cancionero_empty */
   hint?: string | null;
+  /** Open teach dialog to pick the correct cancionero song. */
+  onTeach?: () => void;
 };
 
 /**
@@ -18,6 +20,7 @@ export function CancioneroNoMatchDialog({
   onClose,
   mediaTitle,
   hint,
+  onTeach,
 }: CancioneroNoMatchDialogProps) {
   const { t } = useLocale();
   if (!open) {
@@ -58,9 +61,14 @@ export function CancioneroNoMatchDialog({
           {t(bodyKey)}
         </p>
         <div className="promedia-dialog-actions">
-          <button type="button" className="btn btn-primary" onClick={onClose}>
+          <button type="button" className="btn" onClick={onClose}>
             {t("control.close")}
           </button>
+          {onTeach ? (
+            <button type="button" className="btn btn-primary" onClick={onTeach}>
+              {t("control.cancioneroTeach")}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>

@@ -35,14 +35,23 @@ import {
   shapeLyricLikeCues,
 } from "./subtitle-lyric-shape.js";
 import {
+  cancioneroMediaKey,
+  recallCancioneroByMedia,
+  recallCancioneroByTitles,
+  rememberCancioneroMatch,
+} from "./cancionero-memory.js";
+import {
   alignCancioneroLinesToTiming,
   buildKaraokeAlignPrompt,
-  findCancioneroSong,
+  findCancioneroSongCandidates,
   packKaraokeDisplayCues,
   probeMediaDurationMs,
+  resolveCancioneroSongById,
+  scoreSongLyricOverlap,
   songCancioneroLines,
   songToSubtitleCues,
   titleFromAudioFilename,
+  type CancioneroMatchHit,
 } from "./subtitle-cancionero.js";
 import {
   ensureYoutubeAudio,
@@ -532,8 +541,10 @@ async function tryCancioneroLyricPath(options: {
   gen: number;
   targetLang: SubtitleTargetLang;
   resolved: ResolveOk;
+  /** Operator-taught Biblioteca song (educate karaoke). */
+  teachSongId?: string;
 }): Promise<boolean> {
-  const { sessionId, gen, targetLang, resolved } = options;
+  const { sessionId, gen, targetLang, resolved, teachSongId } = options;
   const item = resolved.item;
   const isAudio = item.type === "audio";
   const isYoutube =
@@ -585,45 +596,105 @@ async function tryCancioneroLyricPath(options: {
     if (meta?.durationMs) durationMs = meta.durationMs;
   }
 
-  const match = await findCancioneroSong({ titles, artists });
-  if (!isCurrent(sessionId, gen)) return true;
+  const mediaKey = cancioneroMediaKey({
+    youtubeVideoId: resolved.youtube?.videoId,
+    assetId: resolved.assetId,
+  });
 
-  if (!match.ok) {
-    // YouTube without cancionero → fall through to captions / Whisper ASR
-    // (sermons, teachings, general videos). Audio stays sticky modal.
-    if (isYoutube) {
-      console.warn(
-        `[subtitle] cancionero miss for YouTube (${match.reason}) — captions/Whisper fallback tried=${JSON.stringify(match.tried)}`,
+  // 1) Operator teach → memory → fuzzy title match.
+  let match: CancioneroMatchHit | null = null;
+  let learnSource: "exact" | "lyric" | "fuzzy" | "manual" = "fuzzy";
+  if (teachSongId?.trim()) {
+    const taught = await resolveCancioneroSongById(teachSongId.trim());
+    if (taught) {
+      match = taught;
+      learnSource = "manual";
+      console.log(
+        `[subtitle] karaoke taught song="${taught.song.title}" id=${taught.item.id}`,
       );
-      return false;
     }
-    const live = sessionStore.get(sessionId);
-    if (!live?.live.subtitleAgent?.enabled) return true;
-    const hint =
-      match.reason === "no_songs"
-        ? "cancionero_no_songs"
-        : match.reason === "no_query"
-          ? "cancionero_no_match"
-          : "cancionero_no_match";
-    console.warn(
-      `[subtitle] cancionero miss (${match.reason}) tried=${JSON.stringify(match.tried)}`,
-    );
-    patchAndBroadcast(live, {
-      enabled: true,
-      targetLang,
-      status: "error",
-      itemId: item.id,
-      assetId: resolved.assetId,
-      cues: [],
-      translated: false,
-      sourceLang: null,
-      hint,
-      timingMode: "exact",
-    });
-    return true;
+  }
+  if (!match) {
+    const remembered =
+      (await recallCancioneroByMedia(mediaKey)) ??
+      (await recallCancioneroByTitles(titles));
+    if (remembered) {
+      const hit = await resolveCancioneroSongById(remembered.songId);
+      if (hit) {
+        match = hit;
+        learnSource = remembered.source;
+        console.log(
+          `[subtitle] karaoke memory hit key=${mediaKey ?? "title"} song="${hit.song.title}" source=${remembered.source}`,
+        );
+      }
+    }
   }
 
-  const lines = songCancioneroLines(match.song);
+  const listed = await findCancioneroSongCandidates(
+    { titles, artists },
+    { minScore: 40, limit: 5 },
+  );
+  if (!isCurrent(sessionId, gen)) return true;
+
+  if (!match) {
+    const strong = listed.candidates.filter((c) => c.score >= 55);
+    if (strong.length === 0) {
+      if (isYoutube) {
+        console.warn(
+          `[subtitle] cancionero miss for YouTube (${listed.reason ?? "no_match"}) — captions/Whisper fallback tried=${JSON.stringify(listed.tried)}`,
+        );
+        return false;
+      }
+      const live = sessionStore.get(sessionId);
+      if (!live?.live.subtitleAgent?.enabled) return true;
+      const hint =
+        listed.reason === "no_songs"
+          ? "cancionero_no_songs"
+          : listed.reason === "no_query"
+            ? "cancionero_no_match"
+            : "cancionero_no_match";
+      console.warn(
+        `[subtitle] cancionero miss (${listed.reason ?? "no_match"}) tried=${JSON.stringify(listed.tried)}`,
+      );
+      patchAndBroadcast(live, {
+        enabled: true,
+        targetLang,
+        status: "error",
+        itemId: item.id,
+        assetId: resolved.assetId,
+        cues: [],
+        translated: false,
+        sourceLang: null,
+        hint,
+        timingMode: "exact",
+      });
+      return true;
+    }
+    match = strong[0]!;
+    learnSource = match.score >= 100 ? "exact" : "fuzzy";
+  }
+
+  // Merge memory + title candidates for lyric learning / disambiguation.
+  const pool: CancioneroMatchHit[] = [];
+  const seenIds = new Set<string>();
+  const pushCand = (c: CancioneroMatchHit) => {
+    if (seenIds.has(c.item.id)) return;
+    seenIds.add(c.item.id);
+    pool.push(c);
+  };
+  pushCand(match);
+  for (const c of listed.candidates) pushCand(c);
+
+  const ambiguous =
+    pool.length > 1 &&
+    (match.score < 95 ||
+      (pool[1] != null && pool[1].score >= match.score - 25));
+
+  // Karaoke forced align: captions/ASR clocks only — Biblioteca text exact.
+  const liveSync = sessionStore.get(sessionId);
+  if (!liveSync?.live.subtitleAgent?.enabled) return true;
+
+  let lines = songCancioneroLines(match.song);
   if (!lines.length) {
     const live = sessionStore.get(sessionId);
     if (!live?.live.subtitleAgent?.enabled) return true;
@@ -642,10 +713,7 @@ async function tryCancioneroLyricPath(options: {
     return true;
   }
 
-  // Karaoke forced align: captions/ASR clocks only — Biblioteca text exact.
-  const liveSync = sessionStore.get(sessionId);
-  if (!liveSync?.live.subtitleAgent?.enabled) return true;
-  const alignPrompt = buildKaraokeAlignPrompt(lines);
+  let alignPrompt = buildKaraokeAlignPrompt(lines);
   const timing = await fetchCancioneroTimingCues({
     sessionId,
     gen,
@@ -668,6 +736,63 @@ async function tryCancioneroLyricPath(options: {
     },
   });
   if (!isCurrent(sessionId, gen)) return true;
+
+  // 2) Learn from captions/ASR: pick the cancionero whose words match the voice track.
+  // Skip when the operator explicitly taught a song.
+  if (
+    learnSource !== "manual" &&
+    timing &&
+    timing.cues.length > 0 &&
+    (ambiguous || pool.length > 1)
+  ) {
+    const timingTexts = timing.cues.map((c) => c.text);
+    let bestLyric: { hit: CancioneroMatchHit; lyric: number; combined: number } | null =
+      null;
+    for (const cand of pool) {
+      const lyric = scoreSongLyricOverlap(cand.song, timingTexts);
+      const combined = Math.round(cand.score * 0.35 + lyric * 0.65);
+      if (
+        !bestLyric ||
+        combined > bestLyric.combined ||
+        (combined === bestLyric.combined && lyric > bestLyric.lyric)
+      ) {
+        bestLyric = { hit: cand, lyric, combined };
+      }
+    }
+    if (
+      bestLyric &&
+      bestLyric.lyric >= 12 &&
+      bestLyric.hit.item.id !== match.item.id
+    ) {
+      console.log(
+        `[subtitle] karaoke lyric-learn switch "${match.song.title}" → "${bestLyric.hit.song.title}" lyric=${bestLyric.lyric} combined=${bestLyric.combined}`,
+      );
+      match = bestLyric.hit;
+      learnSource = "lyric";
+      lines = songCancioneroLines(match.song);
+      alignPrompt = buildKaraokeAlignPrompt(lines);
+    } else if (bestLyric && bestLyric.lyric >= 18) {
+      learnSource = learnSource === "exact" ? "exact" : "lyric";
+    }
+  }
+
+  if (!lines.length) {
+    const live = sessionStore.get(sessionId);
+    if (!live?.live.subtitleAgent?.enabled) return true;
+    patchAndBroadcast(live, {
+      enabled: true,
+      targetLang,
+      status: "error",
+      itemId: item.id,
+      assetId: resolved.assetId,
+      cues: [],
+      translated: false,
+      sourceLang: null,
+      hint: "cancionero_empty",
+      timingMode: "exact",
+    });
+    return true;
+  }
 
   let lineCues = songToSubtitleCues(match.song, durationMs);
   let synced = false;
@@ -708,8 +833,22 @@ async function tryCancioneroLyricPath(options: {
   }
 
   console.log(
-    `[subtitle] karaoke match score=${match.score} q="${match.matchedQuery}" song="${match.song.title}" lines=${lineCues.length} cues=${cues.length} synced=${synced}`,
+    `[subtitle] karaoke match score=${match.score} q="${match.matchedQuery}" song="${match.song.title}" learn=${learnSource} lines=${lineCues.length} cues=${cues.length} synced=${synced}`,
   );
+
+  // 3) Remember for next time (same video / same primary title).
+  void rememberCancioneroMatch({
+    mediaKey,
+    titles,
+    songId: match.item.id,
+    songTitle: match.song.title,
+    source: learnSource,
+  }).catch((err) => {
+    console.warn(
+      "[subtitle] cancionero memory save failed:",
+      err instanceof Error ? err.message : err,
+    );
+  });
 
   const ok = await finishWithCues({
     sessionId,
@@ -742,6 +881,38 @@ async function missingBinStillAbsent(hint: string): Promise<boolean> {
     return !(await whisperCliAvailable());
   }
   return true;
+}
+
+/**
+ * Operator educates karaoke: bind current A/V media to a Biblioteca song,
+ * remember it, and re-run forced align with that letter.
+ */
+export function teachSubtitleCancionero(
+  session: SessionRecord,
+  patch: { songId: string; itemId?: string },
+): HubMessage {
+  const songId = String(patch.songId ?? "").trim();
+  const prev = session.live.subtitleAgent ?? emptySubtitleAgentState();
+  if (!songId) {
+    return sessionStore.touchSubtitleAgent(session);
+  }
+  const itemId = patch.itemId?.trim() || undefined;
+  session.live.subtitleAgent = {
+    ...prev,
+    enabled: true,
+    status: "idle",
+    hint: "cancionero_teach",
+    cues: [],
+    translated: false,
+    sourceLang: null,
+    updatedAt: new Date().toISOString(),
+  };
+  const message = sessionStore.touchSubtitleAgent(session);
+  void runSubtitleJob(session.id, itemId ?? session.live.currentItemId ?? undefined, {
+    force: true,
+    teachSongId: songId,
+  });
+  return message;
 }
 
 /**
@@ -848,9 +1019,10 @@ export function maybeRefreshSubtitleAgent(session: SessionRecord): void {
 async function runSubtitleJob(
   sessionId: string,
   preferredItemId?: string,
-  options?: { force?: boolean },
+  options?: { force?: boolean; teachSongId?: string },
 ): Promise<void> {
   const force = options?.force === true;
+  const teachSongId = options?.teachSongId?.trim() || undefined;
   const sessionPeek = sessionStore.get(sessionId);
   const agentPeek = sessionPeek?.live.subtitleAgent;
   if (
@@ -903,8 +1075,10 @@ async function runSubtitleJob(
     return;
   }
 
-  // Same asset already ready for this target — keep cues.
+  // Same asset already ready for this target — keep cues
+  // (unless operator is teaching a different cancionero song).
   if (
+    !teachSongId &&
     agent.status === "ready" &&
     agent.assetId === resolved.assetId &&
     agent.targetLang === targetLang &&
@@ -931,6 +1105,7 @@ async function runSubtitleJob(
       gen,
       targetLang,
       resolved,
+      teachSongId,
     });
     if (cancioneroDone) return;
     if (!isCurrent(sessionId, gen)) return;

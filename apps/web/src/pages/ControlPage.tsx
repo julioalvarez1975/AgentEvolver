@@ -34,6 +34,7 @@ import { AboutDialog } from "../components/AboutDialog";
 import { BibliotecaDialog } from "../components/BibliotecaDialog";
 import { BibleDialog } from "../components/BibleDialog";
 import { CancioneroNoMatchDialog } from "../components/CancioneroNoMatchDialog";
+import { CancioneroTeachDialog } from "../components/CancioneroTeachDialog";
 import { ControlAdBanner } from "../components/ControlAdBanner";
 import { ControlHeaderToolbar } from "../components/ControlHeaderToolbar";
 import { LanRemoteHint } from "../components/LanRemoteHint";
@@ -146,6 +147,8 @@ export function ControlPage() {
   >([]);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [cancioneroNoMatchOpen, setCancioneroNoMatchOpen] = useState(false);
+  const [cancioneroTeachOpen, setCancioneroTeachOpen] = useState(false);
+  const [cancioneroTeachBusy, setCancioneroTeachBusy] = useState(false);
   const cancioneroWarnShownFor = useRef<string | null>(null);
   /** YouTube items already probed for oEmbed title (avoid repeat fetches). */
   const youtubeTitleTried = useRef<Set<string>>(new Set());
@@ -1339,6 +1342,7 @@ export function ControlPage() {
                   });
                 }
               }}
+              onTeachCancionero={() => setCancioneroTeachOpen(true)}
               sessionFallback={
                 <>
                   <button
@@ -1422,6 +1426,47 @@ export function ControlPage() {
           }
           return null;
         })()}
+        onTeach={() => {
+          setCancioneroNoMatchOpen(false);
+          setCancioneroTeachOpen(true);
+        }}
+      />
+
+      <CancioneroTeachDialog
+        open={cancioneroTeachOpen}
+        busy={cancioneroTeachBusy}
+        onClose={() => {
+          if (!cancioneroTeachBusy) setCancioneroTeachOpen(false);
+        }}
+        mediaTitle={(() => {
+          const id = subtitleAgent.itemId || liveItemId || selectedItemId;
+          const it = id ? items.find((i) => i.id === id) : null;
+          if (!it) return null;
+          if (it.type === "audio" || it.type === "video") {
+            return it.payload.title?.trim() || null;
+          }
+          return null;
+        })()}
+        matchedSongTitle={null}
+        onTeach={(songId) => {
+          setCancioneroTeachBusy(true);
+          const ok = session.teachSubtitleCancionero({
+            songId,
+            itemId:
+              subtitleAgent.itemId ||
+              liveItemId ||
+              selectedItemId ||
+              undefined,
+          });
+          setCancioneroTeachBusy(false);
+          if (ok) {
+            setCancioneroTeachOpen(false);
+            setUploadHint(t("control.cancioneroTeachSaving"));
+          } else {
+            setUploadHint(t("control.wsDisconnectedHint"));
+            session.reconnect();
+          }
+        }}
       />
 
       {popupBlockedUrl ? (

@@ -16,6 +16,7 @@ import {
   normalizeMatchTitle,
   packKaraokeDisplayCues,
   primaryTitleSegment,
+  scoreSongLyricOverlap,
   scoreSongMatch,
   songCancioneroLines,
   songLyricChunks,
@@ -117,6 +118,18 @@ assert(
   `Sublime Gracia mid-string alias must stay below threshold, got ${bestSublime}`,
 );
 
+// Lyric overlap learns the sung song when captions disagree with a bad title alias.
+const captionLike = [
+  "Manos vacías",
+  "Que tú llenaste",
+  "Vasijas rotas",
+  "Te entrego mi vida",
+];
+const lyricVasijas = scoreSongLyricOverlap(vasijasSong, captionLike);
+const lyricSublime = scoreSongLyricOverlap(sublimeSong, captionLike);
+assert(lyricVasijas > lyricSublime, `lyric learn Vasijas ${lyricVasijas} > Sublime ${lyricSublime}`);
+assert(lyricVasijas >= 12, `lyric overlap should be meaningful, got ${lyricVasijas}`);
+
 // Exact Biblioteca lines — do not invent punctuation splits.
 const longLine =
   "Señor mi Dios, al contemplar los cielos, el firmamento y las estrellas mil";
@@ -146,7 +159,10 @@ assert(
 
 const cues = songToSubtitleCues(song, 120_000);
 assert(cues.length === chunks.length, "cue count = exact lines");
-assert(cues[0]!.startMs >= 8_000, "equal-time fallback waits through intro");
+assert(
+  cues[0]!.startMs >= 2_000 && cues[0]!.startMs <= 7_000,
+  `equal-time fallback short intro, got ${cues[0]!.startMs}`,
+);
 assert(cues[cues.length - 1]!.endMs >= 100_000, "last end near duration");
 assert(
   cues.every((c) => c.text.trim().length > 0),
