@@ -1,8 +1,10 @@
-# AgentEvolver → ProMedia
+# ProMedia
 
-Este repositorio contiene **ProMedia**, la app de proyección multimedia (culto / evento).
+App de proyección multimedia (culto / evento).
 
-Todo el código de la aplicación está en **`promedia/`**.
+Todo el código está en **`promedia/`**.
+
+Repo: https://github.com/julioalvarez1975/ProMedia
 
 ## Arranque rápido (Mac)
 
@@ -17,7 +19,7 @@ cd promedia
 ## Actualizar
 
 ```bash
-cd /ruta/a/AgentEvolver
+cd /ruta/a/ProMedia   # o la carpeta local del clone
 git pull
 # Si tenés un atajo en el Escritorio, volvé a copiar Abrir-ProMedia.command desde promedia/
 ```
