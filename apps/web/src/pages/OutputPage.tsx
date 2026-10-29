@@ -23,6 +23,69 @@ import { themeSurfaceStyle } from "../lib/theme";
 
 const locale = DEFAULT_LOCALE;
 
+type FullscreenCapable = Element & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+  webkitRequestFullScreen?: () => Promise<void> | void;
+};
+
+function readFullscreenElement(): Element | null {
+  const doc = document as Document & {
+    webkitFullscreenElement?: Element | null;
+  };
+  return document.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
+}
+
+/** Prefer the projection stage; fall back to documentElement (hides browser chrome). */
+async function requestOutputFullscreen(stage: HTMLElement | null): Promise<boolean> {
+  const candidates: FullscreenCapable[] = [];
+  if (stage) {
+    candidates.push(stage);
+  }
+  candidates.push(document.documentElement as FullscreenCapable);
+
+  for (const el of candidates) {
+    try {
+      if (typeof el.requestFullscreen === "function") {
+        await el.requestFullscreen();
+        return true;
+      }
+      if (typeof el.webkitRequestFullscreen === "function") {
+        await el.webkitRequestFullscreen();
+        return true;
+      }
+      if (typeof el.webkitRequestFullScreen === "function") {
+        await el.webkitRequestFullScreen();
+        return true;
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+  return false;
+}
+
+async function exitOutputFullscreen(): Promise<void> {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+    const doc = document as Document & {
+      webkitExitFullscreen?: () => Promise<void> | void;
+      webkitCancelFullScreen?: () => Promise<void> | void;
+    };
+    if (typeof doc.webkitExitFullscreen === "function") {
+      await doc.webkitExitFullscreen();
+      return;
+    }
+    if (typeof doc.webkitCancelFullScreen === "function") {
+      await doc.webkitCancelFullScreen();
+    }
+  } catch {
+    // ignore
+  }
+}
+
 /** Product Output — live + sceneMode overlays (subtarea 7). */
 export function OutputPage() {
   const [params] = useSearchParams();
@@ -111,12 +174,27 @@ export function OutputPage() {
     return undefined;
   })();
 
+  // Output route: force black page chrome (no light browser gutters).
   useEffect(() => {
-    const onFsChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+    document.documentElement.classList.add("output-route");
+    document.body.classList.add("output-route");
+    return () => {
+      document.documentElement.classList.remove("output-route");
+      document.body.classList.remove("output-route");
     };
-    document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  useEffect(() => {
+    const syncFs = () => {
+      setIsFullscreen(Boolean(readFullscreenElement()));
+    };
+    syncFs();
+    document.addEventListener("fullscreenchange", syncFs);
+    document.addEventListener("webkitfullscreenchange", syncFs);
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFs);
+      document.removeEventListener("webkitfullscreenchange", syncFs);
+    };
   }, []);
 
   useEffect(() => {
@@ -134,30 +212,12 @@ export function OutputPage() {
     }
   }, [queryCode, queryToken, hasSession]);
 
-  // WS auto-reconnect lives in useSessionConnection (shared with Control).
-
   const enterFullscreen = async () => {
-    const el = stageRef.current;
-    if (!el) {
-      return;
-    }
-    try {
-      if (el.requestFullscreen) {
-        await el.requestFullscreen();
-      }
-    } catch {
-      // Browser denied — F11 / button hint remains visible
-    }
+    await requestOutputFullscreen(stageRef.current);
   };
 
   const exitFullscreen = async () => {
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      }
-    } catch {
-      // ignore
-    }
+    await exitOutputFullscreen();
   };
 
   // postMessage from Control — best-effort fullscreen (needs gesture in many browsers).
@@ -170,19 +230,16 @@ export function OutputPage() {
       if (data?.type !== "promedia.requestFullscreen") {
         return;
       }
-      if (document.fullscreenElement) {
+      if (readFullscreenElement()) {
         return;
       }
-      const el = stageRef.current;
-      if (el?.requestFullscreen) {
-        void el.requestFullscreen().catch(() => undefined);
-      }
+      void requestOutputFullscreen(stageRef.current);
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  // ?autofullscreen=1 — try a few times after load / join.
+  // ?autofullscreen=1 — try after load / join (may be blocked without gesture).
   useEffect(() => {
     if (!wantAutofullscreen || autofullscreenTried.current) {
       return;
@@ -193,13 +250,10 @@ export function OutputPage() {
     autofullscreenTried.current = true;
     const timers = [200, 600, 1500].map((ms) =>
       window.setTimeout(() => {
-        if (document.fullscreenElement) {
+        if (readFullscreenElement()) {
           return;
         }
-        const el = stageRef.current;
-        if (el?.requestFullscreen) {
-          void el.requestFullscreen().catch(() => undefined);
-        }
+        void requestOutputFullscreen(stageRef.current);
       }, ms),
     );
     return () => {
@@ -209,7 +263,28 @@ export function OutputPage() {
     };
   }, [wantAutofullscreen, hasSession, wsStatus]);
 
+  // First real user gesture on Output → enter fullscreen (hides browser bar).
+  useEffect(() => {
+    if (!wantAutofullscreen || isFullscreen) {
+      return;
+    }
+    const onGesture = () => {
+      if (readFullscreenElement()) {
+        return;
+      }
+      void requestOutputFullscreen(stageRef.current);
+    };
+    window.addEventListener("pointerdown", onGesture, { capture: true });
+    window.addEventListener("keydown", onGesture, { capture: true });
+    return () => {
+      window.removeEventListener("pointerdown", onGesture, { capture: true });
+      window.removeEventListener("keydown", onGesture, { capture: true });
+    };
+  }, [wantAutofullscreen, isFullscreen]);
+
   const showJoinForm = !hasSession && !queryCode && !queryToken;
+  const showFsPrompt =
+    wantAutofullscreen && !isFullscreen && hasSession && !showJoinForm;
 
   return (
     <div className="output-shell">
@@ -319,8 +394,19 @@ export function OutputPage() {
               {t(locale, "output.enterFullscreen")}
             </button>
           </div>
+        ) : showFsPrompt ? (
+          <button
+            type="button"
+            className="output-fs-prompt"
+            onClick={() => void enterFullscreen()}
+            title={t(locale, "output.clickFullscreen")}
+            aria-label={t(locale, "output.clickFullscreen")}
+          >
+            <span className="output-fs-prompt-label">
+              {t(locale, "output.clickFullscreen")}
+            </span>
+          </button>
         ) : !isFullscreen && hasSession ? (
-          /* Joined: live content only — no control bar / seq counters. */
           <button
             type="button"
             className="output-exit-fs"
