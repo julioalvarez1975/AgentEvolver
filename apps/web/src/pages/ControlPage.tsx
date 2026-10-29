@@ -71,6 +71,7 @@ import {
   savePersistedControlSession,
 } from "../lib/controlSessionPersist";
 import { createLibrarySong } from "../lib/library";
+import { isLoopbackPageHost } from "../lib/hub";
 import {
   openOutputWindow,
   postOutputUnmute,
@@ -140,12 +141,18 @@ export function ControlPage() {
   const [songError, setSongError] = useState<string | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
-  /** Soft hints retained for setters (upload / playlist); message log panel removed. */
-  const [, setUploadHint] = useState<string | null>(null);
+  /** Soft action hints (pair / upload / remote Control). */
+  const [uploadHint, setUploadHint] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadingBackground, setUploadingBackground] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
+  /** Phone/LAN opened /control without token — wait for code/token pair. */
+  const [needsRemotePair, setNeedsRemotePair] = useState(false);
+  const [pairCode, setPairCode] = useState("");
+  const [pairBusy, setPairBusy] = useState(false);
+  const [pairError, setPairError] = useState<string | null>(null);
+  const onPhoneLan = !isLoopbackPageHost();
   /** Uploaded stage backgrounds listed in the Theme dropdown (this session). */
   const [themeBackgroundAssets, setThemeBackgroundAssets] = useState<
     Array<{
@@ -546,6 +553,8 @@ export function ControlPage() {
 
   // After hub is healthy: create or resume session so Control WS is ready.
   // Opening Output still needs a click ("Iniciar proyección") — browsers block popups.
+  // Phone/LAN without token must NOT auto-create — that orphaned a 2nd session
+  // and En vivo never reached the projector Output.
   useEffect(() => {
     if (autoSessionStarted.current) {
       return;
@@ -555,6 +564,7 @@ export function ControlPage() {
     }
     if (session.hasSession) {
       autoSessionStarted.current = true;
+      setNeedsRemotePair(false);
       if (session.code) {
         persistSession(session.code, session.accessToken || undefined);
       }
@@ -569,19 +579,48 @@ export function ControlPage() {
           params.get("accessToken") ??
           ""
         ).trim();
+        const urlCode = (params.get("code") ?? "").trim().toUpperCase();
         const saved = loadPersistedControlSession();
         const token = urlToken || saved?.accessToken?.trim() || "";
         if (token) {
           try {
             const res = await joinRef.current({ accessToken: token });
             persistSession(res.code, token);
+            setNeedsRemotePair(false);
             return;
           } catch {
-            // Stale token after hub restart — create a fresh session.
+            // Stale token after hub restart.
           }
+        }
+        if (urlCode) {
+          try {
+            const res = await joinRef.current({ code: urlCode });
+            persistSession(res.code, saved?.accessToken);
+            setNeedsRemotePair(false);
+            return;
+          } catch {
+            // invalid code
+          }
+        }
+        // Resume last session by code on phone (same Wi‑Fi as projector).
+        if (onPhoneLan && saved?.code) {
+          try {
+            const res = await joinRef.current({ code: saved.code });
+            persistSession(res.code, saved.accessToken);
+            setNeedsRemotePair(false);
+            return;
+          } catch {
+            // stale
+          }
+        }
+        if (onPhoneLan) {
+          // Wait for operator to enter the projector session code.
+          setNeedsRemotePair(true);
+          return;
         }
         const res = await createRef.current();
         persistSession(res.code, res.accessToken);
+        setNeedsRemotePair(false);
       } catch {
         // Allow manual CTA / retry after failure (hub flap).
         autoSessionStarted.current = false;
@@ -593,7 +632,39 @@ export function ControlPage() {
     session.hasSession,
     session.code,
     session.accessToken,
+    onPhoneLan,
   ]);
+
+  const pairWithProjector = () => {
+    const code = pairCode.trim().toUpperCase();
+    if (!code || pairBusy) {
+      return;
+    }
+    setPairBusy(true);
+    setPairError(null);
+    void (async () => {
+      try {
+        const res = await session.join({ code });
+        persistSession(res.code);
+        setNeedsRemotePair(false);
+        setPairCode("");
+        // Keep ?code= in URL so refresh re-joins the same projector session.
+        try {
+          const u = new URL(window.location.href);
+          u.searchParams.set("code", res.code);
+          u.searchParams.delete("token");
+          u.searchParams.delete("accessToken");
+          window.history.replaceState({}, "", u.toString());
+        } catch {
+          // ignore
+        }
+      } catch {
+        setPairError(t("control.pairFailed"));
+      } finally {
+        setPairBusy(false);
+      }
+    })();
+  };
 
   /** Existing "Abrir salida" — open/focus Output for current session (no create). */
   const openOutput = () => {
@@ -614,12 +685,17 @@ export function ControlPage() {
   };
 
   /**
-   * Primary CTA: create/resume session → open Output (secondary screen when
-   * Window Management API allows) → request fullscreen (gesture / Chrome).
+   * PC only: open Output on the projector screen.
+   * Phone never opens Output — it joins this session and En vivo drives the PC.
    */
   const onStartProjection = () => {
     if (session.hubUnreachable) {
       void session.checkHubHealth();
+      return;
+    }
+    if (onPhoneLan) {
+      // Phone is remote Control only — projection lives on the PC Output.
+      setUploadHint(t("control.phoneControlsPcHint"));
       return;
     }
     setProjectionBusy(true);
@@ -1682,6 +1758,70 @@ export function ControlPage() {
         </div>
       ) : null}
 
+      {uploadHint ? (
+        <div className="control-banner control-banner-compact" role="status">
+          <StatusTip
+            tone="info"
+            label={t("control.statusTipInfo")}
+            message={uploadHint}
+          />
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setUploadHint(null)}
+          >
+            {t("control.dismissHint")}
+          </button>
+        </div>
+      ) : null}
+
+      {needsRemotePair && !session.hasSession && !session.hubUnreachable ? (
+        <div
+          className="control-banner control-banner-pair"
+          role="dialog"
+          aria-label={t("control.pairTitle")}
+        >
+          <StatusTip
+            tone="info"
+            label={t("control.statusTipInfo")}
+            message={t("control.pairBody")}
+          />
+          <form
+            className="control-pair-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              pairWithProjector();
+            }}
+          >
+            <label className="control-pair-label">
+              {t("control.pairCodeLabel")}
+              <input
+                value={pairCode}
+                onChange={(e) =>
+                  setPairCode(e.target.value.toUpperCase().slice(0, 8))
+                }
+                placeholder="AB12"
+                maxLength={8}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
+                autoFocus
+              />
+            </label>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={pairBusy || pairCode.trim().length < 3}
+            >
+              {pairBusy ? t("control.pairBusy") : t("control.pairSubmit")}
+            </button>
+          </form>
+          {pairError ? (
+            <p className="control-banner-error-text">{pairError}</p>
+          ) : null}
+        </div>
+      ) : null}
+
       {session.hubUnreachable ? (
         <div
           className="control-banner control-banner-hub-down control-banner-compact"
@@ -2208,7 +2348,21 @@ export function ControlPage() {
         </span>
         <span className="footer-sep">·</span>
         <span>seq {session.lastSeq >= 0 ? session.lastSeq : "—"}</span>
-        <LanRemoteHint accessToken={session.accessToken || null} />
+        {session.code ? (
+          <>
+            <span className="footer-sep">·</span>
+            <span
+              className="footer-session-code"
+              title={t("control.sessionCodeHint")}
+            >
+              {t("control.sessionCode")}: <strong>{session.code}</strong>
+            </span>
+          </>
+        ) : null}
+        <LanRemoteHint
+          code={session.code || null}
+          accessToken={session.accessToken || null}
+        />
         {uploading ? (
           <>
             <span className="footer-sep">·</span>

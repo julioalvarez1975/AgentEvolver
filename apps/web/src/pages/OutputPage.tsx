@@ -20,6 +20,10 @@ import { SubtitleOverlay } from "../components/SubtitleOverlay";
 import { useSessionConnection } from "../hooks/useSessionConnection";
 import { buildAssetUrl, buildBrandingLogoUrl } from "../lib/assets";
 import { OUTPUT_BROADCAST_CHANNEL } from "../lib/openOutputWindow";
+import {
+  loadPersistedOutputSession,
+  savePersistedOutputSession,
+} from "../lib/outputSessionPersist";
 import { themeSurfaceStyle } from "../lib/theme";
 
 const locale = DEFAULT_LOCALE;
@@ -98,6 +102,7 @@ export function OutputPage() {
     snapshot,
     sessionId,
     wsTicket,
+    code: sessionCode,
     setMediaClock,
   } = useSessionConnection("output");
   const stageRef = useRef<HTMLDivElement>(null);
@@ -211,8 +216,31 @@ export function OutputPage() {
     if (queryToken) {
       autoJoinStarted.current = true;
       void joinRef.current({ accessToken: queryToken });
+      return;
+    }
+    // Projector refresh without query — resume last Output session.
+    const saved = loadPersistedOutputSession();
+    if (saved?.code) {
+      autoJoinStarted.current = true;
+      void joinRef.current({ code: saved.code });
+      return;
+    }
+    if (saved?.accessToken) {
+      autoJoinStarted.current = true;
+      void joinRef.current({ accessToken: saved.accessToken });
     }
   }, [queryCode, queryToken, hasSession]);
+
+  // Remember join so phone Control can pair to the same code after refresh.
+  useEffect(() => {
+    if (!hasSession) {
+      return;
+    }
+    savePersistedOutputSession({
+      code: sessionCode || queryCode || undefined,
+      accessToken: queryToken || undefined,
+    });
+  }, [hasSession, sessionCode, queryCode, queryToken]);
 
   const enterFullscreen = async () => {
     await requestOutputFullscreen(stageRef.current);
@@ -356,9 +384,20 @@ export function OutputPage() {
               </LiveItemLayer>
             ) : sceneMode === "normal" ? (
               <LiveItemLayer key={liveItemKey} effect={transitionEffect}>
-                <p className="output-waiting">
-                  {t(locale, "output.waiting")}
-                </p>
+                <div className="output-waiting-block">
+                  <p className="output-waiting">
+                    {t(locale, "output.waiting")}
+                  </p>
+                  {sessionCode ? (
+                    <p className="output-session-code" aria-live="polite">
+                      {t(locale, "output.sessionCode")}:{" "}
+                      <strong>{sessionCode}</strong>
+                    </p>
+                  ) : null}
+                  <p className="output-pair-hint">
+                    {t(locale, "output.pairHint")}
+                  </p>
+                </div>
               </LiveItemLayer>
             ) : null}
             <SubtitleOverlay
