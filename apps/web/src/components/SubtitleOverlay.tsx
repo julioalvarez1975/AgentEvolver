@@ -148,16 +148,17 @@ export function SubtitleOverlay({
       return null;
     }
 
-    // Manual ←/→ step: show the operator-chosen cue over Preview/Output.
-    const manual =
-      typeof state.cueIndex === "number" &&
-      Number.isFinite(state.cueIndex) &&
-      state.cueIndex >= 0 &&
-      state.cueIndex < state.cues.length
-        ? state.cues[state.cueIndex]!
-        : null;
-    if (manual?.text) {
-      return manual;
+    // Manual ←/→ step overrides the clock while the operator teaches timing.
+    if (typeof state.cueIndex === "number" && Number.isFinite(state.cueIndex)) {
+      if (state.cueIndex === -1) {
+        return null; // forced blank (before first line)
+      }
+      if (state.cueIndex >= 0 && state.cueIndex < state.cues.length) {
+        const manual = state.cues[state.cueIndex]!;
+        if (manual?.text) {
+          return manual;
+        }
+      }
     }
 
     let positionMs: number;

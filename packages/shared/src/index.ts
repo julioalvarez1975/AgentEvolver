@@ -448,8 +448,10 @@ export type SubtitleAgentState = {
   translated: boolean;
   cues: SubtitleCue[];
   /**
-   * Manual karaoke step: when set, Preview/Output show `cues[cueIndex]`
-   * instead of clock lookup. ←/→ nudge this while the operator teaches timing.
+   * Manual karaoke step:
+   * - `null` — clock lookup (auto)
+   * - `-1` — forced blank (before first line; ← from cue 0)
+   * - `>= 0` — show `cues[cueIndex]` (operator ←/→ teach)
    */
   cueIndex: number | null;
   /** Operator-facing hint (downloading YouTube audio, text-only song, error, …). */
@@ -485,10 +487,12 @@ export function normalizeSubtitleAgentState(
   const base = raw ?? emptySubtitleAgentState();
   const cueIndexRaw = (base as { cueIndex?: unknown }).cueIndex;
   const cueIndex =
-    typeof cueIndexRaw === "number" &&
-    Number.isFinite(cueIndexRaw) &&
-    cueIndexRaw >= 0
-      ? Math.floor(cueIndexRaw)
+    typeof cueIndexRaw === "number" && Number.isFinite(cueIndexRaw)
+      ? cueIndexRaw === -1
+        ? -1
+        : cueIndexRaw >= 0
+          ? Math.floor(cueIndexRaw)
+          : null
       : null;
   return {
     ...base,

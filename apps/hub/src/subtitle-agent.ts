@@ -980,9 +980,10 @@ export function teachSubtitleCancionero(
 }
 
 /**
- * Operator steps karaoke on Preview with ←/→.
- * Forward (→): show next cue and teach “this line starts now” at positionMs.
- * Back (←): show previous cue (no rewrite unless stamping the same line).
+ * Operator steps karaoke on Preview with ←/→ (does not seek the media clock).
+ * → show next cue and teach “this line starts now” at positionMs.
+ * ← previous cue, or blank (−1) before the first; delays the left-behind cue
+ *   so auto timing will not flash it again at the current position.
  */
 export function nudgeSubtitleCancionero(
   session: SessionRecord,
@@ -1000,25 +1001,38 @@ export function nudgeSubtitleCancionero(
       ? Math.max(0, patch.positionMs)
       : Math.max(0, clock?.positionMs ?? 0);
 
+  // Manual blank (−1) must win over clock lookup.
   const current =
-    prev.cueIndex != null &&
-    prev.cueIndex >= 0 &&
-    prev.cueIndex < cues.length
-      ? prev.cueIndex
-      : cueIndexAtPositionMs(cues, positionMs);
+    prev.cueIndex === -1
+      ? -1
+      : prev.cueIndex != null &&
+          prev.cueIndex >= 0 &&
+          prev.cueIndex < cues.length
+        ? prev.cueIndex
+        : cueIndexAtPositionMs(cues, positionMs);
 
   const delta: -1 | 1 = patch.delta === -1 ? -1 : 1;
   let nextIndex: number;
   if (delta === 1) {
     nextIndex = current < 0 ? 0 : Math.min(cues.length - 1, current + 1);
   } else {
-    nextIndex = current < 0 ? 0 : Math.max(0, current - 1);
+    // Allow stepping to blank before the first lyric.
+    nextIndex = current <= 0 ? -1 : current - 1;
   }
 
-  let nextCues = cues;
-  // → teaches: the line we land on starts at the operator’s wall clock.
+  let nextCues = [...cues];
   if (delta === 1) {
+    // → teaches: the line we land on starts at the operator’s wall clock.
     nextCues = retimedCuesAtIndex(cues, nextIndex, positionMs);
+  } else if (current >= 0 && current < cues.length) {
+    // ← means “too early”: push the cue we leave so it starts after now.
+    const delayTo = Math.max(positionMs + 500, Math.round(positionMs) + 500);
+    if (cues[current]!.startMs <= positionMs + 50) {
+      nextCues = retimedCuesAtIndex(cues, current, delayTo);
+    }
+  }
+
+  if (delta === 1 || (delta === -1 && current >= 0)) {
     const mediaKey = mediaKeyFromAssetId(prev.assetId);
     if (mediaKey) {
       void rememberCancioneroTiming({
@@ -1040,25 +1054,6 @@ export function nudgeSubtitleCancionero(
     hint: "cancionero_nudge",
     updatedAt: new Date().toISOString(),
   };
-
-  // ← rewinds the live clock to that line so the operator can re-teach;
-  // → leaves playback alone (“this line starts now” while video rolls).
-  if (delta === -1) {
-    const liveId = session.live.currentItemId;
-    const agentItem = prev.itemId;
-    if (
-      liveId &&
-      clock &&
-      (!agentItem || agentItem === liveId) &&
-      (!patch.itemId || patch.itemId === liveId)
-    ) {
-      const seekTo = nextCues[nextIndex]?.startMs ?? positionMs;
-      sessionStore.setMediaClock(session, {
-        playing: clock.playing,
-        positionMs: seekTo,
-      });
-    }
-  }
 
   return sessionStore.touchSubtitleAgent(session);
 }

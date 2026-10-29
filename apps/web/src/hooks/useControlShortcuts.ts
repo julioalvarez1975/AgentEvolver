@@ -15,12 +15,26 @@ function isTypingTarget(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) {
     return false;
   }
+  if (el.isContentEditable) {
+    return true;
+  }
   const tag = el.tagName;
+  if (tag === "TEXTAREA" || tag === "SELECT") {
+    return true;
+  }
+  if (tag !== "INPUT") {
+    return false;
+  }
+  // Range / checkbox / buttons must NOT swallow ←/→ (karaoke + slides).
+  const type = ((el as HTMLInputElement).type || "text").toLowerCase();
   return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    el.isContentEditable
+    type === "text" ||
+    type === "search" ||
+    type === "email" ||
+    type === "password" ||
+    type === "url" ||
+    type === "tel" ||
+    type === "number"
   );
 }
 
@@ -105,8 +119,9 @@ export function useControlShortcuts(handlers: ControlShortcutHandlers): void {
           break;
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Capture phase so ←/→ still reach karaoke when a range/scrubber has focus.
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [
     enabled,
     goLive,

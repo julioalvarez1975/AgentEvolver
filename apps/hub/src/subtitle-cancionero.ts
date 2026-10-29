@@ -751,9 +751,9 @@ export function alignCancioneroLinesToTiming(
 
 /** Musical intro before equal-time fallback starts advancing lines. */
 function conservativeIntroMs(totalMs: number, lineCount: number): number {
-  // Modest lead-in — too short looked early; too long looked late.
-  const byPct = Math.floor(totalMs * 0.08);
-  const capped = Math.min(12_000, Math.max(3_000, byPct));
+  // Worship tracks often have 20–40s of intro before vocals — keep lyrics dark.
+  const byPct = Math.floor(totalMs * 0.12);
+  const capped = Math.min(40_000, Math.max(5_000, byPct));
   const maxIntro = Math.max(0, totalMs - lineCount * 2_000);
   return Math.min(capped, maxIntro);
 }
