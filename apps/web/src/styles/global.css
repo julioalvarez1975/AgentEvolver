@@ -1283,6 +1283,21 @@ body {
   letter-spacing: 0.02em;
 }
 
+.preview-tb-scene {
+  height: 2rem;
+  padding: 0 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.preview-tb-scene.is-active {
+  border-color: var(--accent, #3d8bfd);
+  background: rgba(61, 139, 253, 0.18);
+  color: var(--fg);
+}
+
 .preview-tb-shortcuts {
   flex-shrink: 0;
 }

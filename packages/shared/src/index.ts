@@ -979,13 +979,13 @@ export function itemHasSlides(item: PlaylistItem): boolean {
 export const TEXT_PROJECTION_LINES = 6;
 
 /**
- * Absolute max visual rows for one karaoke phrase (soft-wrap only).
- * Packing stays 1 cancionero phrase per cue — never stack multiple phrases.
+ * Absolute max visual rows for karaoke projection (pack + soft-wrap).
+ * Stage shows 2 large lyric lines at a time.
  */
 export const LYRIC_OVERLAY_MAX_LINES = 2;
 
-/** One phrase per karaoke cue / pack group (single renglón when short). */
-export const LYRIC_OVERLAY_PREFERRED_LINES = 1;
+/** Pack 2 cancionero phrases per cue for large 2-line projection. */
+export const LYRIC_OVERLAY_PREFERRED_LINES = 2;
 
 /**
  * Soft-wrap budget (characters) before a source line becomes multiple
@@ -995,9 +995,10 @@ export const TEXT_PROJECTION_SOFT_WRAP_CHARS = 52;
 
 /**
  * Soft-wrap budget for karaoke / cancionero overlay phrases.
+ * Keeps each of the 2 projected lines short enough for large type.
  * Cancionero exact newlines still win when present.
  */
-export const LYRIC_PHRASE_SOFT_WRAP_CHARS = 42;
+export const LYRIC_PHRASE_SOFT_WRAP_CHARS = 36;
 
 /**
  * Flatten embedded newlines, drop blanks, and soft-wrap long lines so each

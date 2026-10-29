@@ -645,6 +645,48 @@ export const YouTubePlayer = forwardRef<YouTubePlayerHandle, YouTubePlayerProps>
       }
     };
 
+    // Control En vivo / go-live clock → clear soft-mute and try audible play.
+    useEffect(() => {
+      if (preview || !ready || !mediaClock?.playing || muted) {
+        return;
+      }
+      if (mediaClock.positionMs > 400) {
+        return;
+      }
+      setSoftMuted(false);
+      failStreakRef.current = 0;
+      const player = playerRef.current;
+      if (!player) {
+        return;
+      }
+      try {
+        player.unMute();
+        player.playVideo();
+      } catch {
+        // ignore
+      }
+    }, [
+      preview,
+      ready,
+      muted,
+      mediaClock?.playing,
+      mediaClock?.itemId,
+      mediaClock?.updatedAt,
+      mediaClock?.positionMs,
+    ]);
+
+    // Message from Control after En vivo (best-effort unmute).
+    useEffect(() => {
+      if (preview) {
+        return;
+      }
+      const onUnmute = () => {
+        clickUnblock();
+      };
+      window.addEventListener("promedia:unmute", onUnmute);
+      return () => window.removeEventListener("promedia:unmute", onUnmute);
+    }, [preview, ready]);
+
     return (
       <div className={className ?? "video-yt-wrap"}>
         <div id={elId} className="video-yt-host" />

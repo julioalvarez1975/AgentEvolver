@@ -157,6 +157,61 @@ export function FileAudio({
     onMediaClockSet,
   ]);
 
+  const tryPlay = () => {
+    const el = ref.current;
+    if (!el || preview) {
+      return;
+    }
+    const clock = mediaClockRef.current;
+    if (
+      clock &&
+      !coldSnapDoneRef.current &&
+      shouldSnapMediaClockToStart(el.currentTime * 1000, clock)
+    ) {
+      coldSnapDoneRef.current = true;
+      onMediaClockSetRef.current?.({ playing: true, positionMs: 0 });
+      el.currentTime = 0;
+    } else if (clock) {
+      const { seek, targetMs } = shouldCorrectSeek(
+        el.currentTime * 1000,
+        clock,
+      );
+      if (seek) {
+        el.currentTime = targetMs / 1000;
+      }
+    }
+    void el
+      .play()
+      .then(() => setBlocked(false))
+      .catch(() => undefined);
+  };
+
+  // Go Live stamp → force audible play attempt.
+  useEffect(() => {
+    if (preview || !mediaClock?.playing) {
+      return;
+    }
+    if (mediaClock.positionMs > 400) {
+      return;
+    }
+    tryPlay();
+  }, [
+    preview,
+    mediaClock?.playing,
+    mediaClock?.itemId,
+    mediaClock?.updatedAt,
+    mediaClock?.positionMs,
+  ]);
+
+  useEffect(() => {
+    if (preview) {
+      return;
+    }
+    const onUnmute = () => tryPlay();
+    window.addEventListener("promedia:unmute", onUnmute);
+    return () => window.removeEventListener("promedia:unmute", onUnmute);
+  }, [preview, src]);
+
   return (
     <>
       <audio
@@ -171,34 +226,7 @@ export function FileAudio({
         <button
           type="button"
           className="btn btn-primary audio-unblock"
-          onClick={() => {
-            const el = ref.current;
-            if (!el) {
-              return;
-            }
-            const clock = mediaClockRef.current;
-            if (
-              clock &&
-              !coldSnapDoneRef.current &&
-              shouldSnapMediaClockToStart(el.currentTime * 1000, clock)
-            ) {
-              coldSnapDoneRef.current = true;
-              onMediaClockSetRef.current?.({ playing: true, positionMs: 0 });
-              el.currentTime = 0;
-            } else if (clock) {
-              const { seek, targetMs } = shouldCorrectSeek(
-                el.currentTime * 1000,
-                clock,
-              );
-              if (seek) {
-                el.currentTime = targetMs / 1000;
-              }
-            }
-            void el
-              .play()
-              .then(() => setBlocked(false))
-              .catch(() => undefined);
-          }}
+          onClick={() => tryPlay()}
         >
           Reproducir audio
         </button>

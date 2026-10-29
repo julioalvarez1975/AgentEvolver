@@ -29,6 +29,8 @@
   "control.goLive": "Enviar ao vivo",
   "control.sceneLogo": "Logo",
   "control.sceneBlack": "Preto",
+  "control.sceneEmpty": "Vazio",
+  "control.stopLive": "Parar projeção (preto)",
   "control.sceneClear": "Clear",
   "control.playlist": "Roteiro",
   "control.preview": "Pré-visualização",

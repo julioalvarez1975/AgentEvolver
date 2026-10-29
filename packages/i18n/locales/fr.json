@@ -29,6 +29,8 @@
   "control.goLive": "Envoyer en direct",
   "control.sceneLogo": "Logo",
   "control.sceneBlack": "Noir",
+  "control.sceneEmpty": "Vide",
+  "control.stopLive": "Arrêter la projection (noir)",
   "control.sceneClear": "Clear",
   "control.playlist": "Programme",
   "control.preview": "Aperçu",

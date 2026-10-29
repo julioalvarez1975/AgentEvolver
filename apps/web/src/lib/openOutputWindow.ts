@@ -152,6 +152,27 @@ function postAutofullscreen(win: Window): void {
   }
 }
 
+/** Ask Output to unmute + play after Control En vivo (best-effort). */
+export function postOutputUnmute(): void {
+  try {
+    const win = window.open("", OUTPUT_WINDOW_NAME);
+    if (!win || win.closed) {
+      return;
+    }
+    win.postMessage(
+      { type: "promedia.requestUnmute" },
+      window.location.origin,
+    );
+    try {
+      win.focus();
+    } catch {
+      // ignore
+    }
+  } catch {
+    // ignore
+  }
+}
+
 function navigateAndFinish(
   win: Window,
   url: string,

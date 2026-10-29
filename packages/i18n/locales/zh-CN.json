@@ -29,6 +29,8 @@
   "control.goLive": "发送直播",
   "control.sceneLogo": "Logo",
   "control.sceneBlack": "黑屏",
+  "control.sceneEmpty": "空屏",
+  "control.stopLive": "停止投影（黑屏）",
   "control.sceneClear": "Clear",
   "control.playlist": "日程",
   "control.preview": "预览",

@@ -401,11 +401,25 @@ export class SessionStore {
     session.live.currentSlideIndex = 0;
     // Julio lock: Go Live resets sceneMode to normal
     session.live.sceneMode = "normal";
-    // Q3: video/audio Go Live auto-starts playback (unmuted per Q2 / payload.muted)
-    if (
-      (item.type === "video" || item.type === "audio") &&
-      item.payload.autoplay !== false
-    ) {
+    // En vivo → audio on: clear muted / force autoplay so Output starts with sound.
+    if (item.type === "video") {
+      const idx = session.playlist.items.findIndex((i) => i.id === itemId);
+      if (
+        idx >= 0 &&
+        (item.payload.muted === true || item.payload.autoplay === false)
+      ) {
+        const current = session.playlist.items[idx]!;
+        if (current.type === "video") {
+          session.playlist.items[idx] = {
+            ...current,
+            payload: {
+              ...current.payload,
+              muted: false,
+              autoplay: true,
+            },
+          };
+        }
+      }
       session.live.mediaClock = {
         itemId,
         playing: true,
@@ -413,10 +427,23 @@ export class SessionStore {
         rate: 1,
         updatedAt: nowIso(),
       };
-    } else if (item.type === "video" || item.type === "audio") {
+    } else if (item.type === "audio") {
+      const idx = session.playlist.items.findIndex((i) => i.id === itemId);
+      if (idx >= 0 && item.payload.autoplay === false) {
+        const current = session.playlist.items[idx]!;
+        if (current.type === "audio") {
+          session.playlist.items[idx] = {
+            ...current,
+            payload: {
+              ...current.payload,
+              autoplay: true,
+            },
+          };
+        }
+      }
       session.live.mediaClock = {
         itemId,
-        playing: false,
+        playing: true,
         positionMs: 0,
         rate: 1,
         updatedAt: nowIso(),

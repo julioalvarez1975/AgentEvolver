@@ -40,22 +40,21 @@ export type SubtitleOverlayProps = {
 };
 
 /**
- * SM–XL biases fit toward IG Reel Dd5Bi1IzCuQ / LED karaoke size.
- * 1–2 short phrases only: heightFrac + widthFrac + hardCap lean large so
- * type owns center stage.
+ * SM–XL biases fit toward LED karaoke size with 2 large lyric lines.
+ * heightFrac + widthFrac + hardCap lean large so type owns center stage.
  */
 const SUBTITLE_FIT_BY_SIZE: Record<
   SubtitleFontSize,
   { heightFrac: number; widthFrac: number; hardCapPx: number }
 > = {
-  sm: { heightFrac: 0.55, widthFrac: 0.3, hardCapPx: 300 },
-  md: { heightFrac: 0.66, widthFrac: 0.33, hardCapPx: 380 },
-  lg: { heightFrac: 0.76, widthFrac: 0.35, hardCapPx: 460 },
-  xl: { heightFrac: 0.84, widthFrac: 0.38, hardCapPx: 540 },
+  sm: { heightFrac: 0.58, widthFrac: 0.34, hardCapPx: 320 },
+  md: { heightFrac: 0.7, widthFrac: 0.37, hardCapPx: 400 },
+  lg: { heightFrac: 0.8, widthFrac: 0.4, hardCapPx: 500 },
+  xl: { heightFrac: 0.85, widthFrac: 0.44, hardCapPx: 580 },
 };
 
 /**
- * One karaoke phrase at a time. Cancionero newlines win when present.
+ * Karaoke projection: up to 2 large lines. Cancionero newlines win when present.
  * Soft-wrap may use up to LYRIC_OVERLAY_MAX_LINES for a single long phrase.
  */
 function lyricOverlayDisplayLines(raw: string): string[] {
@@ -100,7 +99,7 @@ function lyricOverlayDisplayLines(raw: string): string[] {
 }
 
 /**
- * Full-stage karaoke projection — one phrase at a time; blank in no-voice gaps.
+ * Full-stage karaoke projection — 2 large lyric lines; blank in no-voice gaps.
  * Timing prefers hub mediaClock; negative `leadMs` shows the cue early.
  * Assisted timingMode holds the first lyric through musical lead-in;
  * exact (cancionero / native) uses cue windows only. Manual ←/→ song
@@ -194,8 +193,8 @@ export function SubtitleOverlay({
     if (!cue?.text) {
       return null;
     }
-    // Prefer exact cue newlines (cancionero). Soft-wrap only when a single
-    // source line has no breaks — prefer 1–2 rows, hard max 2.
+    // Prefer exact cue newlines (cancionero pack of 2). Soft-wrap only when a
+    // single source line has no breaks — prefer 2 rows, hard max 2.
     return lyricOverlayDisplayLines(cue.text);
   }, [cue?.text]);
 

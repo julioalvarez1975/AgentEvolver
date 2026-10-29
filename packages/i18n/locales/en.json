@@ -29,6 +29,8 @@
   "control.goLive": "Go Live",
   "control.sceneLogo": "Logo",
   "control.sceneBlack": "Black",
+  "control.sceneEmpty": "Empty",
+  "control.stopLive": "Stop projecting (black)",
   "control.sceneClear": "Clear",
   "control.playlist": "Schedule",
   "control.preview": "Preview",

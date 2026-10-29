@@ -220,20 +220,22 @@ export function OutputPage() {
     await exitOutputFullscreen();
   };
 
-  // postMessage from Control — best-effort fullscreen (needs gesture in many browsers).
+  // postMessage from Control — fullscreen + unmute after En vivo.
   useEffect(() => {
     const onMessage = (ev: MessageEvent) => {
       if (ev.origin !== window.location.origin) {
         return;
       }
       const data = ev.data as { type?: string } | null;
-      if (data?.type !== "promedia.requestFullscreen") {
+      if (data?.type === "promedia.requestFullscreen") {
+        if (!readFullscreenElement()) {
+          void requestOutputFullscreen(stageRef.current);
+        }
         return;
       }
-      if (readFullscreenElement()) {
-        return;
+      if (data?.type === "promedia.requestUnmute") {
+        window.dispatchEvent(new CustomEvent("promedia:unmute"));
       }
-      void requestOutputFullscreen(stageRef.current);
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);

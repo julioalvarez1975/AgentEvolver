@@ -490,8 +490,8 @@ export function buildKaraokeAlignPrompt(
 }
 
 /**
- * Pack per-line karaoke cues for display: default 1 phrase per cue.
- * Does NOT extend into the next line — instrumental / no-voice gaps stay blank.
+ * Pack per-line karaoke cues for display: default 2 phrases → 2 large lines.
+ * Does NOT extend into the next pack — instrumental / no-voice gaps stay blank.
  */
 export function packKaraokeDisplayCues(
   lineCues: readonly SubtitleCue[],
@@ -499,7 +499,7 @@ export function packKaraokeDisplayCues(
   maxLines = LYRIC_OVERLAY_MAX_LINES,
 ): SubtitleCue[] {
   if (lineCues.length === 0) return [];
-  // Prefer one phrase; never pack more than maxLines (soft-wrap ceiling).
+  // Prefer 2 lines; never pack more than maxLines.
   const size = Math.min(
     Math.max(1, Math.trunc(maxLines) || 1),
     Math.max(1, Math.trunc(preferredLines) || 1),

@@ -165,6 +165,55 @@ export function FileVideo({
     onMediaClockSet,
   ]);
 
+  const tryUnmutePlay = () => {
+    const el = ref.current;
+    if (!el || preview || muted) {
+      return;
+    }
+    const clock = mediaClockRef.current;
+    if (
+      clock &&
+      !coldSnapDoneRef.current &&
+      shouldSnapMediaClockToStart(el.currentTime * 1000, clock)
+    ) {
+      coldSnapDoneRef.current = true;
+      onMediaClockSetRef.current?.({ playing: true, positionMs: 0 });
+      el.currentTime = 0;
+    }
+    el.muted = false;
+    void el
+      .play()
+      .then(() => setBlocked(false))
+      .catch(() => undefined);
+  };
+
+  // Go Live stamp (position ~0) → force audible attempt.
+  useEffect(() => {
+    if (preview || !mediaClock?.playing || muted) {
+      return;
+    }
+    if (mediaClock.positionMs > 400) {
+      return;
+    }
+    tryUnmutePlay();
+  }, [
+    preview,
+    muted,
+    mediaClock?.playing,
+    mediaClock?.itemId,
+    mediaClock?.updatedAt,
+    mediaClock?.positionMs,
+  ]);
+
+  useEffect(() => {
+    if (preview) {
+      return;
+    }
+    const onUnmute = () => tryUnmutePlay();
+    window.addEventListener("promedia:unmute", onUnmute);
+    return () => window.removeEventListener("promedia:unmute", onUnmute);
+  }, [preview, muted, src]);
+
   return (
     <div className="video-file-wrap">
       <video
@@ -183,37 +232,7 @@ export function FileVideo({
         <button
           type="button"
           className="btn btn-primary video-unblock"
-          onClick={() => {
-            const el = ref.current;
-            if (!el) {
-              return;
-            }
-            const clock = mediaClockRef.current;
-            // Gesture = audible start of the theme: align clock + element to 0
-            // when hub only extrapolated while autoplay was blocked.
-            if (
-              clock &&
-              !coldSnapDoneRef.current &&
-              shouldSnapMediaClockToStart(el.currentTime * 1000, clock)
-            ) {
-              coldSnapDoneRef.current = true;
-              onMediaClockSetRef.current?.({ playing: true, positionMs: 0 });
-              el.currentTime = 0;
-            } else if (clock) {
-              const { seek, targetMs } = shouldCorrectSeek(
-                el.currentTime * 1000,
-                clock,
-              );
-              if (seek) {
-                el.currentTime = targetMs / 1000;
-              }
-            }
-            el.muted = false;
-            void el
-              .play()
-              .then(() => setBlocked(false))
-              .catch(() => undefined);
-          }}
+          onClick={() => tryUnmutePlay()}
         >
           Clic para audio / play
         </button>

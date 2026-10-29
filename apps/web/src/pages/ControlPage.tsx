@@ -70,7 +70,11 @@ import {
   savePersistedControlSession,
 } from "../lib/controlSessionPersist";
 import { createLibrarySong } from "../lib/library";
-import { openOutputWindow, startProjection } from "../lib/openOutputWindow";
+import {
+  openOutputWindow,
+  postOutputUnmute,
+  startProjection,
+} from "../lib/openOutputWindow";
 import {
   TEXT_IMPORT_MAX_BYTES,
   TEXT_IMPORT_MAX_SLIDES,
@@ -213,6 +217,7 @@ export function ControlPage() {
     [items, liveItemId],
   );
   const liveSlideIndex = session.snapshot?.live.currentSlideIndex ?? 0;
+  const sceneMode = session.snapshot?.live.sceneMode ?? "normal";
   const mediaClock = session.snapshot?.live.mediaClock ?? null;
   const themeId: ThemeId =
     session.snapshot?.live.themeId ?? DEFAULT_THEME_ID;
@@ -688,8 +693,14 @@ export function ControlPage() {
   useControlShortcuts({
     enabled: canMutate,
     goLive: () => {
+      if (liveItemId) {
+        session.clearLive();
+        session.setSceneMode("black");
+        return;
+      }
       if (selectedItemId && canGoLive) {
         session.goLive(selectedItemId);
+        postOutputUnmute();
       }
     },
     openOutput,
@@ -1262,6 +1273,31 @@ export function ControlPage() {
     if (keepSlide > 0) {
       session.setSlide(keepSlide);
     }
+    // En vivo from Control gesture → ask Output to play with audio.
+    postOutputUnmute();
+  };
+
+  /** Stop projecting → full black Output. */
+  const stopLiveToBlack = () => {
+    if (!ensureWsOrHint()) {
+      return;
+    }
+    session.clearLive();
+    session.setSceneMode("black");
+  };
+
+  const showLogoScene = () => {
+    if (!ensureWsOrHint()) {
+      return;
+    }
+    session.setSceneMode("logo");
+  };
+
+  const showEmptyScene = () => {
+    if (!ensureWsOrHint()) {
+      return;
+    }
+    session.setSceneMode("black");
   };
 
   const slideCount =
@@ -1929,13 +1965,25 @@ export function ControlPage() {
                 ]
                   .filter(Boolean)
                   .join(" ")}
-                disabled={!canGoLive}
-                title={t("shortcuts.goLive")}
-                aria-label={t("shortcuts.goLive")}
+                disabled={!liveItemId && !canGoLive}
+                title={
+                  liveItemId
+                    ? t("control.stopLive")
+                    : t("shortcuts.goLive")
+                }
+                aria-label={
+                  liveItemId
+                    ? t("control.stopLive")
+                    : t("shortcuts.goLive")
+                }
                 aria-pressed={Boolean(liveItemId)}
                 onClick={() => {
+                  if (liveItemId) {
+                    stopLiveToBlack();
+                    return;
+                  }
                   if (selectedItemId) {
-                    session.goLive(selectedItemId);
+                    goLiveItem(selectedItemId);
                   }
                 }}
               >
@@ -1943,6 +1991,38 @@ export function ControlPage() {
                 <span className="preview-tb-golive-label">
                   {t("playlist.goLiveShort")}
                 </span>
+              </button>
+              <button
+                type="button"
+                className={[
+                  "btn preview-tb-btn preview-tb-scene",
+                  sceneMode === "logo" ? "is-active" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                disabled={!canMutate}
+                title={t("shortcuts.sceneLogo")}
+                aria-label={t("control.sceneLogo")}
+                aria-pressed={sceneMode === "logo"}
+                onClick={showLogoScene}
+              >
+                {t("control.sceneLogo")}
+              </button>
+              <button
+                type="button"
+                className={[
+                  "btn preview-tb-btn preview-tb-scene",
+                  sceneMode === "black" ? "is-active" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                disabled={!canMutate}
+                title={t("shortcuts.sceneBlack")}
+                aria-label={t("control.sceneEmpty")}
+                aria-pressed={sceneMode === "black"}
+                onClick={showEmptyScene}
+              >
+                {t("control.sceneEmpty")}
               </button>
               <span className="preview-tb-spacer" />
               <StatusTip

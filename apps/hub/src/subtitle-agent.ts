@@ -862,7 +862,7 @@ async function tryCancioneroLyricPath(options: {
     );
   }
 
-  // One cancionero phrase per cue; gaps between phrases stay blank on stage.
+  // Two cancionero phrases per cue (2 large lines); gaps between packs stay blank.
   let cues = packKaraokeDisplayCues(lineCues);
 
   // Apply operator-taught ←/→ timing from a previous session, if any.
