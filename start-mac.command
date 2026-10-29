@@ -1,15 +1,11 @@
-#!/usr/bin/env bash
-# ProMedia — doble clic / terminal (Linux) para arrancar hub + web
+#!/bin/bash
+# ProMedia — doble clic en Finder (Mac) para arrancar hub + web
 # y abrir Control en el navegador predeterminado.
 # Mantiene la ventana abierta si algo falla.
 #
-# Uso:
-#   ./start-linux.sh
-#   o doble clic en Abrir-ProMedia.sh / ProMedia.desktop
-# Primera vez: chmod +x start-linux.sh Abrir-ProMedia.sh
-#
-# Si un atajo del Escritorio abre UI vieja: debe apuntar a ESTE
-# promedia/ del repo (después de git pull), no a un clone viejo.
+# Si una copia en el Escritorio abre UI vieja: re-copiá desde
+# esta carpeta ProMedia/ (después de git pull). El atajo debe
+# apuntar a ESTE repo, no a un clone viejo.
 
 set -e
 cd "$(dirname "$0")"
@@ -27,7 +23,7 @@ print_lan_control_hint() {
     url=$(tr -d '[:space:]' < "$LAN_URL_FILE" 2>/dev/null || true)
     if [ -n "$url" ]; then
       echo "Teléfono (misma Wi‑Fi) → ${url}"
-      echo "  Output/proyección sigue en esta PC; el móvil es solo Control."
+      echo "  Output/proyección sigue en esta Mac; el móvil es solo Control."
       return 0
     fi
   fi
@@ -35,11 +31,11 @@ print_lan_control_hint() {
     ip=$(node scripts/lan-ips.mjs 2>/dev/null | head -n 1 || true)
     if [ -n "$ip" ]; then
       echo "Teléfono (misma Wi‑Fi) → http://${ip}:${port}/control"
-      echo "  Output/proyección sigue en esta PC; el móvil es solo Control."
+      echo "  Output/proyección sigue en esta Mac; el móvil es solo Control."
       return 0
     fi
   fi
-  echo "Teléfono: abrí http://<IP-LAN-de-esta-PC>:${port}/control (misma Wi‑Fi)."
+  echo "Teléfono: abrí http://<IP-LAN-de-esta-Mac>:${port}/control (misma Wi‑Fi)."
 }
 
 echo "=========================================="
@@ -47,7 +43,7 @@ echo "  ProMedia — carpeta: $(pwd)"
 echo "=========================================="
 echo ""
 echo "AVISO: un alias del Escritorio debe apuntar a esta carpeta"
-echo "  promedia/ del repo (no a un clone viejo)."
+echo "  ProMedia/ (raíz del repo) (no a un clone viejo)."
 echo "Dejá esta ventana de Terminal abierta mientras usás ProMedia."
 echo ""
 
@@ -64,15 +60,10 @@ fi
 free_promedia_port() {
   local port="$1"
   local pids pid cmd
-  pids=""
-  if command -v lsof >/dev/null 2>&1; then
-    pids=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null || true)
-  elif command -v ss >/dev/null 2>&1; then
-    # ss: extraer pids de listeners en el puerto
-    pids=$(ss -ltnp "sport = :$port" 2>/dev/null | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' | sort -u || true)
-  elif command -v fuser >/dev/null 2>&1; then
-    pids=$(fuser "${port}/tcp" 2>/dev/null || true)
+  if ! command -v lsof >/dev/null 2>&1; then
+    return 0
   fi
+  pids=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null || true)
   if [ -z "$pids" ]; then
     return 0
   fi
@@ -92,7 +83,9 @@ free_promedia_port() {
   done
 }
 
-# Espera a que Control responda (nunca abre bare "/"). NUNCA libera puertos.
+# Espera a que Control responda (nunca abre bare "/") y usa el puerto real.
+# Prefiere .promedia-ready-url que escribe scripts/dev.mjs (URL real de Vite).
+# NUNCA libera ni mata puertos — solo verifica y abre el navegador una vez.
 open_control_when_ready() {
   local max_wait="${PROMEDIA_OPEN_WAIT_S:-90}"
   local elapsed=0
@@ -106,67 +99,40 @@ open_control_when_ready() {
     fi
     if [ -f "$READY_FILE" ]; then
       url=$(tr -d '[:space:]' < "$READY_FILE" 2>/dev/null || true)
-      if [ -n "$url" ]; then
-        ready=0
-        if command -v curl >/dev/null 2>&1; then
-          if curl -sf -o /dev/null --connect-timeout 1 "$url" 2>/dev/null; then
-            ready=1
-          fi
+      if [ -n "$url" ] && curl -sf -o /dev/null --connect-timeout 1 "$url" 2>/dev/null; then
+        echo ""
+        echo "Abriendo Control → ${url}"
+        port_hint=$(printf '%s' "$url" | sed -n 's/.*:\([0-9][0-9]*\)\/control.*/\1/p')
+        print_lan_control_hint "${port_hint:-5173}"
+        echo "Dejá esta Terminal abierta. Para detener: Ctrl+C."
+        touch "$opened_marker"
+        if command -v open >/dev/null 2>&1; then
+          open "$url" || true
+        elif command -v xdg-open >/dev/null 2>&1; then
+          xdg-open "$url" >/dev/null 2>&1 || true
         else
-          ready=1
+          echo "Abrí manualmente: ${url}"
         fi
-        if [ "$ready" -eq 1 ]; then
-          echo ""
-          echo "Abriendo Control → ${url}"
-          port_hint=$(printf '%s' "$url" | sed -n 's/.*:\([0-9][0-9]*\)\/control.*/\1/p')
-          print_lan_control_hint "${port_hint:-5173}"
-          echo "Dejá esta Terminal abierta. Para detener: Ctrl+C."
-          touch "$opened_marker"
-          if command -v xdg-open >/dev/null 2>&1; then
-            xdg-open "$url" >/dev/null 2>&1 || true
-          elif command -v gio >/dev/null 2>&1; then
-            gio open "$url" >/dev/null 2>&1 || true
-          else
-            echo "Abrí manualmente: ${url}"
-          fi
-          return 0
-        fi
+        return 0
       fi
     fi
     for port in $VITE_PORTS; do
-      if command -v curl >/dev/null 2>&1; then
-        if curl -sf -o /dev/null --connect-timeout 1 "http://127.0.0.1:${port}/control" 2>/dev/null; then
-          url="http://localhost:${port}/control"
-          echo ""
-          echo "Abriendo Control → ${url}"
-          print_lan_control_hint "$port"
-          echo "Dejá esta Terminal abierta. Para detener: Ctrl+C."
-          touch "$opened_marker"
-          if command -v xdg-open >/dev/null 2>&1; then
-            xdg-open "$url" >/dev/null 2>&1 || true
-          elif command -v gio >/dev/null 2>&1; then
-            gio open "$url" >/dev/null 2>&1 || true
-          else
-            echo "Abrí manualmente: ${url}"
-          fi
-          return 0
+      # Esperar /control (no "/"): HomePage se ve como app “vieja” mínima.
+      if curl -sf -o /dev/null --connect-timeout 1 "http://127.0.0.1:${port}/control" 2>/dev/null; then
+        url="http://localhost:${port}/control"
+        echo ""
+        echo "Abriendo Control → ${url}"
+        print_lan_control_hint "$port"
+        echo "Dejá esta Terminal abierta. Para detener: Ctrl+C."
+        touch "$opened_marker"
+        if command -v open >/dev/null 2>&1; then
+          open "$url" || true
+        elif command -v xdg-open >/dev/null 2>&1; then
+          xdg-open "$url" >/dev/null 2>&1 || true
+        else
+          echo "Abrí manualmente: ${url}"
         fi
-      else
-        # Sin curl: probar con bash /dev/tcp (solo puerto; aún abrimos /control).
-        if (echo >/dev/tcp/127.0.0.1/"$port") >/dev/null 2>&1; then
-          url="http://localhost:${port}/control"
-          echo ""
-          echo "Abriendo Control → ${url}"
-          print_lan_control_hint "$port"
-          echo "Dejá esta Terminal abierta. Para detener: Ctrl+C."
-          touch "$opened_marker"
-          if command -v xdg-open >/dev/null 2>&1; then
-            xdg-open "$url" >/dev/null 2>&1 || true
-          else
-            echo "Abrí manualmente: ${url}"
-          fi
-          return 0
-        fi
+        return 0
       fi
     done
     sleep 1
@@ -189,7 +155,7 @@ open_existing_only() {
   exit 0
 }
 
-# Segunda instancia: NO liberar puertos (evita SIGTERM 143 en Vite).
+# Segunda instancia: NO liberar puertos (eso SIGTERM-ea Vite → exit 143).
 if [ -f "$LOCK_FILE" ]; then
   old_pid=$(tr -d '[:space:]' < "$LOCK_FILE" 2>/dev/null || true)
   if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
@@ -198,18 +164,21 @@ if [ -f "$LOCK_FILE" ]; then
   rm -f "$LOCK_FILE"
 fi
 
+# URL vieja de un arranque anterior — no abrir hasta que este run la reescriba.
 rm -f "$READY_FILE" ".promedia-browser-opened"
 
-# Atomic claim BEFORE freeing ports so a second start cannot also free/kill.
+# Atomic claim BEFORE freeing ports (noclobber) so a second double-click cannot also free/kill.
 if ! (set -C; echo $$ > "$LOCK_FILE") 2>/dev/null; then
   old_pid=$(tr -d '[:space:]' < "$LOCK_FILE" 2>/dev/null || true)
   open_existing_only "${old_pid:-}"
 fi
 
+# Fresh start only: free stale listeners (never again after children are up).
 free_promedia_port 8787
 for port in $VITE_PORTS; do
   free_promedia_port "$port"
 done
+# Dar tiempo a que el SO suelte los sockets (evitar hit a proceso/caché viejo).
 sleep 1 2>/dev/null || sleep 1
 
 if [ ! -d node_modules ] || [ ! -f node_modules/.modules.yaml ]; then
@@ -227,6 +196,7 @@ fi
 OPENER_PID=""
 
 cleanup_opener() {
+  # Solo matar el opener si sigue vivo (evitar kill a un PID reciclado = Vite).
   if [ -n "${OPENER_PID:-}" ] && kill -0 "$OPENER_PID" 2>/dev/null; then
     kill "$OPENER_PID" 2>/dev/null || true
     wait "$OPENER_PID" 2>/dev/null || true
@@ -253,18 +223,18 @@ pnpm dev || {
   cleanup_all
   echo ""
   echo "ERROR: pnpm dev terminó con fallo."
-  echo "¿Estás en la carpeta correcta? Debe ser …/AgentEvolver/promedia"
+  echo "¿Estás en la carpeta correcta? Debe ser …/ProMedia"
   echo "Ruta actual: $(pwd)"
   echo ""
   echo "Si ves EADDRINUSE / puerto en uso:"
-  echo "  ss -ltnp 'sport = :8787'   # o: lsof -nP -iTCP:8787 -sTCP:LISTEN"
-  echo "  ss -ltnp 'sport = :5173'"
+  echo "  lsof -nP -iTCP:8787 -sTCP:LISTEN"
+  echo "  lsof -nP -iTCP:5173 -sTCP:LISTEN"
   echo "  kill <PID>"
-  echo "Luego volvé a abrir start-linux.sh (o Abrir-ProMedia.sh)."
+  echo "Luego volvé a abrir start-mac.command (o Abrir-ProMedia.command)."
   echo ""
   echo "Workaround (dos Terminales):"
-  echo "  Terminal A: cd …/promedia && pnpm dev:hub"
-  echo "  Terminal B: cd …/promedia && pnpm dev:web"
+  echo "  Terminal A: cd …/ProMedia && pnpm dev:hub"
+  echo "  Terminal B: cd …/ProMedia && pnpm dev:web"
   echo "  Luego abrí http://localhost:5173/control"
   read -r -p "Pulsá Enter para cerrar…"
   exit 1

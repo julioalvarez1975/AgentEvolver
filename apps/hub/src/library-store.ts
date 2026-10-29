@@ -47,14 +47,14 @@ function newId(): string {
 }
 
 /**
- * Prefer monorepo `promedia/data/library` (gitignored) so imports work the same
+ * Prefer monorepo `data/library` (gitignored) so imports work the same
  * whether the hub is started from repo root or `apps/hub` via pnpm filter.
  */
 function libraryRoot(): string {
   if (process.env.LIBRARY_ROOT?.trim()) {
     return process.env.LIBRARY_ROOT.trim();
   }
-  // src|dist → apps/hub → apps → promedia
+  // src|dist → apps/hub → apps → repo root
   const promediaRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     "../../..",

@@ -3,15 +3,15 @@ import { mkdir, readdir, rm, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 /**
- * Monorepo `promedia/` root — same whether the hub is started from repo root
+ * Repo root — same whether the hub is started from repo root
  * or `apps/hub` via pnpm filter (cwd alone is unreliable).
  */
 export function promediaRoot(): string {
-  // src|dist → apps/hub → apps → promedia
+  // src|dist → apps/hub → apps → repo root
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 }
 
-/** Gitignored model + cache root under promedia/data/. */
+/** Gitignored model + cache root under data/. */
 export function subtitleDataRoot(): string {
   if (process.env.SUBTITLE_DATA_ROOT?.trim()) {
     return process.env.SUBTITLE_DATA_ROOT.trim();
@@ -69,7 +69,7 @@ type TransformersEnvLike = {
 
 /**
  * Configure `@huggingface/transformers` so ONNX weights download into and
- * reload from `subtitleModelsRoot()` (gitignored `promedia/data/models`).
+ * reload from `subtitleModelsRoot()` (gitignored `data/models`).
  * Must run after dynamic `import("@huggingface/transformers")` and before
  * `pipeline(...)`.
  */

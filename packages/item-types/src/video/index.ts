@@ -7,6 +7,7 @@ export {
   parseYouTubeUrl,
   isYouTubeVideoId,
 } from "./schema.js";
+export { fetchYouTubeDisplayTitle } from "./youtube.js";
 export { VideoPreview } from "./Preview.js";
 export { VideoLivePanel } from "./LivePanel.js";
 export { VideoOutputRenderer } from "./OutputRenderer.js";

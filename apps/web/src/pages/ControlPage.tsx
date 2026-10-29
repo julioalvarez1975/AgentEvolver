@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createEmptyTextPayload,
   cryptoRandomId,
+  fetchYouTubeDisplayTitle,
   getItemType,
   parseYouTubeUrl,
 } from "@promedia/item-types";
@@ -146,6 +147,8 @@ export function ControlPage() {
   const [aboutOpen, setAboutOpen] = useState(false);
   const [cancioneroNoMatchOpen, setCancioneroNoMatchOpen] = useState(false);
   const cancioneroWarnShownFor = useRef<string | null>(null);
+  /** YouTube items already probed for oEmbed title (avoid repeat fetches). */
+  const youtubeTitleTried = useRef<Set<string>>(new Set());
   /** Remember video durations (preview metadata) for remaining-time / scrub max. */
   const [durationByItemId, setDurationByItemId] = useState<
     Record<string, number>
@@ -166,6 +169,29 @@ export function ControlPage() {
 
   const items = session.snapshot?.playlist.items ?? [];
   itemsLenRef.current = items.length;
+
+  // Backfill Guion labels: YouTube items stored as "YouTube {id}" get real titles.
+  useEffect(() => {
+    if (!session.hasSession || session.wsStatus !== "open") return;
+    for (const it of items) {
+      if (it.type !== "video" || it.payload.sourceKind !== "youtube") continue;
+      if (it.payload.title?.trim()) continue;
+      if (youtubeTitleTried.current.has(it.id)) continue;
+      youtubeTitleTried.current.add(it.id);
+      const sourceUrl =
+        it.payload.sourceUrl?.trim() ||
+        `https://www.youtube.com/watch?v=${it.payload.videoId}`;
+      const itemId = it.id;
+      const basePayload = it.payload;
+      void fetchYouTubeDisplayTitle(sourceUrl).then((title) => {
+        if (!title) return;
+        session.updateItem(itemId, {
+          payload: { ...basePayload, title },
+        });
+      });
+    }
+  }, [items, session.hasSession, session.wsStatus, session.updateItem]);
+
   const selectedItem = useMemo(
     () => items.find((i) => i.id === selectedItemId) ?? null,
     [items, selectedItemId],
@@ -835,6 +861,13 @@ export function ControlPage() {
     setSelectedItemId(item.id);
     closeLinkDialog();
     setUploadHint(t("video.youtubeCaveat"));
+    // Resolve real title for Guion label (async; list updates when ready).
+    void fetchYouTubeDisplayTitle(parsed.sourceUrl).then((title) => {
+      if (!title) return;
+      session.updateItem(item.id, {
+        payload: { ...payload, title },
+      });
+    });
   };
 
   const addGenericLink = (url: string) => {
@@ -1715,10 +1748,16 @@ export function ControlPage() {
               <span className="preview-tb-sep" aria-hidden="true" />
               <button
                 type="button"
-                className="btn btn-primary preview-tb-golive"
+                className={[
+                  "btn btn-primary preview-tb-golive",
+                  liveItemId ? "is-on-air" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
                 disabled={!canGoLive}
                 title={t("shortcuts.goLive")}
                 aria-label={t("shortcuts.goLive")}
+                aria-pressed={Boolean(liveItemId)}
                 onClick={() => {
                   if (selectedItemId) {
                     session.goLive(selectedItemId);

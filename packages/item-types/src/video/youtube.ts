@@ -45,3 +45,31 @@ export function parseYouTubeUrl(input: string): { videoId: string; sourceUrl: st
   }
   return { videoId, sourceUrl: raw };
 }
+
+/**
+ * Public oEmbed title for Guion labels (no API key). Returns null offline
+ * / blocked / private videos — caller keeps `YouTube {id}` fallback.
+ */
+export async function fetchYouTubeDisplayTitle(
+  sourceUrl: string,
+): Promise<string | null> {
+  const url = sourceUrl.trim();
+  if (!url) return null;
+  const endpoints = [
+    `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
+    `https://noembed.com/embed?url=${encodeURIComponent(url)}`,
+  ];
+  for (const endpoint of endpoints) {
+    try {
+      const res = await fetch(endpoint);
+      if (!res.ok) continue;
+      const data = (await res.json()) as { title?: unknown };
+      if (typeof data.title === "string" && data.title.trim()) {
+        return data.title.trim();
+      }
+    } catch {
+      // try next endpoint
+    }
+  }
+  return null;
+}

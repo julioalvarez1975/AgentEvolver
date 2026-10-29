@@ -1,16 +1,24 @@
-# OS / editor
+node_modules
+dist
+/data
+apps/hub/data
+*.tsbuildinfo
+*.local
+.env
+.env.*
+!.env.example
 .DS_Store
+*.log
+.turbo
+coverage
+.vite
+.promedia-ready-url
+.promedia-lan-url
+.promedia-dev.lock
+.promedia-browser-opened
 .idea/
 .vscode/
 *.swp
-*.log
-
-# Env / secrets
-.env
 .venv/
 venv/
-
-# Python leftovers (if any)
 __pycache__/
-*.py[cod]
-.cache/

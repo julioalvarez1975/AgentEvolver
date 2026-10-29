@@ -441,9 +441,15 @@ export function SchedulePanel({
                     <div className="schedule-row-actions">
                       <button
                         type="button"
-                        className="btn btn-ghost schedule-go-btn"
+                        className={[
+                          "btn btn-ghost schedule-go-btn",
+                          isLive ? "is-on-air" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
                         disabled={!canMutate || isLive}
                         title={t("control.goLive")}
+                        aria-pressed={isLive}
                         onClick={() => onGoLive(item.id)}
                       >
                         {t("playlist.goLiveShort")}

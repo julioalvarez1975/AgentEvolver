@@ -1200,6 +1200,12 @@ body {
   flex-shrink: 0;
 }
 
+.preview-tb-golive.is-on-air {
+  border: 1.5px solid #e03535;
+  box-shadow: 0 0 0 1px rgba(224, 53, 53, 0.35);
+  animation: pm-live-border-blink 1s ease-in-out infinite;
+}
+
 .preview-tb-golive-label {
   font-size: 0.78rem;
   font-weight: 600;
@@ -2514,7 +2520,7 @@ body {
 }
 
 .schedule-item.is-live {
-  box-shadow: inset 3px 0 0 #3ecf8e;
+  box-shadow: inset 3px 0 0 #e03535;
 }
 
 .schedule-item.is-dragging {
@@ -2626,10 +2632,12 @@ body {
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.05em;
-  color: #0c1a14;
-  background: #3ecf8e;
+  color: #ffd6d6;
+  background: #7a1515;
+  border: 1.5px solid #e03535;
   border-radius: 2px;
   padding: 0.08rem 0.3rem;
+  animation: pm-live-border-blink 1s ease-in-out infinite;
 }
 
 .schedule-row-actions {
@@ -2650,6 +2658,34 @@ body {
 .schedule-go-btn {
   color: #3ecf8e !important;
   font-weight: 650;
+  border: 1.5px solid transparent;
+}
+
+.schedule-go-btn.is-on-air {
+  color: #ff6b6b !important;
+  border-color: #e03535;
+  background: rgba(224, 53, 53, 0.12);
+  animation: pm-live-border-blink 1s ease-in-out infinite;
+}
+
+@keyframes pm-live-border-blink {
+  0%,
+  100% {
+    border-color: #e03535;
+    box-shadow: 0 0 0 0 rgba(224, 53, 53, 0.55);
+  }
+  50% {
+    border-color: #ff7070;
+    box-shadow: 0 0 0 2px rgba(224, 53, 53, 0.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .schedule-go-btn.is-on-air,
+  .schedule-live-badge,
+  .preview-tb-golive.is-on-air {
+    animation: none;
+  }
 }
 
 .schedule-remove-btn {

@@ -35,6 +35,7 @@ export {
   normalizeVideoPayload,
   parseYouTubeUrl,
   isYouTubeVideoId,
+  fetchYouTubeDisplayTitle,
   VideoPreview,
   VideoLivePanel,
   VideoOutputRenderer,
