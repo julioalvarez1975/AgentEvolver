@@ -335,6 +335,15 @@ export function useSessionConnection(role: ClientRole) {
     [send],
   );
 
+  const nudgeSubtitleCancionero = useCallback(
+    (patch: {
+      delta: -1 | 1;
+      positionMs?: number;
+      itemId?: string;
+    }): boolean => send("live.subtitleAgent.nudge", patch),
+    [send],
+  );
+
   const isWsOpen = useCallback(
     () => socketRef.current?.isOpen === true,
     [],
@@ -369,6 +378,7 @@ export function useSessionConnection(role: ClientRole) {
     setTheme,
     setSubtitleAgent,
     teachSubtitleCancionero,
+    nudgeSubtitleCancionero,
     isWsOpen,
     hasSession: Boolean(sessionId && wsTicket),
   };

@@ -44,6 +44,8 @@ export type MediaTypeModule = {
     }) => void;
     onDurationMs?: (ms: number) => void;
     durationMsHint?: number;
+    /** Local scrub/playhead (ms) before Go Live — drives Preview karaoke overlay. */
+    onLocalPositionMs?: (ms: number) => void;
   }>;
   LivePanel: ComponentType<{
     item: PlaylistItem;

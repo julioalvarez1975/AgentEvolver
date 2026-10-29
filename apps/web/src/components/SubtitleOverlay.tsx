@@ -148,6 +148,18 @@ export function SubtitleOverlay({
       return null;
     }
 
+    // Manual ←/→ step: show the operator-chosen cue over Preview/Output.
+    const manual =
+      typeof state.cueIndex === "number" &&
+      Number.isFinite(state.cueIndex) &&
+      state.cueIndex >= 0 &&
+      state.cueIndex < state.cues.length
+        ? state.cues[state.cueIndex]!
+        : null;
+    if (manual?.text) {
+      return manual;
+    }
+
     let positionMs: number;
     if (mediaClock && (!itemId || mediaClock.itemId === itemId)) {
       positionMs = effectiveMediaClockPositionMs(mediaClock, nowMs);
@@ -170,6 +182,7 @@ export function SubtitleOverlay({
     state.itemId,
     state.status,
     state.cues,
+    state.cueIndex,
     itemId,
     mediaClock,
     localPositionMs,

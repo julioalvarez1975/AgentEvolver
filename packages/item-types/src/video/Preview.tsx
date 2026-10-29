@@ -30,6 +30,8 @@ export type VideoPreviewProps = {
   onDurationMs?: (ms: number) => void;
   /** Known duration while projecting YouTube (thumb-only; no local probe). */
   durationMsHint?: number;
+  /** Local playhead before Go Live (Vista Previa karaoke). */
+  onLocalPositionMs?: (ms: number) => void;
 };
 
 /**
@@ -45,6 +47,7 @@ export function VideoPreview({
   onMediaClockSet,
   onDurationMs,
   durationMsHint = 0,
+  onLocalPositionMs,
 }: VideoPreviewProps) {
   if (item.type !== "video") {
     return null;
@@ -76,6 +79,7 @@ export function VideoPreview({
               loop={loop}
               fit={fit}
               onDurationMs={onDurationMs}
+              onLocalPositionMs={onLocalPositionMs}
             />
           )
         ) : (
@@ -114,6 +118,7 @@ export function VideoPreview({
           initialMuted={initialMuted}
           loop={loop}
           onDurationMs={onDurationMs}
+          onLocalPositionMs={onLocalPositionMs}
         />
       )}
       <p className="video-caveat">
@@ -382,12 +387,14 @@ function FilePreviewWithToolbar({
   loop,
   fit,
   onDurationMs,
+  onLocalPositionMs,
 }: {
   src: string;
   initialMuted: boolean;
   loop: boolean;
   fit: "contain" | "cover";
   onDurationMs?: (ms: number) => void;
+  onLocalPositionMs?: (ms: number) => void;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [durationMs, setDurationMs] = useState(0);
@@ -423,7 +430,9 @@ function FilePreviewWithToolbar({
     };
     const onTime = () => {
       if (!scrubbing) {
-        setPositionMs(el.currentTime * 1000);
+        const ms = el.currentTime * 1000;
+        setPositionMs(ms);
+        onLocalPositionMs?.(ms);
       }
     };
     const onPlay = () => setPlaying(true);
@@ -440,7 +449,7 @@ function FilePreviewWithToolbar({
       el.removeEventListener("play", onPlay);
       el.removeEventListener("pause", onPause);
     };
-  }, [scrubbing, src, onDurationMs]);
+  }, [scrubbing, src, onDurationMs, onLocalPositionMs]);
 
   const seekTo = (ms: number) => {
     const el = ref.current;
@@ -450,6 +459,7 @@ function FilePreviewWithToolbar({
     const clamped = Math.max(0, Math.min(ms, durationMs || ms));
     el.currentTime = clamped / 1000;
     setPositionMs(clamped);
+    onLocalPositionMs?.(clamped);
   };
 
   const displayMs = scrubbing ? scrubMs : positionMs;
@@ -516,11 +526,13 @@ function YouTubePreviewWithToolbar({
   initialMuted,
   loop,
   onDurationMs,
+  onLocalPositionMs,
 }: {
   videoId: string;
   initialMuted: boolean;
   loop: boolean;
   onDurationMs?: (ms: number) => void;
+  onLocalPositionMs?: (ms: number) => void;
 }) {
   const playerRef = useRef<YouTubePlayerHandle>(null);
   const [ready, setReady] = useState(false);
@@ -553,11 +565,13 @@ function YouTubePreviewWithToolbar({
         onDurationMs?.(dur);
       }
       if (!scrubbing) {
-        setPositionMs(p.getCurrentTimeMs());
+        const ms = p.getCurrentTimeMs();
+        setPositionMs(ms);
+        onLocalPositionMs?.(ms);
       }
     }, 250);
     return () => window.clearInterval(id);
-  }, [ready, scrubbing, onDurationMs]);
+  }, [ready, scrubbing, onDurationMs, onLocalPositionMs]);
 
   useEffect(() => {
     const p = playerRef.current;
@@ -579,6 +593,7 @@ function YouTubePreviewWithToolbar({
     const clamped = Math.max(0, Math.min(ms, durationMs || ms));
     p.seekToMs(clamped);
     setPositionMs(clamped);
+    onLocalPositionMs?.(clamped);
   };
 
   const displayMs = scrubbing ? scrubMs : positionMs;

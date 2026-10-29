@@ -447,6 +447,11 @@ export type SubtitleAgentState = {
   /** True when cue text was machine-translated to targetLang. */
   translated: boolean;
   cues: SubtitleCue[];
+  /**
+   * Manual karaoke step: when set, Preview/Output show `cues[cueIndex]`
+   * instead of clock lookup. ←/→ nudge this while the operator teaches timing.
+   */
+  cueIndex: number | null;
   /** Operator-facing hint (downloading YouTube audio, text-only song, error, …). */
   hint: string | null;
   updatedAt: string | null;
@@ -467,16 +472,24 @@ export function emptySubtitleAgentState(
     sourceLang: null,
     translated: false,
     cues: [],
+    cueIndex: null,
     hint: null,
     updatedAt: null,
   };
 }
 
-/** Coerce legacy snapshots missing fontSize / leadMs / timingMode. */
+/** Coerce legacy snapshots missing fontSize / leadMs / timingMode / cueIndex. */
 export function normalizeSubtitleAgentState(
   raw: SubtitleAgentState | null | undefined,
 ): SubtitleAgentState {
   const base = raw ?? emptySubtitleAgentState();
+  const cueIndexRaw = (base as { cueIndex?: unknown }).cueIndex;
+  const cueIndex =
+    typeof cueIndexRaw === "number" &&
+    Number.isFinite(cueIndexRaw) &&
+    cueIndexRaw >= 0
+      ? Math.floor(cueIndexRaw)
+      : null;
   return {
     ...base,
     fontSize: isSubtitleFontSize(base.fontSize) ? base.fontSize : "md",
@@ -488,7 +501,30 @@ export function normalizeSubtitleAgentState(
     )
       ? (base as { timingMode: SubtitleTimingMode }).timingMode
       : "exact",
+    cueIndex,
   };
+}
+
+/** Index of the cue active at position (or last started ≤ t; −1 if none). */
+export function cueIndexAtPositionMs(
+  cues: readonly SubtitleCue[],
+  positionMs: number,
+): number {
+  if (!cues.length || !Number.isFinite(positionMs)) {
+    return -1;
+  }
+  const t = Math.max(0, positionMs);
+  let last = -1;
+  for (let i = 0; i < cues.length; i++) {
+    const c = cues[i]!;
+    if (t >= c.startMs && t < c.endMs) {
+      return i;
+    }
+    if (c.startMs <= t) {
+      last = i;
+    }
+  }
+  return last;
 }
 
 /** Active cue at mediaClock position (inclusive start, exclusive end). */
@@ -774,6 +810,21 @@ export type LiveSubtitleAgentTeachMessage = {
   };
 };
 
+/**
+ * Operator steps karaoke cues with ←/→ on Preview. Optional positionMs is the
+ * wall-clock “this line starts now” sample used to teach timing.
+ */
+export type LiveSubtitleAgentNudgeMessage = {
+  type: "live.subtitleAgent.nudge";
+  payload: {
+    /** −1 previous line · +1 next line (teach start at positionMs). */
+    delta: -1 | 1;
+    /** Media position (ms) when the operator pressed the key. */
+    positionMs?: number;
+    itemId?: string;
+  };
+};
+
 export type LiveSetSceneModeMessage = {
   type: "live.setSceneMode";
   payload: { sceneMode: SceneMode };
@@ -803,6 +854,7 @@ export type ClientToHubMessage =
   | LiveMediaClockSetMessage
   | LiveSubtitleAgentSetMessage
   | LiveSubtitleAgentTeachMessage
+  | LiveSubtitleAgentNudgeMessage
   | LiveSetSceneModeMessage
   | LiveSetThemeMessage;
 

@@ -23,6 +23,7 @@ import {
   DEFAULT_THEME_BACKGROUND,
   DEFAULT_THEME_ID,
   DEFAULT_TRANSITION_EFFECT,
+  effectiveMediaClockPositionMs,
   emptySubtitleAgentState,
   isSubtitleTargetLang,
   itemHasSlides,
@@ -149,6 +150,8 @@ export function ControlPage() {
   const [cancioneroNoMatchOpen, setCancioneroNoMatchOpen] = useState(false);
   const [cancioneroTeachOpen, setCancioneroTeachOpen] = useState(false);
   const [cancioneroTeachBusy, setCancioneroTeachBusy] = useState(false);
+  /** Local Preview playhead (ms) before Go Live — karaoke overlay + ←/→ teach. */
+  const [previewLocalPositionMs, setPreviewLocalPositionMs] = useState(0);
   const cancioneroWarnShownFor = useRef<string | null>(null);
   /** YouTube items already probed for oEmbed title (avoid repeat fetches). */
   const youtubeTitleTried = useRef<Set<string>>(new Set());
@@ -640,6 +643,38 @@ export function ControlPage() {
     })();
   };
 
+  const karaokeManualReady = Boolean(
+    subtitleAgent.enabled &&
+      subtitleAgent.status === "ready" &&
+      subtitleAgent.cues.length > 0 &&
+      selectedItem &&
+      (selectedItem.type === "video" || selectedItem.type === "audio") &&
+      (!subtitleAgent.itemId || subtitleAgent.itemId === selectedItem.id),
+  );
+
+  const karaokePositionMs = (): number => {
+    if (
+      selectedItem &&
+      selectedItem.id === liveItemId &&
+      mediaClock &&
+      mediaClock.itemId === selectedItem.id
+    ) {
+      return effectiveMediaClockPositionMs(mediaClock);
+    }
+    return Math.max(0, previewLocalPositionMs);
+  };
+
+  const nudgeKaraoke = (delta: -1 | 1) => {
+    if (!karaokeManualReady || !selectedItem) {
+      return false;
+    }
+    return session.nudgeSubtitleCancionero({
+      delta,
+      positionMs: karaokePositionMs(),
+      itemId: selectedItem.id,
+    });
+  };
+
   useControlShortcuts({
     enabled: canMutate,
     goLive: () => {
@@ -651,11 +686,17 @@ export function ControlPage() {
     setSceneMode: (mode) => session.setSceneMode(mode),
     setTheme: (id) => session.setTheme({ themeId: id }),
     prevSlide: () => {
+      if (nudgeKaraoke(-1)) {
+        return;
+      }
       if (liveItem && itemHasSlides(liveItem)) {
         session.setSlide(liveSlideIndex - 1);
       }
     },
     nextSlide: () => {
+      if (nudgeKaraoke(1)) {
+        return;
+      }
       if (liveItem && itemHasSlides(liveItem)) {
         session.setSlide(liveSlideIndex + 1);
       }
@@ -665,6 +706,7 @@ export function ControlPage() {
   const selectItem = (id: string) => {
     setSelectedItemId(id);
     setPreviewSlideIndex(0);
+    setPreviewLocalPositionMs(0);
     setCreating(false);
     setEditingId(null);
     setLinkDialogOpen(false);
@@ -1177,6 +1219,9 @@ export function ControlPage() {
       : 0;
 
   const previewGoPrev = () => {
+    if (nudgeKaraoke(-1)) {
+      return;
+    }
     if (
       selectedItem &&
       itemHasSlides(selectedItem) &&
@@ -1194,6 +1239,9 @@ export function ControlPage() {
   };
 
   const previewGoNext = () => {
+    if (nudgeKaraoke(1)) {
+      return;
+    }
     if (
       selectedItem &&
       itemHasSlides(selectedItem) &&
@@ -1212,11 +1260,14 @@ export function ControlPage() {
 
   const canPreviewPrev =
     Boolean(selectedItem) &&
-    (previewSlideIndex > 0 || selectedIndex > 0);
+    (karaokeManualReady ||
+      previewSlideIndex > 0 ||
+      selectedIndex > 0);
   const canPreviewNext =
     Boolean(selectedItem) &&
-    ((itemHasSlides(selectedItem!) &&
-      previewSlideIndex < slideCount - 1) ||
+    (karaokeManualReady ||
+      (itemHasSlides(selectedItem!) &&
+        previewSlideIndex < slideCount - 1) ||
       (selectedIndex >= 0 && selectedIndex < items.length - 1));
 
   const removeOne = (id: string) => {
@@ -1875,6 +1926,12 @@ export function ControlPage() {
                     durationMsHint={
                       durationByItemId[selectedItem.id] ?? 0
                     }
+                    onLocalPositionMs={
+                      selectedItem.type === "video" ||
+                      selectedItem.type === "audio"
+                        ? setPreviewLocalPositionMs
+                        : undefined
+                    }
                   />
                   {previewVideoPlaneDots ? <StageDotsOverlay /> : null}
                 </div>
@@ -1886,6 +1943,14 @@ export function ControlPage() {
                 mediaClock={
                   selectedItem && selectedItem.id === liveItemId
                     ? mediaClock
+                    : null
+                }
+                localPositionMs={
+                  selectedItem &&
+                  (selectedItem.type === "video" ||
+                    selectedItem.type === "audio") &&
+                  selectedItem.id !== liveItemId
+                    ? previewLocalPositionMs
                     : null
                 }
                 itemId={selectedItem?.id ?? null}

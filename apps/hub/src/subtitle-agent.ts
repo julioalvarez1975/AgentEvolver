@@ -3,6 +3,7 @@ import type {
   HubMessage,
   PlaylistItem,
   SubtitleAgentState,
+  SubtitleCue,
   SubtitleFontSize,
   SubtitleLeadMs,
   SubtitleTargetLang,
@@ -11,6 +12,7 @@ import type {
 } from "@promedia/shared";
 import {
   CANCIONERO_DEFAULT_LEAD_MS,
+  cueIndexAtPositionMs,
   DEFAULT_SUBTITLE_LEAD_MS,
   emptySubtitleAgentState,
   normalizeSubtitleLeadMs,
@@ -35,10 +37,13 @@ import {
   shapeLyricLikeCues,
 } from "./subtitle-lyric-shape.js";
 import {
+  applyRememberedCueStarts,
   cancioneroMediaKey,
   recallCancioneroByMedia,
   recallCancioneroByTitles,
+  recallCancioneroTiming,
   rememberCancioneroMatch,
+  rememberCancioneroTiming,
 } from "./cancionero-memory.js";
 import {
   alignCancioneroLinesToTiming,
@@ -379,9 +384,55 @@ async function finishWithCues(options: {
     hint: hint ?? (nativeTrack ? "native_captions" : null),
     itemId,
     assetId,
+    cueIndex: null,
     ...leadPatch,
   });
   return true;
+}
+
+function mediaKeyFromAssetId(assetId: string | null | undefined): string | null {
+  const id = assetId?.trim();
+  if (!id) return null;
+  if (id.startsWith("yt_")) {
+    return cancioneroMediaKey({ youtubeVideoId: id.slice(3) });
+  }
+  return cancioneroMediaKey({ assetId: id });
+}
+
+/** Stamp cue `index` to start at `positionMs`; keep neighbors monotonic. */
+function retimedCuesAtIndex(
+  cues: readonly SubtitleCue[],
+  index: number,
+  positionMs: number,
+): SubtitleCue[] {
+  if (index < 0 || index >= cues.length) return [...cues];
+  const now = Math.max(0, Math.round(positionMs));
+  const next = cues.map((c) => ({ ...c }));
+  const cur = next[index]!;
+  cur.startMs = now;
+  if (index > 0) {
+    const prev = next[index - 1]!;
+    prev.endMs = Math.max(prev.startMs + 400, now);
+  }
+  if (index + 1 < next.length) {
+    const following = next[index + 1]!;
+    if (following.startMs < now + 400) {
+      following.startMs = now + 400;
+    }
+    cur.endMs = Math.max(now + 500, following.startMs);
+  } else {
+    cur.endMs = Math.max(now + 800, cur.endMs);
+  }
+  // Repair forward chain if we pushed following starts.
+  for (let i = index + 1; i < next.length; i++) {
+    const a = next[i - 1]!;
+    const b = next[i]!;
+    if (b.startMs < a.startMs + 400) {
+      b.startMs = a.startMs + 400;
+    }
+    a.endMs = Math.max(a.startMs + 400, b.startMs);
+  }
+  return next;
 }
 
 function isStickyMissingBin(agent: SubtitleAgentState | null | undefined): boolean {
@@ -812,7 +863,19 @@ async function tryCancioneroLyricPath(options: {
   }
 
   // Prefer 1–2 / max 2 display lines (exact Biblioteca text, newlines kept).
-  const cues = packKaraokeDisplayCues(lineCues);
+  let cues = packKaraokeDisplayCues(lineCues);
+
+  // Apply operator-taught ←/→ timing from a previous session, if any.
+  const taughtTiming = await recallCancioneroTiming(mediaKey);
+  if (taughtTiming?.cueStarts?.length) {
+    const applied = applyRememberedCueStarts(cues, taughtTiming.cueStarts);
+    if (applied !== cues) {
+      console.log(
+        `[subtitle] karaoke timing memory applied n=${taughtTiming.cueStarts.length}`,
+      );
+    }
+    cues = applied;
+  }
 
   if (!cues.length) {
     const live = sessionStore.get(sessionId);
@@ -903,6 +966,7 @@ export function teachSubtitleCancionero(
     status: "idle",
     hint: "cancionero_teach",
     cues: [],
+    cueIndex: null,
     translated: false,
     sourceLang: null,
     updatedAt: new Date().toISOString(),
@@ -913,6 +977,90 @@ export function teachSubtitleCancionero(
     teachSongId: songId,
   });
   return message;
+}
+
+/**
+ * Operator steps karaoke on Preview with ←/→.
+ * Forward (→): show next cue and teach “this line starts now” at positionMs.
+ * Back (←): show previous cue (no rewrite unless stamping the same line).
+ */
+export function nudgeSubtitleCancionero(
+  session: SessionRecord,
+  patch: { delta: -1 | 1; positionMs?: number; itemId?: string },
+): HubMessage {
+  const prev = session.live.subtitleAgent ?? emptySubtitleAgentState();
+  const cues = prev.cues;
+  if (!prev.enabled || prev.status !== "ready" || cues.length === 0) {
+    return sessionStore.touchSubtitleAgent(session);
+  }
+
+  const clock = session.live.mediaClock;
+  const positionMs =
+    typeof patch.positionMs === "number" && Number.isFinite(patch.positionMs)
+      ? Math.max(0, patch.positionMs)
+      : Math.max(0, clock?.positionMs ?? 0);
+
+  const current =
+    prev.cueIndex != null &&
+    prev.cueIndex >= 0 &&
+    prev.cueIndex < cues.length
+      ? prev.cueIndex
+      : cueIndexAtPositionMs(cues, positionMs);
+
+  const delta: -1 | 1 = patch.delta === -1 ? -1 : 1;
+  let nextIndex: number;
+  if (delta === 1) {
+    nextIndex = current < 0 ? 0 : Math.min(cues.length - 1, current + 1);
+  } else {
+    nextIndex = current < 0 ? 0 : Math.max(0, current - 1);
+  }
+
+  let nextCues = cues;
+  // → teaches: the line we land on starts at the operator’s wall clock.
+  if (delta === 1) {
+    nextCues = retimedCuesAtIndex(cues, nextIndex, positionMs);
+    const mediaKey = mediaKeyFromAssetId(prev.assetId);
+    if (mediaKey) {
+      void rememberCancioneroTiming({
+        mediaKey,
+        cueStarts: nextCues.map((c) => c.startMs),
+      }).catch((err) => {
+        console.warn(
+          "[subtitle] cancionero timing save failed:",
+          err instanceof Error ? err.message : err,
+        );
+      });
+    }
+  }
+
+  session.live.subtitleAgent = {
+    ...prev,
+    cues: nextCues,
+    cueIndex: nextIndex,
+    hint: "cancionero_nudge",
+    updatedAt: new Date().toISOString(),
+  };
+
+  // ← rewinds the live clock to that line so the operator can re-teach;
+  // → leaves playback alone (“this line starts now” while video rolls).
+  if (delta === -1) {
+    const liveId = session.live.currentItemId;
+    const agentItem = prev.itemId;
+    if (
+      liveId &&
+      clock &&
+      (!agentItem || agentItem === liveId) &&
+      (!patch.itemId || patch.itemId === liveId)
+    ) {
+      const seekTo = nextCues[nextIndex]?.startMs ?? positionMs;
+      sessionStore.setMediaClock(session, {
+        playing: clock.playing,
+        positionMs: seekTo,
+      });
+    }
+  }
+
+  return sessionStore.touchSubtitleAgent(session);
 }
 
 /**

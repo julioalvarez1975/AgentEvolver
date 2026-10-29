@@ -22,6 +22,7 @@ import {
 } from "@promedia/shared";
 import {
   maybeRefreshSubtitleAgent,
+  nudgeSubtitleCancionero,
   setSubtitleAgent,
   teachSubtitleCancionero,
 } from "./subtitle-agent.js";
@@ -229,6 +230,34 @@ function parseClientMessage(raw: string): ClientToHubMessage | null {
         out.itemId = p.itemId;
       }
       return { type: "live.subtitleAgent.teach", payload: out };
+    }
+    if (type === "live.subtitleAgent.nudge") {
+      const p = payload as {
+        delta?: unknown;
+        positionMs?: unknown;
+        itemId?: unknown;
+      } | undefined;
+      if (!p || (p.delta !== -1 && p.delta !== 1)) {
+        return null;
+      }
+      const out: {
+        delta: -1 | 1;
+        positionMs?: number;
+        itemId?: string;
+      } = { delta: p.delta };
+      if (p.positionMs !== undefined) {
+        if (typeof p.positionMs !== "number" || !Number.isFinite(p.positionMs)) {
+          return null;
+        }
+        out.positionMs = Math.max(0, p.positionMs);
+      }
+      if (p.itemId !== undefined) {
+        if (typeof p.itemId !== "string") {
+          return null;
+        }
+        out.itemId = p.itemId;
+      }
+      return { type: "live.subtitleAgent.nudge", payload: out };
     }
     if (type === "live.setSceneMode") {
       const sceneMode = (payload as { sceneMode?: unknown } | undefined)?.sceneMode;
@@ -518,6 +547,13 @@ export class WsHub {
           conn,
           session,
           teachSubtitleCancionero(session, msg.payload),
+        );
+        return;
+      case "live.subtitleAgent.nudge":
+        this.applyResult(
+          conn,
+          session,
+          nudgeSubtitleCancionero(session, msg.payload),
         );
         return;
       case "live.setSceneMode":

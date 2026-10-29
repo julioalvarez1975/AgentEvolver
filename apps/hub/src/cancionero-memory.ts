@@ -1,6 +1,7 @@
 /**
  * Persistent karaoke “learning”: remember which Biblioteca song worked for a
- * YouTube id / audio asset / primary title so the next run skips bad aliases.
+ * YouTube id / audio asset / primary title so the next run skips bad aliases,
+ * plus operator-taught cue start times from Preview ←/→ nudges.
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -15,15 +16,28 @@ export type CancioneroMemoryEntry = {
   updatedAt: string;
 };
 
+export type CancioneroTimingEntry = {
+  /** Cue startMs taught by the operator (same order as packed karaoke cues). */
+  cueStarts: number[];
+  updatedAt: string;
+};
+
 type MemoryFile = {
   version: 1;
   /** yt:<videoId> | asset:<assetId> → song */
   byMedia: Record<string, CancioneroMemoryEntry>;
   /** normalized primary title → song */
   byTitle: Record<string, CancioneroMemoryEntry>;
+  /** yt:<videoId> | asset:<assetId> → taught cue starts */
+  timingByMedia?: Record<string, CancioneroTimingEntry>;
 };
 
-const EMPTY: MemoryFile = { version: 1, byMedia: {}, byTitle: {} };
+const EMPTY: MemoryFile = {
+  version: 1,
+  byMedia: {},
+  byTitle: {},
+  timingByMedia: {},
+};
 
 function memoryPath(): string {
   return path.join(promediaRoot(), "data", "cancionero-memory.json");
@@ -38,13 +52,16 @@ async function loadMemory(): Promise<MemoryFile> {
     const raw = await readFile(memoryPath(), "utf8");
     const parsed = JSON.parse(raw) as MemoryFile;
     if (parsed?.version === 1 && parsed.byMedia && parsed.byTitle) {
-      cache = parsed;
+      cache = {
+        ...parsed,
+        timingByMedia: parsed.timingByMedia ?? {},
+      };
       return cache;
     }
   } catch {
     // missing / corrupt → start fresh
   }
-  cache = { ...EMPTY, byMedia: {}, byTitle: {} };
+  cache = { ...EMPTY, byMedia: {}, byTitle: {}, timingByMedia: {} };
   return cache;
 }
 
@@ -115,5 +132,75 @@ export async function rememberCancioneroMatch(options: {
       byTitle[primary] = entry;
     }
   }
-  await saveMemory({ version: 1, byMedia, byTitle });
+  await saveMemory({
+    version: 1,
+    byMedia,
+    byTitle,
+    timingByMedia: mem.timingByMedia ?? {},
+  });
+}
+
+export async function recallCancioneroTiming(
+  mediaKey: string | null | undefined,
+): Promise<CancioneroTimingEntry | null> {
+  if (!mediaKey) return null;
+  const mem = await loadMemory();
+  return mem.timingByMedia?.[mediaKey] ?? null;
+}
+
+/** Persist operator-taught cue start times for this media. */
+export async function rememberCancioneroTiming(options: {
+  mediaKey: string;
+  cueStarts: number[];
+}): Promise<void> {
+  const key = options.mediaKey.trim();
+  if (!key || options.cueStarts.length === 0) return;
+  const mem = await loadMemory();
+  const timingByMedia = { ...(mem.timingByMedia ?? {}) };
+  timingByMedia[key] = {
+    cueStarts: options.cueStarts.map((ms) => Math.max(0, Math.round(ms))),
+    updatedAt: new Date().toISOString(),
+  };
+  await saveMemory({
+    version: 1,
+    byMedia: mem.byMedia,
+    byTitle: mem.byTitle,
+    timingByMedia,
+  });
+}
+
+/**
+ * Apply remembered starts onto aligned cues when counts match (or nearly).
+ * Keeps cue text; only rewrites start/end clocks.
+ */
+export function applyRememberedCueStarts<
+  T extends { startMs: number; endMs: number },
+>(cues: T[], remembered: number[] | null | undefined): T[] {
+  if (!remembered || remembered.length === 0 || cues.length === 0) {
+    return cues;
+  }
+  // Same pack length, or within ±1 (pack regrouping edge).
+  if (Math.abs(remembered.length - cues.length) > 1) {
+    return cues;
+  }
+  const n = cues.length;
+  const starts = cues.map((c, i) => {
+    const taught = remembered[Math.min(i, remembered.length - 1)];
+    return typeof taught === "number" && Number.isFinite(taught)
+      ? Math.max(0, Math.round(taught))
+      : c.startMs;
+  });
+  for (let i = 1; i < n; i++) {
+    if (starts[i]! < starts[i - 1]! + 400) {
+      starts[i] = starts[i - 1]! + 400;
+    }
+  }
+  return cues.map((c, i) => {
+    const startMs = starts[i]!;
+    const endMs =
+      i === n - 1
+        ? Math.max(startMs + 800, c.endMs)
+        : Math.max(startMs + 500, starts[i + 1]!);
+    return { ...c, startMs, endMs };
+  });
 }

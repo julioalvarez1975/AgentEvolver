@@ -21,6 +21,7 @@ export type AudioPreviewProps = {
   onMediaClockSet?: (patch: { playing: boolean; positionMs?: number }) => void;
   onDurationMs?: (ms: number) => void;
   durationMsHint?: number;
+  onLocalPositionMs?: (ms: number) => void;
 };
 
 /**
@@ -34,6 +35,7 @@ export function AudioPreview({
   mediaClock = null,
   onMediaClockSet,
   onDurationMs,
+  onLocalPositionMs,
 }: AudioPreviewProps) {
   if (item.type !== "audio") {
     return null;
@@ -60,6 +62,7 @@ export function AudioPreview({
             title={title}
             loop={loop}
             onDurationMs={onDurationMs}
+            onLocalPositionMs={onLocalPositionMs}
           />
         )
       ) : (
@@ -257,11 +260,13 @@ function LocalAudioPreview({
   title,
   loop,
   onDurationMs,
+  onLocalPositionMs,
 }: {
   src: string;
   title?: string;
   loop: boolean;
   onDurationMs?: (ms: number) => void;
+  onLocalPositionMs?: (ms: number) => void;
 }) {
   const ref = useRef<HTMLAudioElement>(null);
   const [durationMs, setDurationMs] = useState(0);
@@ -284,7 +289,9 @@ function LocalAudioPreview({
     };
     const onTime = () => {
       if (!scrubbing) {
-        setPositionMs(el.currentTime * 1000);
+        const ms = el.currentTime * 1000;
+        setPositionMs(ms);
+        onLocalPositionMs?.(ms);
       }
     };
     const onPlay = () => setPlaying(true);
@@ -301,7 +308,7 @@ function LocalAudioPreview({
       el.removeEventListener("play", onPlay);
       el.removeEventListener("pause", onPause);
     };
-  }, [scrubbing, src, onDurationMs]);
+  }, [scrubbing, src, onDurationMs, onLocalPositionMs]);
 
   const seekTo = (ms: number) => {
     const el = ref.current;
@@ -311,6 +318,7 @@ function LocalAudioPreview({
     const clamped = Math.max(0, Math.min(ms, durationMs || ms));
     el.currentTime = clamped / 1000;
     setPositionMs(clamped);
+    onLocalPositionMs?.(clamped);
   };
 
   const displayMs = scrubbing ? scrubMs : positionMs;
