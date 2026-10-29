@@ -2834,6 +2834,61 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
+}
+
+/* Side chevrons: page through bible/text projection chunks on Vista previa. */
+.text-preview-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(232, 238, 244, 0.22);
+  border-radius: 999px;
+  background: rgba(8, 12, 18, 0.55);
+  color: rgba(232, 238, 244, 0.92);
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.text-preview-nav:hover:not(:disabled) {
+  background: rgba(18, 28, 40, 0.82);
+  border-color: rgba(232, 238, 244, 0.42);
+  color: #fff;
+}
+
+.text-preview-nav:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.text-preview-nav-prev {
+  left: 0.45rem;
+}
+
+.text-preview-nav-next {
+  right: 0.45rem;
+}
+
+.text-preview-nav-icon {
+  display: block;
+}
+
+.text-preview[data-has-slide-nav="1"] .text-stage {
+  padding-left: 2.85rem;
+  padding-right: 2.85rem;
 }
 
 /* Stage shell: ResizeObserver fits typography to content box (≤5 rows).
@@ -2902,13 +2957,7 @@ body {
 }
 
 .text-slide-nav {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  color: var(--muted);
-  font-size: 0.85rem;
-  flex-shrink: 0;
+  display: none;
 }
 
 /* Full-bleed centered text on Output (≤5 lines; font sized by FittedTextStage). */
