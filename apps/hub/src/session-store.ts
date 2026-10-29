@@ -1,4 +1,6 @@
 import type {
+  AudioPayload,
+  BiblePayload,
   ClientRole,
   HubMessage,
   ImagePayload,
@@ -308,7 +310,13 @@ export class SessionStore {
     session: SessionRecord,
     id: string,
     patch: {
-      payload?: TextPayload | ImagePayload | VideoPayload | PresentationPayload;
+      payload?:
+        | TextPayload
+        | ImagePayload
+        | VideoPayload
+        | PresentationPayload
+        | BiblePayload
+        | AudioPayload;
       order?: number;
     },
   ): HubMessage | { error: string } {

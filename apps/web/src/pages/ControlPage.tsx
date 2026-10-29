@@ -128,6 +128,7 @@ export function ControlPage() {
   const [creating, setCreating] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [bibleDialogOpen, setBibleDialogOpen] = useState(false);
+  const [editingBibleId, setEditingBibleId] = useState<string | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [songEditorOpen, setSongEditorOpen] = useState(false);
   const [songBusy, setSongBusy] = useState(false);
@@ -699,7 +700,11 @@ export function ControlPage() {
         return;
       }
       if (liveItem && itemHasSlides(liveItem)) {
-        session.setSlide(liveSlideIndex - 1);
+        const next = Math.max(0, liveSlideIndex - 1);
+        session.setSlide(next);
+        if (selectedItemId === liveItem.id) {
+          setPreviewSlideIndex(next);
+        }
       }
     },
     nextSlide: () => {
@@ -707,17 +712,25 @@ export function ControlPage() {
         return;
       }
       if (liveItem && itemHasSlides(liveItem)) {
-        session.setSlide(liveSlideIndex + 1);
+        const max = Math.max(itemProjectionSlideCount(liveItem) - 1, 0);
+        const next = Math.min(max, liveSlideIndex + 1);
+        session.setSlide(next);
+        if (selectedItemId === liveItem.id) {
+          setPreviewSlideIndex(next);
+        }
       }
     },
   });
 
   const selectItem = (id: string) => {
     setSelectedItemId(id);
-    setPreviewSlideIndex(0);
+    setPreviewSlideIndex(
+      id === liveItemId ? liveSlideIndex : 0,
+    );
     setPreviewLocalPositionMs(0);
     setCreating(false);
     setEditingId(null);
+    setEditingBibleId(null);
     setLinkDialogOpen(false);
     setBibleDialogOpen(false);
   };
@@ -802,11 +815,25 @@ export function ControlPage() {
     setUploadHint(null);
     setCreating(false);
     setEditingId(null);
+    setEditingBibleId(null);
     setLinkDialogOpen(false);
     setBibleDialogOpen(true);
   };
 
-  const closeBibleDialog = () => setBibleDialogOpen(false);
+  const openEditBible = (id: string) => {
+    setUploadHint(null);
+    setCreating(false);
+    setEditingId(null);
+    setEditingBibleId(id);
+    setSelectedItemId(id);
+    setLinkDialogOpen(false);
+    setBibleDialogOpen(true);
+  };
+
+  const closeBibleDialog = () => {
+    setBibleDialogOpen(false);
+    setEditingBibleId(null);
+  };
 
   const openLibrary = () => {
     setUploadHint(null);
@@ -876,6 +903,28 @@ export function ControlPage() {
     }
     setSelectedItemId(item.id);
     setPreviewSlideIndex(0);
+    closeBibleDialog();
+    if (payload.fromCache) {
+      setUploadHint(t("bible.addedFromCache"));
+    } else {
+      setUploadHint(null);
+    }
+  };
+
+  const saveBiblePassage = (payload: BiblePayload) => {
+    if (!editingBibleId || !ensureWsOrHint()) {
+      return;
+    }
+    if (!session.updateItem(editingBibleId, { payload })) {
+      setUploadHint(t("control.wsDisconnectedHint"));
+      session.reconnect();
+      return;
+    }
+    setSelectedItemId(editingBibleId);
+    setPreviewSlideIndex(0);
+    if (editingBibleId === liveItemId) {
+      session.setSlide(0);
+    }
     closeBibleDialog();
     if (payload.fromCache) {
       setUploadHint(t("bible.addedFromCache"));
@@ -1196,19 +1245,43 @@ export function ControlPage() {
     if (!ensureWsOrHint()) {
       return;
     }
+    const keepSlide =
+      id === selectedItemId &&
+      selectedItem &&
+      itemHasSlides(selectedItem)
+        ? previewSlideIndex
+        : 0;
     setSelectedItemId(id);
-    setPreviewSlideIndex(0);
+    setPreviewSlideIndex(keepSlide);
     setCreating(false);
     setEditingId(null);
+    setEditingBibleId(null);
     setLinkDialogOpen(false);
     setBibleDialogOpen(false);
     session.goLive(id);
+    if (keepSlide > 0) {
+      session.setSlide(keepSlide);
+    }
   };
 
   const slideCount =
     selectedItem && itemHasSlides(selectedItem)
       ? itemProjectionSlideCount(selectedItem)
       : 0;
+
+  /** Preview ←/→ also drives Output when this item is live. */
+  const setPreviewSlideSynced = (index: number) => {
+    const max = Math.max(slideCount - 1, 0);
+    const next = Math.min(Math.max(index, 0), max);
+    setPreviewSlideIndex(next);
+    if (
+      selectedItem &&
+      selectedItem.id === liveItemId &&
+      itemHasSlides(selectedItem)
+    ) {
+      session.setSlide(next);
+    }
+  };
 
   const previewGoPrev = () => {
     if (nudgeKaraoke(-1)) {
@@ -1219,7 +1292,7 @@ export function ControlPage() {
       itemHasSlides(selectedItem) &&
       previewSlideIndex > 0
     ) {
-      setPreviewSlideIndex(previewSlideIndex - 1);
+      setPreviewSlideSynced(previewSlideIndex - 1);
       return;
     }
     if (selectedIndex > 0) {
@@ -1239,7 +1312,7 @@ export function ControlPage() {
       itemHasSlides(selectedItem) &&
       previewSlideIndex < slideCount - 1
     ) {
-      setPreviewSlideIndex(previewSlideIndex + 1);
+      setPreviewSlideSynced(previewSlideIndex + 1);
       return;
     }
     if (selectedIndex >= 0 && selectedIndex < items.length - 1) {
@@ -1634,9 +1707,18 @@ export function ControlPage() {
       />
 
       <BibleDialog
+        key={editingBibleId ?? "bible-new"}
         open={bibleDialogOpen}
         onClose={closeBibleDialog}
         onAdd={addBiblePassage}
+        initial={(() => {
+          if (!editingBibleId) {
+            return null;
+          }
+          const hit = items.find((i) => i.id === editingBibleId);
+          return hit?.type === "bible" ? hit.payload : null;
+        })()}
+        onSave={editingBibleId ? saveBiblePassage : undefined}
       />
 
       <BibliotecaDialog
@@ -1683,6 +1765,9 @@ export function ControlPage() {
             onEditText={(id) => {
               selectItem(id);
               setEditingId(id);
+            }}
+            onEditBible={(id) => {
+              openEditBible(id);
             }}
             onAddFiles={() => {
               if (!sessionReady) {
@@ -1887,7 +1972,7 @@ export function ControlPage() {
                   <Preview
                     item={selectedItem}
                     slideIndex={previewSlideIndex}
-                    onSlideIndexChange={setPreviewSlideIndex}
+                    onSlideIndexChange={setPreviewSlideSynced}
                     assetSrc={previewSrc}
                     onFitChange={
                       selectedItem.type === "image" ||

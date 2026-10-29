@@ -34,6 +34,8 @@ export type SchedulePanelProps = {
   onRemoveChecked: () => void;
   onGoLive: (id: string) => void;
   onEditText: (id: string) => void;
+  /** Edit bible passage (expand verse range). */
+  onEditBible: (id: string) => void;
   /** Compact «+»: open native multi-file picker. */
   onAddFiles: () => void;
   /** Tab action: YouTube / generic link. */
@@ -86,6 +88,7 @@ export function SchedulePanel({
   onRemoveChecked,
   onGoLive,
   onEditText,
+  onEditBible,
   onAddFiles,
   onAddLink,
   onAddBible,
@@ -467,14 +470,18 @@ export function SchedulePanel({
                       >
                         {t("playlist.goLiveShort")}
                       </button>
-                      {item.type === "text" ? (
+                      {item.type === "text" || item.type === "bible" ? (
                         <button
                           type="button"
                           className="btn btn-ghost"
                           disabled={!canMutate}
                           onClick={() => {
                             onSelect(item.id);
-                            onEditText(item.id);
+                            if (item.type === "bible") {
+                              onEditBible(item.id);
+                            } else {
+                              onEditText(item.id);
+                            }
                           }}
                           title={t("playlist.edit")}
                         >

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
+  AudioPayload,
+  BiblePayload,
   ClientRole,
   HubMessage,
   ImagePayload,
@@ -290,7 +292,9 @@ export function useSessionConnection(role: ClientRole) {
           | TextPayload
           | ImagePayload
           | VideoPayload
-          | PresentationPayload;
+          | PresentationPayload
+          | BiblePayload
+          | AudioPayload;
         order?: number;
       },
     ): boolean => send("playlist.itemUpdate", { id, patch }),

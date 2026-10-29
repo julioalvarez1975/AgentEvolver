@@ -20,10 +20,20 @@ export type BibleDialogProps = {
   open: boolean;
   onClose: () => void;
   onAdd: (payload: BiblePayload) => void;
+  /** When set, dialog edits an existing Guion bible item (expand/change verses). */
+  initial?: BiblePayload | null;
+  onSave?: (payload: BiblePayload) => void;
 };
 
-export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
+export function BibleDialog({
+  open,
+  onClose,
+  onAdd,
+  initial = null,
+  onSave,
+}: BibleDialogProps) {
   const { t } = useLocale();
+  const editing = Boolean(initial && onSave);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const [versions, setVersions] = useState<BibleVersionInfo[]>([]);
@@ -51,6 +61,7 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
     }
     setError(null);
     setLoadingMeta(true);
+    const seed = initial;
     void (async () => {
       try {
         const [vRes, bRes] = await Promise.all([
@@ -59,10 +70,27 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
         ]);
         setVersions(vRes.versions);
         setBooks(bRes.books);
-        setVersionId(vRes.defaultVersionId || vRes.versions[0]?.id || "rvr1909");
         setLicenseNote(vRes.note ?? null);
-        if (!bRes.books.some((b) => b.id === bookId) && bRes.books[0]) {
-          setBookId(bRes.books[0].id);
+
+        if (seed) {
+          setVersionId(seed.versionId);
+          setBookId(seed.bookId);
+          setChapter(seed.chapter);
+          setVerseStart(seed.verseStart);
+          setVerseEnd(seed.verseEnd);
+          setSearchQ(seed.reference);
+        } else {
+          setVersionId(
+            vRes.defaultVersionId || vRes.versions[0]?.id || "rvr1909",
+          );
+          const firstBook = bRes.books[0];
+          if (firstBook) {
+            setBookId(firstBook.id);
+          }
+          setChapter(3);
+          setVerseStart(16);
+          setVerseEnd(16);
+          setSearchQ("");
         }
         window.setTimeout(() => searchRef.current?.focus(), 0);
       } catch (err) {
@@ -71,6 +99,7 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
         setLoadingMeta(false);
       }
     })();
+    // Seed once per open; parent should remount key when switching edit target.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open only
   }, [open]);
 
@@ -101,8 +130,16 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
     slides: data.slides,
   });
 
-  /** Lookup and add to Guion immediately — no preview/review step. */
-  const runLookupAndAdd = async (mode: "fields" | "search") => {
+  const commitPayload = (payload: BiblePayload) => {
+    if (editing && onSave) {
+      onSave(payload);
+    } else {
+      onAdd(payload);
+    }
+  };
+
+  /** Lookup and add/update Guion immediately — no preview/review step. */
+  const runLookupAndCommit = async (mode: "fields" | "search") => {
     setError(null);
     setLoadingPassage(true);
     try {
@@ -119,7 +156,7 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
               verseStart,
               verseEnd: Math.max(verseEnd, verseStart),
             });
-      onAdd(toPayload(data));
+      commitPayload(toPayload(data));
     } catch (err) {
       const e = err as Error & { code?: string };
       if (e.code === "api_failed" || /api_failed|bible_http_502/.test(e.message)) {
@@ -134,10 +171,16 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
     }
   };
 
+  const primaryLabel = loadingPassage
+    ? t("bible.loading")
+    : editing
+      ? t("bible.save")
+      : t("bible.add");
+
   const onFieldsKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Enter" && !loadingPassage) {
       e.preventDefault();
-      void runLookupAndAdd("fields");
+      void runLookupAndCommit("fields");
     } else if (e.key === "Escape") {
       e.preventDefault();
       onClose();
@@ -161,7 +204,7 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
         aria-labelledby="bible-dialog-title"
       >
         <DialogBrand id="bible-dialog-title">
-          {t("bible.dialogTitle")}
+          {editing ? t("bible.editTitle") : t("bible.dialogTitle")}
         </DialogBrand>
 
         {loadingMeta ? (
@@ -196,7 +239,7 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && searchQ.trim() && !loadingPassage) {
                     e.preventDefault();
-                    void runLookupAndAdd("search");
+                    void runLookupAndCommit("search");
                   } else if (e.key === "Escape") {
                     e.preventDefault();
                     onClose();
@@ -209,9 +252,9 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                 type="button"
                 className="btn btn-primary"
                 disabled={!searchQ.trim() || loadingPassage}
-                onClick={() => void runLookupAndAdd("search")}
+                onClick={() => void runLookupAndCommit("search")}
               >
-                {loadingPassage ? t("bible.loading") : t("bible.add")}
+                {primaryLabel}
               </button>
             </div>
 
@@ -309,9 +352,9 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                 type="button"
                 className="btn btn-primary"
                 disabled={loadingPassage}
-                onClick={() => void runLookupAndAdd("fields")}
+                onClick={() => void runLookupAndCommit("fields")}
               >
-                {loadingPassage ? t("bible.loading") : t("bible.add")}
+                {primaryLabel}
               </button>
             </div>
           </>
@@ -326,7 +369,9 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
         {licenseNote ? (
           <p className="promedia-dialog-hint">{licenseNote}</p>
         ) : (
-          <p className="promedia-dialog-hint">{t("bible.hintFast")}</p>
+          <p className="promedia-dialog-hint">
+            {editing ? t("bible.hintEdit") : t("bible.hintFast")}
+          </p>
         )}
 
         <div className="promedia-dialog-actions">
