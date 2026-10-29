@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { useLocale } from "../locale/LocaleContext";
 import type { BiblePayload } from "@promedia/shared";
 import {
@@ -31,7 +37,6 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
   const [loadingMeta, setLoadingMeta] = useState(false);
   const [loadingPassage, setLoadingPassage] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<BiblePayload | null>(null);
   const [licenseNote, setLicenseNote] = useState<string | null>(null);
 
   const selectedBook = useMemo(
@@ -45,7 +50,6 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
       return;
     }
     setError(null);
-    setPreview(null);
     setLoadingMeta(true);
     void (async () => {
       try {
@@ -97,9 +101,9 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
     slides: data.slides,
   });
 
-  const runLookup = async (mode: "fields" | "search") => {
+  /** Lookup and add to Guion immediately — no preview/review step. */
+  const runLookupAndAdd = async (mode: "fields" | "search") => {
     setError(null);
-    setPreview(null);
     setLoadingPassage(true);
     try {
       const data =
@@ -115,11 +119,7 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
               verseStart,
               verseEnd: Math.max(verseEnd, verseStart),
             });
-      const payload = toPayload(data);
-      setPreview(payload);
-      if (data.fromCache) {
-        setError(null);
-      }
+      onAdd(toPayload(data));
     } catch (err) {
       const e = err as Error & { code?: string };
       if (e.code === "api_failed" || /api_failed|bible_http_502/.test(e.message)) {
@@ -134,11 +134,14 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
     }
   };
 
-  const addToGuion = () => {
-    if (!preview) {
-      return;
+  const onFieldsKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter" && !loadingPassage) {
+      e.preventDefault();
+      void runLookupAndAdd("fields");
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      onClose();
     }
-    onAdd(preview);
   };
 
   return (
@@ -169,10 +172,7 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
               {t("bible.version")}
               <select
                 value={versionId}
-                onChange={(e) => {
-                  setVersionId(e.target.value);
-                  setPreview(null);
-                }}
+                onChange={(e) => setVersionId(e.target.value)}
               >
                 {versions.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -194,9 +194,9 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                 placeholder={t("bible.searchPlaceholder")}
                 autoComplete="off"
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && searchQ.trim()) {
+                  if (e.key === "Enter" && searchQ.trim() && !loadingPassage) {
                     e.preventDefault();
-                    void runLookup("search");
+                    void runLookupAndAdd("search");
                   } else if (e.key === "Escape") {
                     e.preventDefault();
                     onClose();
@@ -207,11 +207,11 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
             <div className="bible-dialog-row">
               <button
                 type="button"
-                className="btn"
+                className="btn btn-primary"
                 disabled={!searchQ.trim() || loadingPassage}
-                onClick={() => void runLookup("search")}
+                onClick={() => void runLookupAndAdd("search")}
               >
-                {t("bible.search")}
+                {loadingPassage ? t("bible.loading") : t("bible.add")}
               </button>
             </div>
 
@@ -227,8 +227,8 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                     setChapter(1);
                     setVerseStart(1);
                     setVerseEnd(1);
-                    setPreview(null);
                   }}
+                  onKeyDown={onFieldsKeyDown}
                 >
                   {books.map((b) => (
                     <option key={b.id} value={b.id}>
@@ -254,8 +254,8 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                         Math.max(1, Number(digits) || 1),
                       ),
                     );
-                    setPreview(null);
                   }}
+                  onKeyDown={onFieldsKeyDown}
                 />
               </label>
               <label className="promedia-dialog-field bible-dialog-num">
@@ -274,8 +274,8 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                     if (verseEnd < n) {
                       setVerseEnd(n);
                     }
-                    setPreview(null);
                   }}
+                  onKeyDown={onFieldsKeyDown}
                 />
               </label>
               <label className="promedia-dialog-field bible-dialog-num">
@@ -298,8 +298,8 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                         ),
                       ),
                     );
-                    setPreview(null);
                   }}
+                  onKeyDown={onFieldsKeyDown}
                 />
               </label>
             </div>
@@ -309,11 +309,9 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
                 type="button"
                 className="btn btn-primary"
                 disabled={loadingPassage}
-                onClick={() => void runLookup("fields")}
+                onClick={() => void runLookupAndAdd("fields")}
               >
-                {loadingPassage
-                  ? t("bible.loading")
-                  : t("bible.preview")}
+                {loadingPassage ? t("bible.loading") : t("bible.add")}
               </button>
             </div>
           </>
@@ -325,47 +323,15 @@ export function BibleDialog({ open, onClose, onAdd }: BibleDialogProps) {
           </p>
         ) : null}
 
-        {preview ? (
-          <div className="bible-preview-box">
-            <p className="bible-preview-ref">
-              {preview.reference} · {preview.versionLabel}
-              {preview.fromCache ? ` · ${t("bible.fromCache")}` : ""}
-            </p>
-            <ul className="bible-preview-verses">
-              {preview.slides.map((slide) => (
-                <li key={slide.id}>
-                  {slide.lines.map((line, i) => (
-                    <span key={i} className={i === 0 ? "bible-v-ref" : "bible-v-text"}>
-                      {line}
-                      {i < slide.lines.length - 1 ? " " : ""}
-                    </span>
-                  ))}
-                </li>
-              ))}
-            </ul>
-            {preview.copyright ? (
-              <p className="bible-preview-copy">{preview.copyright}</p>
-            ) : null}
-          </div>
-        ) : null}
-
-        {licenseNote && !preview ? (
+        {licenseNote ? (
           <p className="promedia-dialog-hint">{licenseNote}</p>
         ) : (
-          <p className="promedia-dialog-hint">{t("bible.hint")}</p>
+          <p className="promedia-dialog-hint">{t("bible.hintFast")}</p>
         )}
 
         <div className="promedia-dialog-actions">
           <button type="button" className="btn" onClick={onClose}>
             {t("text.cancel")}
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!preview || loadingPassage}
-            onClick={addToGuion}
-          >
-            {t("bible.add")}
           </button>
         </div>
       </div>
