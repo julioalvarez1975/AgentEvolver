@@ -69,10 +69,16 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+/** Re-index `order` in the given array order (do not re-sort). */
+function withSequentialOrder(items: PlaylistItem[]): PlaylistItem[] {
+  return items.map((item, index) => ({ ...item, order: index }));
+}
+
+/** Sort by existing `order`, then re-index 0…n-1. */
 function sortItems(items: PlaylistItem[]): PlaylistItem[] {
-  return [...items]
-    .sort((a, b) => a.order - b.order)
-    .map((item, index) => ({ ...item, order: index }));
+  return withSequentialOrder(
+    [...items].sort((a, b) => a.order - b.order),
+  );
 }
 
 export class SessionStore {
@@ -364,7 +370,8 @@ export class SessionStore {
     if (byId.size > 0) {
       return { error: "invalid_reorder" };
     }
-    session.playlist.items = sortItems(next);
+    // Keep client order — sortItems() would undo the drag by old `order` values.
+    session.playlist.items = withSequentialOrder(next);
     return this.bumpUpdated(session);
   }
 

@@ -29,7 +29,6 @@ export type SchedulePanelProps = {
   uploading: boolean;
   onSelect: (id: string) => void;
   onToggleChecked: (id: string) => void;
-  onMove: (id: string, dir: -1 | 1) => void;
   onReorder: (orderedIds: string[]) => void;
   onRemove: (id: string) => void;
   onRemoveChecked: () => void;
@@ -82,7 +81,6 @@ export function SchedulePanel({
   uploading,
   onSelect,
   onToggleChecked,
-  onMove,
   onReorder,
   onRemove,
   onRemoveChecked,
@@ -109,7 +107,7 @@ export function SchedulePanel({
   const dragIdRef = useRef<string | null>(null);
 
   const addDisabled = !sessionReady || uploading;
-  const sorted = items;
+  const sorted = [...items].sort((a, b) => a.order - b.order);
 
   const applyReorder = (fromId: string, toId: string) => {
     if (fromId === toId || !canMutate) {
@@ -345,7 +343,7 @@ export function SchedulePanel({
                 }
               }}
             >
-              {sorted.map((item, index) => {
+              {sorted.map((item) => {
                 const kind = scheduleKindOf(item);
                 const isLive = item.id === liveItemId;
                 const isSelected = item.id === selectedItemId;
@@ -368,10 +366,14 @@ export function SchedulePanel({
                         return;
                       }
                       e.preventDefault();
+                      e.stopPropagation();
                       e.dataTransfer.dropEffect = "move";
                       setDropTargetId(item.id);
                     }}
-                    onDragLeave={() => {
+                    onDragLeave={(e) => {
+                      if (e.currentTarget.contains(e.relatedTarget as Node)) {
+                        return;
+                      }
                       setDropTargetId((cur) =>
                         cur === item.id ? null : cur,
                       );
@@ -381,6 +383,7 @@ export function SchedulePanel({
                         return;
                       }
                       e.preventDefault();
+                      e.stopPropagation();
                       const from =
                         e.dataTransfer.getData("text/plain") ||
                         dragIdRef.current;
@@ -463,24 +466,6 @@ export function SchedulePanel({
                         onClick={() => onGoLive(item.id)}
                       >
                         {t("playlist.goLiveShort")}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        disabled={!canMutate || index === 0}
-                        onClick={() => onMove(item.id, -1)}
-                        title={t("playlist.moveUp")}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        disabled={!canMutate || index === sorted.length - 1}
-                        onClick={() => onMove(item.id, 1)}
-                        title={t("playlist.moveDown")}
-                      >
-                        ↓
                       </button>
                       {item.type === "text" ? (
                         <button

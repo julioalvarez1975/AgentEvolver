@@ -1185,23 +1185,6 @@ export function ControlPage() {
     });
   };
 
-  const moveItem = (id: string, dir: -1 | 1) => {
-    if (!ensureWsOrHint()) {
-      return;
-    }
-    const sorted = [...items].sort((a, b) => a.order - b.order);
-    const idx = sorted.findIndex((i) => i.id === id);
-    const swap = idx + dir;
-    if (idx < 0 || swap < 0 || swap >= sorted.length) {
-      return;
-    }
-    const next = [...sorted];
-    const tmp = next[idx]!;
-    next[idx] = next[swap]!;
-    next[swap] = tmp;
-    session.reorder(next.map((i) => i.id));
-  };
-
   const reorderItems = (orderedIds: string[]) => {
     if (!ensureWsOrHint()) {
       return;
@@ -1693,7 +1676,6 @@ export function ControlPage() {
             uploading={uploading}
             onSelect={selectItem}
             onToggleChecked={toggleChecked}
-            onMove={moveItem}
             onReorder={reorderItems}
             onRemove={removeOne}
             onRemoveChecked={removeChecked}
