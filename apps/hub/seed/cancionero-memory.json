@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "byMedia": {
+    "yt:A-osCPE-x68": {
+      "songId": "619fa62b5e7cd1b00c63",
+      "songTitle": "Vasijas Rotas",
+      "source": "manual",
+      "updatedAt": "2026-10-29T01:44:47.274Z"
+    }
+  },
+  "byTitle": {
+    "vasijas rotas": {
+      "songId": "619fa62b5e7cd1b00c63",
+      "songTitle": "Vasijas Rotas",
+      "source": "manual",
+      "updatedAt": "2026-10-29T01:44:47.274Z"
+    }
+  },
+  "timingByMedia": {}
+}

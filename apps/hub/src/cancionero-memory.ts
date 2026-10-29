@@ -39,27 +39,64 @@ const EMPTY: MemoryFile = {
   timingByMedia: {},
 };
 
+/**
+ * Tracked in git (`apps/hub/seed/…`) so operator teach/nudge learning
+ * can be committed and shared. Legacy `data/cancionero-memory.json` is
+ * still read once to migrate older local sessions.
+ */
 function memoryPath(): string {
+  return path.join(
+    promediaRoot(),
+    "apps",
+    "hub",
+    "seed",
+    "cancionero-memory.json",
+  );
+}
+
+function legacyMemoryPath(): string {
   return path.join(promediaRoot(), "data", "cancionero-memory.json");
 }
 
 let cache: MemoryFile | null = null;
 let writeChain: Promise<void> = Promise.resolve();
 
-async function loadMemory(): Promise<MemoryFile> {
-  if (cache) return cache;
+function parseMemory(raw: string): MemoryFile | null {
   try {
-    const raw = await readFile(memoryPath(), "utf8");
     const parsed = JSON.parse(raw) as MemoryFile;
     if (parsed?.version === 1 && parsed.byMedia && parsed.byTitle) {
-      cache = {
+      return {
         ...parsed,
         timingByMedia: parsed.timingByMedia ?? {},
       };
+    }
+  } catch {
+    // corrupt
+  }
+  return null;
+}
+
+async function loadMemory(): Promise<MemoryFile> {
+  if (cache) return cache;
+  try {
+    const seeded = parseMemory(await readFile(memoryPath(), "utf8"));
+    if (seeded) {
+      cache = seeded;
       return cache;
     }
   } catch {
-    // missing / corrupt → start fresh
+    // seed missing — try legacy data/ path
+  }
+  try {
+    const legacy = parseMemory(await readFile(legacyMemoryPath(), "utf8"));
+    if (legacy) {
+      cache = legacy;
+      // Persist into the tracked seed path so it can be committed.
+      void saveMemory(legacy).catch(() => undefined);
+      return cache;
+    }
+  } catch {
+    // no legacy either
   }
   cache = { ...EMPTY, byMedia: {}, byTitle: {}, timingByMedia: {} };
   return cache;
