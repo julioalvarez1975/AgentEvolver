@@ -10,6 +10,51 @@ export function buildAssetUrl(
   return `${hubHttpBase()}/api/v1/sessions/${encodeURIComponent(sessionId)}/assets/${encodeURIComponent(assetId)}?${q}`;
 }
 
+/** Hub-persisted venue logo for sceneMode "logo" (cache-busted by updatedAt). */
+export function buildBrandingLogoUrl(
+  sessionId: string,
+  credential: string,
+  updatedAt?: string | null,
+): string {
+  const q = new URLSearchParams({
+    sessionId,
+    credential,
+  });
+  if (updatedAt) {
+    q.set("v", updatedAt);
+  }
+  return `${hubHttpBase()}/api/v1/branding/logo?${q}`;
+}
+
+/** Upload / replace the permanent branding logo (survives sessions). */
+export async function uploadBrandingLogo(
+  sessionId: string,
+  credential: string,
+  file: File,
+): Promise<{ mime: string; updatedAt: string; size: number }> {
+  const form = new FormData();
+  form.append("file", file);
+  const q = new URLSearchParams({ sessionId });
+  const res = await fetch(
+    `${hubHttpBase()}/api/v1/branding/logo?${q}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${credential}`,
+      },
+      body: form,
+    },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `logo_upload_failed_${res.status}`);
+  }
+  const data = (await res.json()) as {
+    logo: { mime: string; updatedAt: string; size: number };
+  };
+  return data.logo;
+}
+
 export async function uploadSessionAsset(
   sessionId: string,
   credential: string,

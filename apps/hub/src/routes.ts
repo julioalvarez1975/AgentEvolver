@@ -14,6 +14,11 @@ import {
   authorizeHubOperator,
   authorizeSessionAccess,
 } from "./auth.js";
+import {
+  BRANDING_LOGO_MAX_BYTES,
+  getBrandingLogo,
+  putBrandingLogo,
+} from "./branding-store.js";
 import { broadcastSession } from "./broadcast.js";
 import { libraryStore } from "./library-store.js";
 import { playlistStore } from "./playlist-store.js";
@@ -204,6 +209,111 @@ export function createApiRoutes(): Hono {
       return c.json({ error: "not_found" }, 404);
     }
     return c.json({ snapshot: sessionStore.toSnapshot(session) });
+  });
+
+  /**
+   * Persistent venue logo for sceneMode "logo".
+   * Auth: sessionId + credential (wsTicket) like session assets — Control + Output.
+   */
+  api.get("/branding/logo", async (c) => {
+    const credential =
+      bearerToken(c.req.header("authorization")) ?? c.req.query("credential");
+    let sessionId = (c.req.query("sessionId") ?? "").trim();
+    if (!sessionId && credential) {
+      const ticket = sessionStore.getTicket(credential);
+      if (ticket) {
+        sessionId = ticket.sessionId;
+      }
+    }
+    if (!sessionId) {
+      return c.json({ error: "missing_session" }, 400);
+    }
+    const access = authorizeSessionAccess(sessionId, {
+      credential,
+      code: c.req.query("code"),
+      accessToken: c.req.query("accessToken") ?? c.req.query("token"),
+    });
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
+    }
+
+    const logo = await getBrandingLogo();
+    if (!logo) {
+      return c.json({ error: "not_found" }, 404);
+    }
+    return new Response(new Uint8Array(logo.bytes), {
+      status: 200,
+      headers: {
+        "Content-Type": logo.meta.mime,
+        "Cache-Control": "private, max-age=30",
+        "X-Logo-Updated-At": logo.meta.updatedAt,
+      },
+    });
+  });
+
+  /**
+   * Upload / replace the permanent branding logo (control only).
+   * Multipart field `file`. Survives sessions under data/branding/.
+   */
+  api.post("/branding/logo", async (c) => {
+    const sessionId = c.req.query("sessionId") ?? "";
+    const credential =
+      bearerToken(c.req.header("authorization")) ?? c.req.query("credential");
+    if (!sessionId) {
+      return c.json({ error: "missing_session" }, 400);
+    }
+    const access = authorizeSessionAccess(sessionId, {
+      credential,
+      accessToken: c.req.query("accessToken") ?? c.req.query("token"),
+      requireRole: "control",
+    });
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
+    }
+
+    let body: Record<string, string | File>;
+    try {
+      body = (await c.req.parseBody({ all: true })) as Record<
+        string,
+        string | File
+      >;
+    } catch {
+      return c.json({ error: "invalid_multipart" }, 400);
+    }
+
+    const file = body.file;
+    if (!file || typeof file === "string") {
+      return c.json({ error: "missing_file" }, 400);
+    }
+    if (file.size > BRANDING_LOGO_MAX_BYTES) {
+      return c.json({ error: "file_too_large" }, 400);
+    }
+
+    const bytes = Buffer.from(await file.arrayBuffer());
+    if (bytes.byteLength > BRANDING_LOGO_MAX_BYTES) {
+      return c.json({ error: "file_too_large" }, 400);
+    }
+
+    const result = await putBrandingLogo({
+      bytes,
+      mime: file.type || "application/octet-stream",
+      originalName: file.name,
+    });
+    if ("error" in result) {
+      return c.json({ error: result.error }, 400);
+    }
+
+    const session = sessionStore.get(sessionId);
+    if (session) {
+      session.live.sceneMode = "logo";
+    }
+    for (const msg of sessionStore.applyBrandingLogoUpdatedAt(
+      result.updatedAt,
+    )) {
+      broadcastSession(msg.sessionId, msg);
+    }
+
+    return c.json({ logo: result }, 201);
   });
 
   /**

@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Server } from "node:http";
 import { SHARED_PACKAGE_VERSION } from "@promedia/shared";
+import { initBrandingStore } from "./branding-store.js";
 import { setSessionBroadcaster } from "./broadcast.js";
 import { listLanIPv4, resolveHubListenHost } from "./lan.js";
 import { ensureLibraryLayout } from "./library-store.js";
@@ -37,6 +38,20 @@ try {
 } catch (err) {
   console.error(
     "[hub] WARN: no se pudo crear data/models|youtube-cache (subtítulos):",
+    err instanceof Error ? err.message : err,
+  );
+}
+
+try {
+  const logo = await initBrandingStore();
+  console.log(
+    logo
+      ? `[hub] branding logo ready (${logo.mime}, ${logo.size} bytes)`
+      : "[hub] branding logo folder ready (no custom logo yet)",
+  );
+} catch (err) {
+  console.error(
+    "[hub] WARN: no se pudo crear data/branding (logo):",
     err instanceof Error ? err.message : err,
   );
 }

@@ -37,6 +37,7 @@ import {
 } from "@promedia/shared";
 import { validatePlaylistItem } from "@promedia/item-types/validate";
 import { assetStore } from "./asset-store.js";
+import { getBrandingLogoUpdatedAt } from "./branding-store.js";
 import {
   generateAccessToken,
   generateSessionId,
@@ -102,6 +103,8 @@ export class SessionStore {
     const accessToken = generateAccessToken();
     const createdAt = nowIso();
 
+    const live = emptyLiveState();
+    live.logoUpdatedAt = getBrandingLogoUpdatedAt();
     const session: SessionRecord = {
       id,
       code,
@@ -109,7 +112,7 @@ export class SessionStore {
       mode,
       createdAt,
       seq: 0,
-      live: emptyLiveState(),
+      live,
       playlist: emptyPlaylist(),
       eventBuffer: [],
     };
@@ -152,6 +155,11 @@ export class SessionStore {
   }
 
   toSnapshot(session: SessionRecord): SessionSnapshot {
+    // Keep live.logoUpdatedAt aligned with hub branding (new uploads / boot).
+    const brandingAt = getBrandingLogoUpdatedAt();
+    if (brandingAt && session.live.logoUpdatedAt !== brandingAt) {
+      session.live.logoUpdatedAt = brandingAt;
+    }
     return {
       id: session.id,
       code: session.code,
@@ -163,6 +171,24 @@ export class SessionStore {
       lastTouchAt: session.lastTouchAt,
       touchNote: session.touchNote,
     };
+  }
+
+  /** Active sessions (for branding logo fan-out). */
+  listSessions(): SessionRecord[] {
+    return [...this.byId.values()];
+  }
+
+  /**
+   * Stamp every live session with a new branding logo time and bump seq
+   * so Control/Output refresh the logo image URL.
+   */
+  applyBrandingLogoUpdatedAt(updatedAt: string): HubMessage[] {
+    const messages: HubMessage[] = [];
+    for (const session of this.byId.values()) {
+      session.live.logoUpdatedAt = updatedAt;
+      messages.push(this.bumpUpdated(session));
+    }
+    return messages;
   }
 
   makeMessage(

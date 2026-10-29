@@ -18,7 +18,7 @@ import {
 } from "../components/StageBackground";
 import { SubtitleOverlay } from "../components/SubtitleOverlay";
 import { useSessionConnection } from "../hooks/useSessionConnection";
-import { buildAssetUrl } from "../lib/assets";
+import { buildAssetUrl, buildBrandingLogoUrl } from "../lib/assets";
 import { themeSurfaceStyle } from "../lib/theme";
 
 const locale = DEFAULT_LOCALE;
@@ -125,6 +125,7 @@ export function OutputPage() {
   const liveSlideIndex = snapshot?.live.currentSlideIndex ?? 0;
   const mediaClock = snapshot?.live.mediaClock ?? null;
   const sceneMode: SceneMode = snapshot?.live.sceneMode ?? "normal";
+  const logoUpdatedAt = snapshot?.live.logoUpdatedAt ?? null;
   const themeId: ThemeId = snapshot?.live.themeId ?? DEFAULT_THEME_ID;
   const themeOverrides = snapshot?.live.themeOverrides ?? null;
   const themeBackground = normalizeThemeBackground(
@@ -349,7 +350,18 @@ export function OutputPage() {
               itemId={liveItem?.id ?? null}
               transitionEffect={transitionEffect}
             />
-            <SceneOverlay mode={sceneMode} />
+            <SceneOverlay
+              mode={sceneMode}
+              logoSrc={
+                logoUpdatedAt && sessionId && wsTicket
+                  ? buildBrandingLogoUrl(
+                      sessionId,
+                      wsTicket,
+                      logoUpdatedAt,
+                    )
+                  : null
+              }
+            />
           </>
         )}
 

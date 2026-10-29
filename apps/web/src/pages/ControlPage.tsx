@@ -58,6 +58,7 @@ import {
   LARGE_IMAGE_WARN_BYTES,
   LARGE_VIDEO_WARN_BYTES,
   buildAssetUrl,
+  uploadBrandingLogo,
   uploadSessionAsset,
 } from "../lib/assets";
 import {
@@ -143,6 +144,8 @@ export function ControlPage() {
   const [, setUploadHint] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadingBackground, setUploadingBackground] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoFileInputRef = useRef<HTMLInputElement>(null);
   /** Uploaded stage backgrounds listed in the Theme dropdown (this session). */
   const [themeBackgroundAssets, setThemeBackgroundAssets] = useState<
     Array<{
@@ -1293,6 +1296,44 @@ export function ControlPage() {
     session.setSceneMode("logo");
   };
 
+  const openLogoFilePicker = () => {
+    if (!canMutate || uploadingLogo) {
+      return;
+    }
+    logoFileInputRef.current?.click();
+  };
+
+  const onLogoFileChosen = async (file: File | null) => {
+    if (!file || !session.sessionId || !session.wsTicket) {
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setUploadHint(t("control.sceneLogoBadType"));
+      return;
+    }
+    if (file.size > LARGE_IMAGE_WARN_BYTES) {
+      setUploadHint(t("control.sceneLogoLarge"));
+    }
+    setUploadingLogo(true);
+    try {
+      await uploadBrandingLogo(session.sessionId, session.wsTicket, file);
+      // Hub broadcasts logoUpdatedAt + sceneMode logo — Output refreshes.
+      session.setSceneMode("logo");
+      setUploadHint(t("control.sceneLogoSaved"));
+    } catch (err) {
+      setUploadHint(
+        err instanceof Error
+          ? `${t("control.sceneLogoUploadFailed")}: ${err.message}`
+          : t("control.sceneLogoUploadFailed"),
+      );
+    } finally {
+      setUploadingLogo(false);
+      if (logoFileInputRef.current) {
+        logoFileInputRef.current.value = "";
+      }
+    }
+  };
+
   const showEmptyScene = () => {
     if (!ensureWsOrHint()) {
       return;
@@ -1992,21 +2033,49 @@ export function ControlPage() {
                   {t("playlist.goLiveShort")}
                 </span>
               </button>
+              <input
+                ref={logoFileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                hidden
+                onChange={(e) => {
+                  void onLogoFileChosen(e.target.files?.[0] ?? null);
+                }}
+              />
               <button
                 type="button"
                 className={[
                   "btn preview-tb-btn preview-tb-scene",
                   sceneMode === "logo" ? "is-active" : "",
+                  uploadingLogo ? "is-busy" : "",
                 ]
                   .filter(Boolean)
                   .join(" ")}
-                disabled={!canMutate}
-                title={t("shortcuts.sceneLogo")}
+                disabled={!canMutate || uploadingLogo}
+                title={t("control.sceneLogoHint")}
                 aria-label={t("control.sceneLogo")}
                 aria-pressed={sceneMode === "logo"}
-                onClick={showLogoScene}
+                onClick={(e) => {
+                  // Alt/Meta/Ctrl+click → replace permanent logo file.
+                  if (e.altKey || e.metaKey || e.ctrlKey) {
+                    e.preventDefault();
+                    openLogoFilePicker();
+                    return;
+                  }
+                  showLogoScene();
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  openLogoFilePicker();
+                }}
+                onDoubleClick={(e) => {
+                  e.preventDefault();
+                  openLogoFilePicker();
+                }}
               >
-                {t("control.sceneLogo")}
+                {uploadingLogo
+                  ? t("control.sceneLogoUploading")
+                  : t("control.sceneLogo")}
               </button>
               <button
                 type="button"

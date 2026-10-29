@@ -679,6 +679,11 @@ export type SessionLiveState = {
   mediaClock: MediaClock | null;
   /** Local offline subtitle agent (Phase 1). */
   subtitleAgent: SubtitleAgentState;
+  /**
+   * ISO stamp of the hub-persisted branding logo (sceneMode "logo").
+   * Null = no custom logo yet — Output falls back to the default SVG.
+   */
+  logoUpdatedAt: string | null;
 };
 
 export type SessionSnapshot = {
@@ -905,6 +910,7 @@ export function emptyLiveState(): SessionLiveState {
     transitionEffect: DEFAULT_TRANSITION_EFFECT,
     mediaClock: null,
     subtitleAgent: emptySubtitleAgentState(),
+    logoUpdatedAt: null,
   };
 }
 
