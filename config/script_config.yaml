@@ -1,9 +1,0 @@
-hydra:
-  searchpath:
-    - file://external/config_fallback
-    - file://config
-
-defaults:
-  - ppo_trainer
-  - agentevolver
-  - _self_
