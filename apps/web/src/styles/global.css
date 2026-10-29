@@ -2998,7 +2998,7 @@ body.output-route #root {
   padding-right: 2.85rem;
 }
 
-/* Stage shell: ResizeObserver fits typography to content box (≤5 rows).
+/* Stage shell: ResizeObserver fits typography to content box (≤6 rows).
    overflow:hidden is a safety net only — fit must keep every line inside. */
 .text-stage {
   flex: 1;
@@ -3030,7 +3030,7 @@ body.output-route #root {
   color: inherit;
 }
 
-/* Wrap mode: long unbreakable words — still measured ≤5 visual lines. */
+/* Wrap mode: long unbreakable words — still measured ≤6 visual lines. */
 .text-fit-block[data-wrap-mode="wrap"] {
   width: 100%;
   max-width: 100%;
@@ -3067,7 +3067,7 @@ body.output-route #root {
   display: none;
 }
 
-/* Full-bleed centered text on Output (≤5 lines; font sized by FittedTextStage). */
+/* Full-bleed centered text on Output (≤6 lines; font sized by FittedTextStage). */
 .text-output {
   box-sizing: border-box;
   width: 100%;

@@ -23,8 +23,8 @@ export type FittedTextStageProps = {
    */
   hardCapPx?: number;
   /**
-   * Hard cap on source + visual lines (default TEXT_PROJECTION_LINES = 5).
-   * Karaoke overlay passes 2 (1–2 rows, IG Reel / LED wall).
+   * Hard cap on source + visual lines (default TEXT_PROJECTION_LINES = 6).
+   * Karaoke overlay may pass LYRIC_OVERLAY_MAX_LINES (up to 6).
    */
   maxLines?: number;
 };
@@ -70,7 +70,7 @@ function linesFitWidth(block: HTMLElement, maxWidth: number): boolean {
   return true;
 }
 
-/** Count CSS line boxes across children (for wrap mode ≤5 visual rows). */
+/** Count CSS line boxes across children (for wrap mode ≤6 visual rows). */
 function visualLineCount(block: HTMLElement): number {
   let total = 0;
   for (const child of Array.from(block.children)) {
@@ -95,7 +95,7 @@ function visualLineCount(block: HTMLElement): number {
 }
 
 /**
- * Projection text block: ≤maxLines rows (default 5; lyric overlay up to 3),
+ * Projection text block: ≤maxLines rows (default 6; lyric overlay up to 6),
  * font auto-fit via ResizeObserver so the block fills the stage. Width
  * (content box + padding/safe area) always wins over growing as large as
  * possible. Long unbreakable words may wrap, still capped at maxLines.
@@ -117,7 +117,7 @@ export function FittedTextStage({
 
   const lineCap =
     Number.isFinite(maxLines) && maxLines >= 1
-      ? Math.min(8, Math.max(1, Math.trunc(maxLines)))
+      ? Math.min(10, Math.max(1, Math.trunc(maxLines)))
       : TEXT_PROJECTION_LINES;
   const safeLines = lines.map((line) => String(line)).slice(0, lineCap);
   const displayLines = safeLines.length > 0 ? safeLines : [""];

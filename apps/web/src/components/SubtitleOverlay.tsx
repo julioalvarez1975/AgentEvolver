@@ -55,9 +55,8 @@ const SUBTITLE_FIT_BY_SIZE: Record<
 };
 
 /**
- * Prefer 1–2 visual rows; hard max 2 (karaoke Reel). Cancionero exact
- * newlines win when present (sliced if over max). Soft-wrap widens the
- * char budget before spilling so FittedTextStage stays large.
+ * Prefer up to 6 visual rows for song projection. Cancionero exact newlines
+ * win when present (sliced if over max). Soft-wrap avoids orphan words.
  */
 function lyricOverlayDisplayLines(raw: string): string[] {
   const exact = String(raw ?? "")
@@ -82,7 +81,7 @@ function lyricOverlayDisplayLines(raw: string): string[] {
     return rows;
   }
 
-  // Widen wrap so a long cue lands in preferred (2) rows when possible.
+  // Widen wrap so a long cue lands in preferred rows when possible.
   rows = tryBudget(
     Math.max(
       LYRIC_PHRASE_SOFT_WRAP_CHARS,
@@ -93,7 +92,7 @@ function lyricOverlayDisplayLines(raw: string): string[] {
     return rows;
   }
 
-  // Hard max 2 — force-fit before FittedTextStage hard-caps.
+  // Hard max — force-fit before FittedTextStage hard-caps.
   rows = tryBudget(
     Math.max(12, Math.ceil(single.length / LYRIC_OVERLAY_MAX_LINES)),
   );
@@ -101,8 +100,7 @@ function lyricOverlayDisplayLines(raw: string): string[] {
 }
 
 /**
- * Full-stage karaoke projection — IG Reel Dd5Bi1IzCuQ / LED-wall look:
- * huge centered type, 1–2 rows, fluid cue enter, soft black shadow only.
+ * Full-stage karaoke projection — centered type, up to 6 rows, soft shadow.
  * Timing prefers hub mediaClock; negative `leadMs` shows the cue early.
  * Assisted timingMode holds the first lyric through musical lead-in;
  * exact (cancionero / native) uses cue windows only. Manual ←/→ song

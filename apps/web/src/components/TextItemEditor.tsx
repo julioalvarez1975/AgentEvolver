@@ -112,7 +112,7 @@ export function TextItemEditor({ initial, onSave, onCancel }: TextItemEditorProp
     onSave({
       title: title.trim() || undefined,
       align,
-      // Split slides with >5 lines so Output/Live ←/→ match projection chunks.
+      // Split slides with >6 lines so Output/Live ←/→ match projection chunks.
       slides: projectionTextSlides(
         slides.map((s) => ({ id: s.id, lines: s.lines })),
       ),

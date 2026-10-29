@@ -19,7 +19,7 @@ export type TextPayload = {
   slides: TextSlide[];
   align?: TextAlign;
   /**
-   * When false, keep stored slides as-is (no 5-line ←/→ chunking).
+   * When false, keep stored slides as-is (no 6-line ←/→ chunking).
    * Used for cancionero songs: one lyric block; karaoke agent advances lines.
    */
   chunkLines?: boolean;
@@ -974,18 +974,18 @@ export function itemHasSlides(item: PlaylistItem): boolean {
 
 /**
  * Max lines shown at once on Output / Preview / Live text stages.
- * Longer slides are split into chunks so ←/→ advances by 5 lines.
+ * Longer slides are split into chunks so ←/→ advances by 6 lines.
  */
-export const TEXT_PROJECTION_LINES = 5;
+export const TEXT_PROJECTION_LINES = 6;
 
 /**
- * Absolute max lines for timed lyric / karaoke overlay (IG Reel /
- * LED-wall look: 1–2 rows only) so FittedTextStage stays huge. Never overflow.
+ * Absolute max lines for timed lyric / karaoke overlay (song projection).
+ * FittedTextStage still auto-fits type; never overflow the stage.
  */
-export const LYRIC_OVERLAY_MAX_LINES = 2;
+export const LYRIC_OVERLAY_MAX_LINES = 6;
 
-/** Preferred visual lines per lyric cue — short phrases, dominant type. */
-export const LYRIC_OVERLAY_PREFERRED_LINES = 2;
+/** Preferred visual lines per lyric cue / packed karaoke group. */
+export const LYRIC_OVERLAY_PREFERRED_LINES = 6;
 
 /**
  * Soft-wrap budget (characters) before a source line becomes multiple
@@ -995,14 +995,13 @@ export const TEXT_PROJECTION_SOFT_WRAP_CHARS = 52;
 
 /**
  * Soft-wrap budget for karaoke / cancionero overlay phrases.
- * Short enough that cues stay 1–2 rows and type can fill the stage;
- * cancionero exact newlines still win when present.
+ * Cancionero exact newlines still win when present.
  */
 export const LYRIC_PHRASE_SOFT_WRAP_CHARS = 42;
 
 /**
  * Flatten embedded newlines, drop blanks, and soft-wrap long lines so each
- * entry is one visual projection row (before 5-line chunking).
+ * entry is one visual projection row (before 6-line chunking).
  */
 export function normalizeProjectionLines(
   lines: string[],
@@ -1028,6 +1027,31 @@ export function normalizeProjectionLines(
   return out.length > 0 ? out : [""];
 }
 
+/**
+ * If a row is a single orphan word, pull the last word from the previous row
+ * so no projected line stands alone as one short word.
+ */
+export function collapseOrphanWordRows(rows: string[]): string[] {
+  if (rows.length < 2) {
+    return rows;
+  }
+  const out = rows.map((r) => String(r).trim()).filter(Boolean);
+  for (let i = out.length - 1; i >= 1; i -= 1) {
+    const curWords = out[i]!.split(/\s+/).filter(Boolean);
+    if (curWords.length !== 1) {
+      continue;
+    }
+    const prevWords = out[i - 1]!.split(/\s+/).filter(Boolean);
+    if (prevWords.length < 2) {
+      continue;
+    }
+    const moved = prevWords.pop()!;
+    out[i - 1] = prevWords.join(" ");
+    out[i] = `${moved} ${curWords[0]}`.trim();
+  }
+  return out.length > 0 ? out : rows;
+}
+
 /** Split one long line on word boundaries (hard-split only if a word is longer). */
 export function softWrapProjectionLine(
   line: string,
@@ -1047,7 +1071,9 @@ export function softWrapProjectionLine(
       current = "";
     }
   };
-  for (const word of words) {
+  for (let wi = 0; wi < words.length; wi += 1) {
+    const word = words[wi]!;
+    const remaining = words.length - wi - 1;
     if (word.length > limit) {
       pushCurrent();
       for (let i = 0; i < word.length; i += limit) {
@@ -1059,18 +1085,26 @@ export function softWrapProjectionLine(
       current = word;
       continue;
     }
-    if (`${current} ${word}`.length <= limit) {
-      current = `${current} ${word}`;
-    } else {
-      rows.push(current);
-      current = word;
+    const next = `${current} ${word}`;
+    if (next.length <= limit) {
+      current = next;
+      continue;
     }
+    // Avoid leaving a single orphan word on the next line: keep it here with
+    // a soft overflow (~15%) when it is the last remaining word.
+    if (remaining === 0 && next.length <= Math.ceil(limit * 1.15)) {
+      current = next;
+      continue;
+    }
+    rows.push(current);
+    current = word;
   }
   pushCurrent();
-  return rows.length > 0 ? rows : [text];
+  const wrapped = rows.length > 0 ? rows : [text];
+  return collapseOrphanWordRows(wrapped);
 }
 
-/** Split a line list into chunks of at most `linesPerChunk` (default 5). */
+/** Split a line list into chunks of at most `linesPerChunk` (default 6). */
 export function chunkTextLines(
   lines: string[],
   linesPerChunk: number = TEXT_PROJECTION_LINES,
@@ -1085,7 +1119,7 @@ export function chunkTextLines(
 }
 
 /**
- * Expand text/bible slides so each has ≤5 lines for projection navigation.
+ * Expand text/bible slides so each has ≤6 lines for projection navigation.
  * Preserves intentional slide boundaries; splits only when a slide is longer.
  * Multi-line blobs / blanks are normalized first so one entry = one visual row.
  */
@@ -1122,7 +1156,7 @@ export function resolveProjectionTextSlides(payload: {
   return projectionTextSlides(payload.slides);
 }
 
-/** Slide count used by ←/→ (text/bible after 5-line chunking; presentation = pages). */
+/** Slide count used by ←/→ (text/bible after 6-line chunking; presentation = pages). */
 export function itemProjectionSlideCount(item: PlaylistItem): number {
   if (item.type === "presentation") {
     return Math.max(item.payload.slides.length, 0);
@@ -1152,7 +1186,7 @@ export function flattenSongLyrics(song: LibrarySongPayload): LibrarySongPayload 
 
 /**
  * Convert library song → one text slide with the full lyric block.
- * No 5-line slider: karaoke agent takes lines and syncs display.
+ * No line-chunk slider: karaoke agent takes lines and syncs display.
  */
 export function songToTextPayload(song: LibrarySongPayload): TextPayload {
   const flat = flattenSongLyrics(song);

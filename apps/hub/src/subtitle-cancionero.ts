@@ -490,7 +490,7 @@ export function buildKaraokeAlignPrompt(
 }
 
 /**
- * Pack per-line karaoke cues into overlay groups: prefer 2 lines, hard max 2.
+ * Pack per-line karaoke cues into overlay groups: prefer/max 6 lines.
  * Exact Biblioteca text joined with newlines; start = first line onset.
  */
 export function packKaraokeDisplayCues(

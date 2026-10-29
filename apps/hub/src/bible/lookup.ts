@@ -314,7 +314,7 @@ export async function lookupPassage(opts: {
   }
 }
 
-/** Build playlist-ready slides (one verse per slide; multi-line body → 5-line chunks). */
+/** Build playlist-ready slides (one verse per slide; multi-line body → 6-line chunks). */
 export function passageToSlides(result: BiblePassageResult): Array<{
   id: string;
   lines: string[];
