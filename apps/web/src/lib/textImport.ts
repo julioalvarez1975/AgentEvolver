@@ -2,6 +2,7 @@ import type { TextSlide } from "@promedia/shared";
 import { projectionTextSlides, TEXT_PROJECTION_LINES } from "@promedia/shared";
 import { cryptoRandomId } from "@promedia/item-types";
 import { hubHttpBase } from "./hub";
+import { libraryAuthHeaders } from "./libraryAuth";
 
 /** Soft limits shown in UI; oversized files are rejected. */
 export const TEXT_IMPORT_MAX_BYTES = 8 * 1024 * 1024;
@@ -145,6 +146,7 @@ async function parsePdfViaHub(file: File): Promise<{
   form.append("file", file, file.name);
   const res = await fetch(`${hubHttpBase()}/api/v1/parse/document`, {
     method: "POST",
+    headers: libraryAuthHeaders(),
     body: form,
   });
   if (!res.ok) {

@@ -24,6 +24,7 @@ import {
   joinSession,
   probeHubHealth,
 } from "../lib/hub";
+import { clearLibraryAuth, setLibraryAuth } from "../lib/libraryAuth";
 import { SessionSocket } from "../lib/session-socket";
 
 export type WsStatus = "idle" | "connecting" | "open" | "closed" | "error";
@@ -97,7 +98,22 @@ export function useSessionConnection(role: ClientRole) {
     socketRef.current?.disconnect({ notifyClose: false });
     socketRef.current = null;
     setWsStatus("idle");
-  }, [clearReconnectTimer]);
+    if (role === "control") {
+      clearLibraryAuth();
+    }
+  }, [clearReconnectTimer, role]);
+
+  // Keep Biblioteca HTTP calls authorized while Control holds a ticket/token.
+  useEffect(() => {
+    if (role !== "control") {
+      return;
+    }
+    if (!wsTicket && !accessToken) {
+      clearLibraryAuth();
+      return;
+    }
+    setLibraryAuth({ credential: wsTicket || undefined, accessToken });
+  }, [role, wsTicket, accessToken]);
 
   useEffect(() => () => detach(), [detach]);
 
@@ -211,6 +227,9 @@ export function useSessionConnection(role: ClientRole) {
         const res = await joinSession({ ...opts, role });
         setSessionId(res.sessionId);
         setCode(res.code);
+        if (opts.accessToken?.trim()) {
+          setAccessToken(opts.accessToken.trim());
+        }
         setWsTicket(res.wsTicket);
         setSnapshot(res.snapshot);
         setLastSeq(res.snapshot.seq);

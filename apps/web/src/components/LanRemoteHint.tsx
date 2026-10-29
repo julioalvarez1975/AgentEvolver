@@ -10,7 +10,12 @@ import { useLocale } from "../locale/LocaleContext";
  * Surfaces the LAN Control URL for phones (footer on the projection PC)
  * or a short “remote LAN” badge when Control is already open on a phone.
  */
-export function LanRemoteHint() {
+export type LanRemoteHintProps = {
+  /** Session owner token — required for phone Control join after hardening. */
+  accessToken?: string | null;
+};
+
+export function LanRemoteHint({ accessToken }: LanRemoteHintProps = {}) {
   const { t } = useLocale();
   const [urls, setUrls] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
@@ -23,12 +28,12 @@ export function LanRemoteHint() {
       if (cancelled || !health?.ok) return;
       const addrs = health.lanAddresses ?? [];
       if (addrs.length === 0) return;
-      setUrls(buildLanControlUrls(addrs));
+      setUrls(buildLanControlUrls(addrs, accessToken));
     })();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [accessToken]);
 
   const primary = urls[0] ?? "";
 

@@ -688,6 +688,29 @@ export class LibraryStore {
    * Import Quelea .qsp / .xml from the operator folder
    * (default: data/library/songs/import/).
    */
+  /**
+   * Resolve an operator-supplied folder under the allowed import root.
+   * Absolute paths outside the root are rejected (path escape).
+   */
+  private resolveImportFolder(
+    requested: string | undefined,
+    defaultFolder: string,
+  ): string {
+    const root = path.resolve(defaultFolder);
+    const raw = requested?.trim();
+    if (!raw) {
+      return root;
+    }
+    if (raw.includes("\0")) {
+      throw new Error("folder_escape");
+    }
+    const abs = path.resolve(raw);
+    if (abs !== root && !abs.startsWith(root + path.sep)) {
+      throw new Error("folder_escape");
+    }
+    return abs;
+  }
+
   async importSongsFromFolder(opts?: {
     folder?: string;
   }): Promise<{
@@ -697,7 +720,23 @@ export class LibraryStore {
     skipped: Array<{ file: string; error: string; message: string }>;
   }> {
     await this.ensureLoaded();
-    const folder = opts?.folder?.trim() || songImportFolder();
+    let folder: string;
+    try {
+      folder = this.resolveImportFolder(opts?.folder, songImportFolder());
+    } catch {
+      return {
+        folder: songImportFolder(),
+        imported: [],
+        updated: [],
+        skipped: [
+          {
+            file: opts?.folder?.trim() || "",
+            error: "folder_escape",
+            message: "Carpeta fuera del directorio de importación permitido.",
+          },
+        ],
+      };
+    }
     await mkdir(folder, { recursive: true });
     let entries: string[] = [];
     try {
@@ -861,7 +900,22 @@ export class LibraryStore {
     skipped: Array<{ file: string; error: string; message: string }>;
   }> {
     await this.ensureLoaded();
-    const folder = opts?.folder?.trim() || bibleImportFolder();
+    let folder: string;
+    try {
+      folder = this.resolveImportFolder(opts?.folder, bibleImportFolder());
+    } catch {
+      return {
+        folder: bibleImportFolder(),
+        imported: [],
+        skipped: [
+          {
+            file: opts?.folder?.trim() || "",
+            error: "folder_escape",
+            message: "Carpeta fuera del directorio de importación permitido.",
+          },
+        ],
+      };
+    }
     await mkdir(folder, { recursive: true });
     let entries: string[] = [];
     try {

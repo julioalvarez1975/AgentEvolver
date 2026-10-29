@@ -7,6 +7,8 @@ export type SessionAccess =
 
 /**
  * Validate session membership via wsTicket, short code, or opaque token.
+ * Short code never grants `control` (LAN guess → Output only).
+ * Access token may grant control when `requireRole: "control"` (owner secret).
  */
 export function authorizeSessionAccess(
   sessionId: string,
@@ -52,11 +54,42 @@ export function authorizeSessionAccess(
     if (!byToken || byToken.id !== sessionId) {
       return { ok: false, status: 403, error: "invalid_token" };
     }
-    if (opts.requireRole === "control") {
-      return { ok: false, status: 403, error: "forbidden_role" };
-    }
-    return { ok: true };
+    // Access token is the session owner secret — may act as control.
+    return {
+      ok: true,
+      role: opts.requireRole === "control" ? "control" : undefined,
+    };
   }
 
+  return { ok: false, status: 401, error: "missing_credentials" };
+}
+
+/**
+ * Hub-global operator gate for Biblioteca mutations (not session-scoped).
+ * Accepts a live control wsTicket or any session accessToken.
+ */
+export function authorizeHubOperator(opts: {
+  credential?: string | null;
+  accessToken?: string | null;
+}): SessionAccess {
+  const credential = opts.credential?.trim();
+  if (credential) {
+    const ticket = sessionStore.getTicket(credential);
+    if (!ticket || ticket.role !== "control") {
+      return { ok: false, status: 403, error: "forbidden_role" };
+    }
+    if (!sessionStore.get(ticket.sessionId)) {
+      return { ok: false, status: 401, error: "session_not_found" };
+    }
+    return { ok: true, role: "control" };
+  }
+  const accessToken = opts.accessToken?.trim();
+  if (accessToken) {
+    const session = sessionStore.findByAccessToken(accessToken);
+    if (!session) {
+      return { ok: false, status: 403, error: "invalid_token" };
+    }
+    return { ok: true, role: "control" };
+  }
   return { ok: false, status: 401, error: "missing_credentials" };
 }

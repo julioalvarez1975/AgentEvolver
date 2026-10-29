@@ -6,6 +6,7 @@ import type {
   TextPayload,
 } from "@promedia/shared";
 import { hubHttpBase } from "./hub";
+import { libraryAuthHeaders, libraryAuthQuery } from "./libraryAuth";
 
 export async function listLibraryItems(opts?: {
   category?: string;
@@ -21,6 +22,7 @@ export async function listLibraryItems(opts?: {
   const qs = q.toString();
   const res = await fetch(
     `${hubHttpBase()}/api/v1/library/items${qs ? `?${qs}` : ""}`,
+    { headers: libraryAuthHeaders() },
   );
   if (!res.ok) {
     throw new Error(`library_list_failed_${res.status}`);
@@ -34,7 +36,7 @@ export async function createLibrarySong(
 ): Promise<LibraryItem> {
   const res = await fetch(`${hubHttpBase()}/api/v1/library/songs`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: libraryAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(song),
   });
   const body = (await res.json().catch(() => ({}))) as {
@@ -56,7 +58,7 @@ export async function updateLibrarySong(
     `${hubHttpBase()}/api/v1/library/songs/${encodeURIComponent(id)}`,
     {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: libraryAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(song),
     },
   );
@@ -77,7 +79,7 @@ export async function saveLibraryText(opts: {
 }): Promise<LibraryItem> {
   const res = await fetch(`${hubHttpBase()}/api/v1/library/text`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: libraryAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(opts),
   });
   const body = (await res.json().catch(() => ({}))) as {
@@ -96,7 +98,7 @@ export async function saveLibraryBible(
 ): Promise<LibraryItem> {
   const res = await fetch(`${hubHttpBase()}/api/v1/library/bible`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: libraryAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(payload),
   });
   const body = (await res.json().catch(() => ({}))) as {
@@ -125,6 +127,7 @@ export async function uploadLibraryFile(
   }
   const res = await fetch(`${hubHttpBase()}/api/v1/library/upload`, {
     method: "POST",
+    headers: libraryAuthHeaders(),
     body: form,
   });
   const body = (await res.json().catch(() => ({}))) as {
@@ -161,7 +164,7 @@ export async function importBiblesFromFolder(): Promise<BibleFolderImportResult>
     `${hubHttpBase()}/api/v1/library/bibles/import-folder`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: libraryAuthHeaders({ "Content-Type": "application/json" }),
       body: "{}",
     },
   );
@@ -205,6 +208,7 @@ export async function importQueleaSongsFile(
   form.append("file", file);
   const res = await fetch(`${hubHttpBase()}/api/v1/library/songs/import`, {
     method: "POST",
+    headers: libraryAuthHeaders(),
     body: form,
   });
   const body = (await res.json().catch(() => ({}))) as SongImportResult & {
@@ -225,7 +229,7 @@ export async function importSongsFromFolder(): Promise<SongImportResult> {
     `${hubHttpBase()}/api/v1/library/songs/import-folder`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: libraryAuthHeaders({ "Content-Type": "application/json" }),
       body: "{}",
     },
   );
@@ -244,7 +248,7 @@ export async function importSongsFromFolder(): Promise<SongImportResult> {
 export async function deleteLibraryItem(id: string): Promise<void> {
   const res = await fetch(
     `${hubHttpBase()}/api/v1/library/items/${encodeURIComponent(id)}`,
-    { method: "DELETE" },
+    { method: "DELETE", headers: libraryAuthHeaders() },
   );
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as {
@@ -281,7 +285,9 @@ export async function addLibraryItemToSession(opts: {
 }
 
 export function libraryOriginalUrl(itemId: string): string {
-  return `${hubHttpBase()}/api/v1/library/items/${encodeURIComponent(itemId)}/original`;
+  const base = `${hubHttpBase()}/api/v1/library/items/${encodeURIComponent(itemId)}/original`;
+  const auth = libraryAuthQuery();
+  return auth ? `${base}?${auth}` : base;
 }
 
 export const LIBRARY_UPLOAD_ACCEPT =

@@ -10,11 +10,18 @@ import type {
   SessionMode,
 } from "@promedia/shared";
 import { assetStore } from "./asset-store.js";
-import { authorizeSessionAccess } from "./auth.js";
+import {
+  authorizeHubOperator,
+  authorizeSessionAccess,
+} from "./auth.js";
 import { broadcastSession } from "./broadcast.js";
 import { libraryStore } from "./library-store.js";
 import { playlistStore } from "./playlist-store.js";
+import { clientIpFromHeaders, rateLimitAllow } from "./rate-limit.js";
 import { sessionStore } from "./session-store.js";
+
+/** Session media upload cap (bytes) — prevents LAN DoS filling disk. */
+const SESSION_ASSET_MAX_BYTES = 512 * 1024 * 1024;
 import { BIBLE_BOOKS } from "./bible/books.js";
 import { lookupPassage, passageToSlides } from "./bible/lookup.js";
 import { parseBibleReference } from "./bible/parse.js";
@@ -60,6 +67,22 @@ function bearerToken(header: string | undefined): string | null {
   }
   const m = /^Bearer\s+(.+)$/i.exec(header.trim());
   return m?.[1] ?? null;
+}
+
+function hubOperatorFromRequest(c: {
+  req: {
+    header: (name: string) => string | undefined;
+    query: (name: string) => string | undefined;
+  };
+}) {
+  return authorizeHubOperator({
+    credential:
+      bearerToken(c.req.header("authorization")) ?? c.req.query("credential"),
+    accessToken:
+      c.req.query("accessToken") ??
+      c.req.query("token") ??
+      c.req.header("x-promedia-access-token"),
+  });
 }
 
 export function createApiRoutes(): Hono {
@@ -120,6 +143,27 @@ export function createApiRoutes(): Hono {
       );
     }
 
+    const role =
+      body.role === "control" || body.role === "output" ? body.role : "output";
+
+    // Short join code is Output-only — guessing a 4-char code must not
+    // grant Guion control on the LAN.
+    if (role === "control" && hasCode && !hasToken) {
+      return c.json({ error: "control_requires_token" }, 403);
+    }
+
+    const ip = clientIpFromHeaders((n) => c.req.header(n));
+    if (hasCode) {
+      const allowed = rateLimitAllow({
+        key: `join-code:${ip}`,
+        limit: 20,
+        windowMs: 60_000,
+      });
+      if (!allowed) {
+        return c.json({ error: "rate_limited" }, 429);
+      }
+    }
+
     const session = hasCode
       ? sessionStore.findByCode(body.code!)
       : sessionStore.findByAccessToken(body.accessToken!);
@@ -128,8 +172,6 @@ export function createApiRoutes(): Hono {
       return c.json({ error: "invalid_credentials" }, 401);
     }
 
-    const role =
-      body.role === "control" || body.role === "output" ? body.role : "output";
     const ticket = sessionStore.issueTicket(session.id, role);
     const bases = publicBase(c);
     const snapshot = sessionStore.toSnapshot(session);
@@ -148,6 +190,15 @@ export function createApiRoutes(): Hono {
 
   api.get("/sessions/:sessionId", (c) => {
     const sessionId = c.req.param("sessionId");
+    const access = authorizeSessionAccess(sessionId, {
+      credential:
+        bearerToken(c.req.header("authorization")) ?? c.req.query("credential"),
+      code: c.req.query("code"),
+      accessToken: c.req.query("accessToken") ?? c.req.query("token"),
+    });
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
+    }
     const session = sessionStore.get(sessionId);
     if (!session) {
       return c.json({ error: "not_found" }, 404);
@@ -158,7 +209,7 @@ export function createApiRoutes(): Hono {
   /**
    * Upload image or video asset (control only). Multipart field `file`.
    * Auth: Authorization Bearer <wsTicket> or query ?credential=
-   * Video MIMEs: mp4/webm/quicktime (Q1). No hard size cap.
+   * Video MIMEs: mp4/webm/quicktime (Q1). Cap {@link SESSION_ASSET_MAX_BYTES}.
    */
   api.post("/sessions/:sessionId/assets", async (c) => {
     const sessionId = c.req.param("sessionId");
@@ -166,6 +217,7 @@ export function createApiRoutes(): Hono {
       bearerToken(c.req.header("authorization")) ?? c.req.query("credential");
     const access = authorizeSessionAccess(sessionId, {
       credential,
+      accessToken: c.req.query("accessToken") ?? c.req.query("token"),
       requireRole: "control",
     });
     if (!access.ok) {
@@ -187,8 +239,15 @@ export function createApiRoutes(): Hono {
       return c.json({ error: "missing_file" }, 400);
     }
 
+    if (file.size > SESSION_ASSET_MAX_BYTES) {
+      return c.json({ error: "file_too_large" }, 400);
+    }
+
     const mime = file.type || "application/octet-stream";
     const bytes = Buffer.from(await file.arrayBuffer());
+    if (bytes.byteLength > SESSION_ASSET_MAX_BYTES) {
+      return c.json({ error: "file_too_large" }, 400);
+    }
     const result = await assetStore.putByMime(
       sessionId,
       bytes,
@@ -206,6 +265,10 @@ export function createApiRoutes(): Hono {
    * PDF only on hub (pdf-parse). Auth not required — no session mutation.
    */
   api.post("/parse/document", async (c) => {
+    const access = hubOperatorFromRequest(c);
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
+    }
     const body = await c.req.parseBody();
     const file = body.file;
     if (!(file instanceof File)) {
@@ -461,6 +524,14 @@ export function createApiRoutes(): Hono {
   });
 
   // ── Local media library (Phase 1 — disk + JSON; not cloud) ──────────
+  // All /library/* require a control operator (wsTicket or accessToken).
+  api.use("/library/*", async (c, next) => {
+    const access = hubOperatorFromRequest(c);
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
+    }
+    await next();
+  });
 
   api.get("/library/items", async (c) => {
     const category = c.req.query("category") ?? undefined;
@@ -560,16 +631,8 @@ export function createApiRoutes(): Hono {
    * (default: data/library/songs/import/).
    */
   api.post("/library/songs/import-folder", async (c) => {
-    let folder: string | undefined;
-    try {
-      const body = (await c.req.json().catch(() => null)) as {
-        folder?: string;
-      } | null;
-      folder = body?.folder?.trim() || undefined;
-    } catch {
-      folder = undefined;
-    }
-    const result = await libraryStore.importSongsFromFolder({ folder });
+    // Ignore client-supplied paths — only the configured songs/import root.
+    const result = await libraryStore.importSongsFromFolder({});
     return c.json({
       folder: result.folder,
       imported: result.imported.map((i) => ({
@@ -672,16 +735,8 @@ export function createApiRoutes(): Hono {
    * (default: data/library/bibles/import/). Does not commit texts to git.
    */
   api.post("/library/bibles/import-folder", async (c) => {
-    let folder: string | undefined;
-    try {
-      const body = (await c.req.json().catch(() => null)) as {
-        folder?: string;
-      } | null;
-      folder = body?.folder?.trim() || undefined;
-    } catch {
-      folder = undefined;
-    }
-    const result = await libraryStore.importBiblesFromFolder({ folder });
+    // Ignore client-supplied paths — only the configured bibles/import root.
+    const result = await libraryStore.importBiblesFromFolder({});
     return c.json({
       folder: result.folder,
       imported: result.imported.map((i) => ({

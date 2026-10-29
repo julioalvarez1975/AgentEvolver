@@ -554,14 +554,21 @@ export function ControlPage() {
     autoSessionStarted.current = true;
     void (async () => {
       try {
+        const params = new URLSearchParams(window.location.search);
+        const urlToken = (
+          params.get("token") ??
+          params.get("accessToken") ??
+          ""
+        ).trim();
         const saved = loadPersistedControlSession();
-        if (saved?.code) {
+        const token = urlToken || saved?.accessToken?.trim() || "";
+        if (token) {
           try {
-            const res = await joinRef.current({ code: saved.code });
-            persistSession(res.code, saved.accessToken);
+            const res = await joinRef.current({ accessToken: token });
+            persistSession(res.code, token);
             return;
           } catch {
-            // Stale code after hub restart — create a fresh session.
+            // Stale token after hub restart — create a fresh session.
           }
         }
         const res = await createRef.current();
@@ -616,9 +623,11 @@ export function ControlPage() {
               return session.code;
             }
             const saved = loadPersistedControlSession();
-            if (saved?.code) {
+            if (saved?.accessToken) {
               try {
-                const joined = await session.join({ code: saved.code });
+                const joined = await session.join({
+                  accessToken: saved.accessToken,
+                });
                 persistSession(joined.code, saved.accessToken);
                 return joined.code;
               } catch {
@@ -1414,11 +1423,11 @@ export function ControlPage() {
                     <span className="sr-only">{t("control.code")}</span>
                     <input
                       value={joinCode}
-                      onChange={(e) =>
-                        setJoinCode(e.target.value.toUpperCase())
-                      }
+                      onChange={(e) => setJoinCode(e.target.value.trim())}
                       placeholder={t("control.joinPlaceholder")}
-                      maxLength={8}
+                      maxLength={64}
+                      autoComplete="off"
+                      spellCheck={false}
                     />
                   </label>
                   <button
@@ -1426,10 +1435,12 @@ export function ControlPage() {
                     className="btn"
                     disabled={!joinCode.trim()}
                     onClick={() => {
+                      const token = joinCode.trim();
+                      // Control join requires accessToken (short codes = Output only).
                       void session
-                        .join({ code: joinCode.trim() })
+                        .join({ accessToken: token })
                         .then((res) => {
-                          persistSession(res.code);
+                          persistSession(res.code, token);
                         })
                         .catch(() => undefined);
                     }}
@@ -1980,7 +1991,7 @@ export function ControlPage() {
         </span>
         <span className="footer-sep">·</span>
         <span>seq {session.lastSeq >= 0 ? session.lastSeq : "—"}</span>
-        <LanRemoteHint />
+        <LanRemoteHint accessToken={session.accessToken || null} />
         {uploading ? (
           <>
             <span className="footer-sep">·</span>

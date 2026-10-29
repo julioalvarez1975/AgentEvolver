@@ -107,12 +107,20 @@ export function isLoopbackPageHost(): boolean {
 /**
  * Control URL(s) a phone should open on the same Wi‑Fi.
  * Uses current Vite port + hub-reported LAN IPs.
+ * When `accessToken` is set, appends `?token=` so the phone can join as
+ * control (short codes alone no longer grant Guion control).
  */
-export function buildLanControlUrls(lanAddresses: string[]): string[] {
+export function buildLanControlUrls(
+  lanAddresses: string[],
+  accessToken?: string | null,
+): string[] {
   const port =
     window.location.port ||
     (window.location.protocol === "https:" ? "443" : "80");
-  const path = "/control";
+  const token = accessToken?.trim();
+  const path = token
+    ? `/control?token=${encodeURIComponent(token)}`
+    : "/control";
   return lanAddresses
     .filter((ip) => typeof ip === "string" && ip.length > 0)
     .map((ip) => `http://${ip}:${port}${path}`);
