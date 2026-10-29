@@ -514,6 +514,57 @@ body {
   padding: 0.15rem 0.2rem;
 }
 
+/* Transition effects — same footprint as Proyectar / Biblioteca icon buttons. */
+.toolbar-effects {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  min-width: 2.7rem;
+  max-width: 3.6rem;
+  padding: 0.22rem 0.18rem 0.18rem;
+  line-height: 1.1;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elev);
+  box-shadow: none;
+  outline: none;
+  cursor: pointer;
+  margin: 0;
+}
+
+.toolbar-effects:hover {
+  background: #182230;
+}
+
+.toolbar-effects:focus-within {
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+.toolbar-effects-select {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  font-size: 1rem;
+}
+
+.toolbar-effects .toolbar-icon-btn-glyph,
+.toolbar-effects .toolbar-icon-btn-label {
+  pointer-events: none;
+}
+
 .control-header-toolbar > .theme-transition-label select {
   max-width: 7.5rem;
 }

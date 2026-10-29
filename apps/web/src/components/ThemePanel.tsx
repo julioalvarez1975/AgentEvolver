@@ -14,6 +14,7 @@ import {
   type TransitionEffect,
 } from "@promedia/shared";
 import { useLocale } from "../locale/LocaleContext";
+import { IconEffects } from "./UiIcons";
 
 export type ThemeBackgroundAssetOption = {
   assetId: string;
@@ -185,10 +186,17 @@ export function ThemePanel({
   return (
     <Fragment>
       <label
-        className="toolbar-tool theme-transition-label"
+        className="toolbar-effects"
         title={t("theme.transition")}
       >
+        <span className="toolbar-icon-btn-glyph" aria-hidden>
+          <IconEffects size={16} />
+        </span>
+        <span className="toolbar-icon-btn-label">
+          {t("theme.effectsShort")}
+        </span>
         <select
+          className="toolbar-effects-select"
           value={effect}
           disabled={disabled}
           aria-label={t("theme.transition")}
