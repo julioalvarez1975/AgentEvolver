@@ -490,8 +490,8 @@ export function buildKaraokeAlignPrompt(
 }
 
 /**
- * Pack per-line karaoke cues into overlay groups: prefer/max 6 lines.
- * Exact Biblioteca text joined with newlines; start = first line onset.
+ * Pack per-line karaoke cues for display: default 1 phrase per cue.
+ * Does NOT extend into the next line — instrumental / no-voice gaps stay blank.
  */
 export function packKaraokeDisplayCues(
   lineCues: readonly SubtitleCue[],
@@ -499,22 +499,18 @@ export function packKaraokeDisplayCues(
   maxLines = LYRIC_OVERLAY_MAX_LINES,
 ): SubtitleCue[] {
   if (lineCues.length === 0) return [];
+  // Prefer one phrase; never pack more than maxLines (soft-wrap ceiling).
   const size = Math.min(
-    maxLines,
-    Math.max(1, Math.trunc(preferredLines) || 2),
+    Math.max(1, Math.trunc(maxLines) || 1),
+    Math.max(1, Math.trunc(preferredLines) || 1),
   );
   const out: SubtitleCue[] = [];
   for (let i = 0; i < lineCues.length; i += size) {
     const group = lineCues.slice(i, i + size);
     const first = group[0]!;
     const last = group[group.length - 1]!;
-    const next = lineCues[i + size];
-    // Hold group until the next pack starts so mid-song gaps stay filled.
-    const endMs = Math.max(
-      first.startMs + 800,
-      last.endMs,
-      next ? next.startMs : last.endMs,
-    );
+    // Keep the line's own end — do not hold until the next phrase starts.
+    const endMs = Math.max(first.startMs + 800, last.endMs);
     out.push({
       id: `karaoke_${out.length}`,
       startMs: first.startMs,
@@ -557,6 +553,7 @@ export function alignCancioneroLinesToTiming(
 
   const stream = flattenTimingTokens(speech);
   const starts: number[] = new Array(exactLines.length).fill(-1);
+  const ends: number[] = new Array(exactLines.length).fill(-1);
   let cursor = 0;
   let alignedCount = 0;
   /** Local search ahead of cursor — wide enough to recover mid-song, not so
@@ -564,6 +561,10 @@ export function alignCancioneroLinesToTiming(
   const TOKEN_SEARCH_AHEAD = 96;
   const CUE_SEARCH_AHEAD = 18;
   const MIN_LINE_GAP_MS = 850;
+  /** Leave blank stage between phrases when the voice pauses. */
+  const GAP_BLANK_MS = 350;
+  const MIN_PHRASE_MS = 1_200;
+  const MAX_PHRASE_MS = 5_500;
 
   for (let li = 0; li < exactLines.length; li++) {
     const lineTok = alignTokens(exactLines[li]!);
@@ -571,6 +572,7 @@ export function alignCancioneroLinesToTiming(
 
     let bestScore = 0;
     let bestStart = -1;
+    let bestEndMs = -1;
     let bestEndCursor = cursor;
 
     // Primary: sequential token-stream match (karaoke-gen forced align).
@@ -597,6 +599,7 @@ export function alignCancioneroLinesToTiming(
           if (better) {
             bestScore = score;
             bestStart = stream[i]!.startMs;
+            bestEndMs = stream[j]!.endMs;
             bestEndCursor = j + 1;
           }
         }
@@ -628,6 +631,7 @@ export function alignCancioneroLinesToTiming(
           ) {
             bestScore = score;
             bestStart = speech[i]!.startMs;
+            bestEndMs = speech[j]!.endMs;
             // Advance token cursor past this cue's tokens.
             const cueEnd = speech[j]!.endMs;
             let tokEnd = cursor;
@@ -645,6 +649,10 @@ export function alignCancioneroLinesToTiming(
 
     if (bestStart >= 0 && bestScore >= 0.4) {
       starts[li] = bestStart;
+      ends[li] = Math.max(
+        bestStart + MIN_PHRASE_MS,
+        bestEndMs > bestStart ? bestEndMs : bestStart + MIN_PHRASE_MS,
+      );
       cursor = Math.max(cursor + 1, bestEndCursor);
       alignedCount += 1;
     }
@@ -730,12 +738,28 @@ export function alignCancioneroLinesToTiming(
 
   const cues: SubtitleCue[] = exactLines.map((text, index) => {
     const startMs = Math.max(0, Math.round(starts[index]!));
-    const endMs = Math.max(
-      startMs + 500,
-      index === exactLines.length - 1
-        ? paddedTotal
-        : Math.round(starts[index + 1]!),
-    );
+    const nextStart =
+      index + 1 < exactLines.length
+        ? Math.round(starts[index + 1]!)
+        : paddedTotal;
+    // Prefer voice-matched end; otherwise hold a phrase window — leave blank
+    // before the next line when there is room (instrumental / breath gaps).
+    let endMs =
+      ends[index]! > startMs
+        ? Math.round(ends[index]!)
+        : startMs +
+          Math.min(
+            MAX_PHRASE_MS,
+            Math.max(MIN_PHRASE_MS, Math.floor((nextStart - startMs) * 0.7)),
+          );
+    endMs = Math.max(startMs + 500, Math.min(endMs, startMs + MAX_PHRASE_MS));
+    if (nextStart - startMs > MIN_PHRASE_MS + GAP_BLANK_MS) {
+      endMs = Math.min(endMs, nextStart - GAP_BLANK_MS);
+    } else {
+      // Tight successive phrases: abut without inventing a long hold.
+      endMs = Math.min(endMs, nextStart);
+    }
+    endMs = Math.max(startMs + 500, endMs);
     return {
       id: `cancionero_${index}`,
       startMs,
@@ -770,11 +794,14 @@ function cuesFromEqualTime(
   const leadInMs = conservativeIntroMs(total, lines.length);
   const usable = Math.max(total - leadInMs, lines.length * 2_000);
   const slice = usable / lines.length;
+  // Show ~70% of each slice; leave the rest blank (no-voice feel).
+  const visible = Math.max(1_200, Math.floor(slice * 0.7));
   return lines.map((text, index) => {
     const startMs = Math.round(leadInMs + index * slice);
-    const endMs = Math.round(
+    const slotEnd = Math.round(
       index === lines.length - 1 ? total : leadInMs + (index + 1) * slice,
     );
+    const endMs = Math.min(slotEnd, startMs + visible);
     return {
       id: `cancionero_${index}`,
       startMs: Math.max(0, startMs),

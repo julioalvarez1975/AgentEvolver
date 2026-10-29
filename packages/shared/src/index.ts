@@ -979,13 +979,13 @@ export function itemHasSlides(item: PlaylistItem): boolean {
 export const TEXT_PROJECTION_LINES = 6;
 
 /**
- * Absolute max lines for timed lyric / karaoke overlay (song projection).
- * FittedTextStage still auto-fits type; never overflow the stage.
+ * Absolute max visual rows for one karaoke phrase (soft-wrap only).
+ * Packing stays 1 cancionero phrase per cue — never stack multiple phrases.
  */
-export const LYRIC_OVERLAY_MAX_LINES = 6;
+export const LYRIC_OVERLAY_MAX_LINES = 2;
 
-/** Preferred visual lines per lyric cue / packed karaoke group. */
-export const LYRIC_OVERLAY_PREFERRED_LINES = 6;
+/** One phrase per karaoke cue / pack group (single renglón when short). */
+export const LYRIC_OVERLAY_PREFERRED_LINES = 1;
 
 /**
  * Soft-wrap budget (characters) before a source line becomes multiple

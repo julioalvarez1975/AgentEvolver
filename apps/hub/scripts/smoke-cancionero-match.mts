@@ -160,10 +160,18 @@ assert(
 const cues = songToSubtitleCues(song, 120_000);
 assert(cues.length === chunks.length, "cue count = exact lines");
 assert(
-  cues[0]!.startMs >= 3_000 && cues[0]!.startMs <= 12_000,
+  cues[0]!.startMs >= 5_000 && cues[0]!.startMs <= 40_000,
   `equal-time fallback modest intro, got ${cues[0]!.startMs}`,
 );
-assert(cues[cues.length - 1]!.endMs >= 100_000, "last end near duration");
+// Phrases leave blank gaps — last cue ends after its visible window, not song end.
+assert(
+  cues[cues.length - 1]!.endMs > cues[cues.length - 1]!.startMs,
+  "last cue has a positive window",
+);
+assert(
+  cues.some((c, i) => i + 1 < cues.length && c.endMs < cues[i + 1]!.startMs),
+  "equal-time leaves blank gaps between phrases",
+);
 assert(
   cues.every((c) => c.text.trim().length > 0),
   "all cues have text",

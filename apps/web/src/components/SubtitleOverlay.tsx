@@ -55,8 +55,8 @@ const SUBTITLE_FIT_BY_SIZE: Record<
 };
 
 /**
- * Prefer up to 6 visual rows for song projection. Cancionero exact newlines
- * win when present (sliced if over max). Soft-wrap avoids orphan words.
+ * One karaoke phrase at a time. Cancionero newlines win when present.
+ * Soft-wrap may use up to LYRIC_OVERLAY_MAX_LINES for a single long phrase.
  */
 function lyricOverlayDisplayLines(raw: string): string[] {
   const exact = String(raw ?? "")
@@ -100,7 +100,7 @@ function lyricOverlayDisplayLines(raw: string): string[] {
 }
 
 /**
- * Full-stage karaoke projection — centered type, up to 6 rows, soft shadow.
+ * Full-stage karaoke projection — one phrase at a time; blank in no-voice gaps.
  * Timing prefers hub mediaClock; negative `leadMs` shows the cue early.
  * Assisted timingMode holds the first lyric through musical lead-in;
  * exact (cancionero / native) uses cue windows only. Manual ←/→ song

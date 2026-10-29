@@ -862,7 +862,7 @@ async function tryCancioneroLyricPath(options: {
     );
   }
 
-  // Prefer 1–2 / max 2 display lines (exact Biblioteca text, newlines kept).
+  // One cancionero phrase per cue; gaps between phrases stay blank on stage.
   let cues = packKaraokeDisplayCues(lineCues);
 
   // Apply operator-taught ←/→ timing from a previous session, if any.
