@@ -14,7 +14,7 @@ import {
   type TransitionEffect,
 } from "@promedia/shared";
 import { useLocale } from "../locale/LocaleContext";
-import { IconEffects } from "./UiIcons";
+import { IconBackground, IconEffects } from "./UiIcons";
 
 export type ThemeBackgroundAssetOption = {
   assetId: string;
@@ -65,6 +65,10 @@ const PACK_LABEL_KEYS: Record<ThemeBackgroundPackId, string> = {
 };
 
 const SOLID_VALUE = "solid";
+const BROWSE_VALUE = "__browse__";
+/** Images + common graphics (and short video loops for stage BG). */
+const BG_FILE_ACCEPT =
+  "image/*,video/*,.png,.jpg,.jpeg,.webp,.gif,.bmp,.svg,.avif,.heic,.tif,.tiff,.mp4,.webm,.mov";
 const packValue = (id: ThemeBackgroundPackId) => `pack:${id}`;
 const assetValue = (id: string) => `asset:${id}`;
 
@@ -125,6 +129,12 @@ export function ThemePanel({
   };
 
   const onBackgroundSelect = (raw: string) => {
+    if (raw === BROWSE_VALUE) {
+      if (!disabled && onUploadBackground) {
+        fileRef.current?.click();
+      }
+      return;
+    }
     if (raw === SOLID_VALUE) {
       onChange({
         themeBackground: {
@@ -166,29 +176,9 @@ export function ThemePanel({
     }
   };
 
-  const fileInput = (
-    <input
-      ref={fileRef}
-      type="file"
-      accept="video/*,image/*"
-      hidden
-      disabled={disabled || !onUploadBackground}
-      onChange={(e) => {
-        const file = e.target.files?.[0];
-        e.target.value = "";
-        if (file && onUploadBackground) {
-          void onUploadBackground(file);
-        }
-      }}
-    />
-  );
-
   return (
     <Fragment>
-      <label
-        className="toolbar-effects"
-        title={t("theme.transition")}
-      >
+      <label className="toolbar-effects" title={t("theme.transition")}>
         <span className="toolbar-icon-btn-glyph" aria-hidden>
           <IconEffects size={16} />
         </span>
@@ -215,13 +205,19 @@ export function ThemePanel({
       </label>
 
       <label
-        className="toolbar-tool theme-bg-select-label"
-        title={t("theme.bg")}
+        className="toolbar-effects toolbar-fondo"
+        title={
+          uploadingBackground ? t("theme.bgUploading") : t("theme.bg")
+        }
       >
+        <span className="toolbar-icon-btn-glyph" aria-hidden>
+          <IconBackground size={16} />
+        </span>
+        <span className="toolbar-icon-btn-label">{t("theme.bg")}</span>
         <select
-          className="theme-bg-select"
+          className="toolbar-effects-select"
           value={selectValue}
-          disabled={disabled}
+          disabled={disabled || uploadingBackground}
           aria-label={t("theme.bg")}
           onChange={(e) => onBackgroundSelect(e.target.value)}
         >
@@ -236,31 +232,41 @@ export function ThemePanel({
               {asset.label || t("theme.bgUploadActive")}
             </option>
           ))}
+          {onUploadBackground ? (
+            <option value={BROWSE_VALUE}>{t("theme.bgBrowse")}</option>
+          ) : null}
         </select>
       </label>
 
       {bg.mode === "solid" ? (
-        <label className="toolbar-tool theme-bg-color" title={t("theme.bg")}>
+        <label
+          className="toolbar-tool theme-bg-color"
+          title={t("theme.bgSolid")}
+        >
           <input
             type="color"
             value={/^#[0-9a-fA-F]{6}$/.test(bgColor) ? bgColor : "#0a0e14"}
             disabled={disabled}
-            aria-label={t("theme.bg")}
+            aria-label={t("theme.bgSolid")}
             onChange={(e) => patchOverride({ bg: e.target.value })}
           />
         </label>
       ) : null}
 
-      {fileInput}
-      <button
-        type="button"
-        className="btn btn-ghost theme-bg-upload-btn"
-        disabled={disabled || !onUploadBackground || uploadingBackground}
-        title={t("theme.bgUpload")}
-        onClick={() => fileRef.current?.click()}
-      >
-        {uploadingBackground ? t("theme.bgUploading") : t("theme.bgUpload")}
-      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept={BG_FILE_ACCEPT}
+        hidden
+        disabled={disabled || !onUploadBackground}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file && onUploadBackground) {
+            void onUploadBackground(file);
+          }
+        }}
+      />
     </Fragment>
   );
 }
