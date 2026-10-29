@@ -52,6 +52,26 @@ export type CancioneroMatchMiss = {
 export type CancioneroMatchResult = CancioneroMatchHit | CancioneroMatchMiss;
 
 /**
+ * Head of a YouTube / media title: text before `(…)` / `[…]` / `| channel`.
+ * Keeps "Vasijas Rotas" and drops "(Sublime Gracia – Hillsong) | Canal".
+ */
+export function primaryTitleSegment(raw: string | null | undefined): string {
+  if (!raw) return "";
+  let s = String(raw).trim();
+  if (!s) return "";
+  const slash = Math.max(s.lastIndexOf("/"), s.lastIndexOf("\\"));
+  if (slash >= 0) s = s.slice(slash + 1);
+  s = s.replace(AUDIO_EXT_RE, "");
+  // Channel / site suffix: "Song | Artist channel"
+  const pipe = s.search(/\s*[|｜]\s*/);
+  if (pipe >= 0) s = s.slice(0, pipe).trim();
+  // Parenthetical "tune of" / featuring / version — not the song name.
+  const br = s.search(/[(\[{]/);
+  if (br >= 0) s = s.slice(0, br).trim();
+  return s.trim();
+}
+
+/**
  * Fold a media title / filename into a matchable song title.
  * Strips extension, feat/junk parentheticals, punctuation; lowercases.
  */
@@ -76,7 +96,11 @@ export function normalizeMatchTitle(raw: string | null | undefined): string {
   return s;
 }
 
-/** Split "Title - Artist" / "Artist - Title" style strings into candidates. */
+/**
+ * Split "Title - Artist" / "Artist - Title" style strings into candidates.
+ * Prefer the primary segment (before parentheses / `|`) so parenthetical
+ * "also known as" titles do not compete as equal queries.
+ */
 export function titleVariants(raw: string | null | undefined): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -88,8 +112,14 @@ export function titleVariants(raw: string | null | undefined): string[] {
     }
   };
   if (!raw?.trim()) return out;
+  const primary = primaryTitleSegment(raw);
+  // Primary first — findCancioneroSong keeps the best score; exact primary
+  // titles (e.g. "vasijas rotas") must beat mid-string aliases.
+  if (primary) push(primary);
   push(raw);
-  const parts = String(raw)
+  // Dash-split only the primary head (never inside "(Sublime Gracia – …)").
+  const splitSource = primary || String(raw);
+  const parts = splitSource
     .split(/\s+[-–—]\s+/)
     .map((p) => p.trim())
     .filter(Boolean);
@@ -148,6 +178,13 @@ export function scoreSongMatch(
     // Prefer near-equal contains (avoid "a" matching everything).
     if (shorter >= 4 && shorter / longer >= 0.45) {
       score = 70 + Math.round(20 * (shorter / longer));
+      // Prefix = real title. Mid-string = parenthetical "tune of X" noise.
+      // e.g. q="vasijas rotas sublime gracia": vasijas rotas wins, sublime gracia loses.
+      if (q.startsWith(songTitle) || songTitle.startsWith(q)) {
+        score += 18;
+      } else if (q.includes(songTitle) && !songTitle.includes(q)) {
+        score -= 30;
+      }
     }
   } else {
     const jac = jaccard(tokenSet(songTitle), tokenSet(q));

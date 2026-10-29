@@ -15,6 +15,7 @@ import {
   flattenTimingTokens,
   normalizeMatchTitle,
   packKaraokeDisplayCues,
+  primaryTitleSegment,
   scoreSongMatch,
   songCancioneroLines,
   songLyricChunks,
@@ -73,6 +74,48 @@ assert(ytLike >= 70, `youtube-like title score got ${ytLike}`);
 
 const miss = scoreSongMatch(song, "Shape of You");
 assert(miss < 55, `unrelated should miss, got ${miss}`);
+
+// YouTube "Song (Tune of Other – Artist) | Channel" must match Song, not Other.
+const ytVasijas =
+  "Vasijas Rotas (Sublime Gracia – Hillsong Worship) | Lakepointe en Español";
+assert(
+  primaryTitleSegment(ytVasijas) === "Vasijas Rotas",
+  `primaryTitleSegment got "${primaryTitleSegment(ytVasijas)}"`,
+);
+const vasijasVariants = titleVariants(ytVasijas);
+assert(
+  vasijasVariants[0] === "vasijas rotas",
+  `primary variant first, got ${JSON.stringify(vasijasVariants)}`,
+);
+assert(
+  !vasijasVariants.includes("sublime gracia"),
+  "parenthetical alias must not be a standalone query variant",
+);
+const vasijasSong: LibrarySongPayload = {
+  title: "Vasijas Rotas",
+  artist: "Hillsong",
+  stanzas: [{ id: "s1", lines: ["Manos vacías", "Que tú llenaste"] }],
+};
+const sublimeSong: LibrarySongPayload = {
+  title: "Sublime Gracia",
+  artist: "Tradicional",
+  stanzas: [{ id: "s1", lines: ["Sublime gracia del Señor"] }],
+};
+let bestVasijas = 0;
+let bestSublime = 0;
+for (const q of vasijasVariants) {
+  bestVasijas = Math.max(bestVasijas, scoreSongMatch(vasijasSong, q));
+  bestSublime = Math.max(bestSublime, scoreSongMatch(sublimeSong, q));
+}
+assert(bestVasijas >= 100, `Vasijas Rotas should exact-match primary, got ${bestVasijas}`);
+assert(
+  bestVasijas > bestSublime,
+  `Vasijas Rotas (${bestVasijas}) must beat Sublime Gracia (${bestSublime})`,
+);
+assert(
+  bestSublime < 55,
+  `Sublime Gracia mid-string alias must stay below threshold, got ${bestSublime}`,
+);
 
 // Exact Biblioteca lines — do not invent punctuation splits.
 const longLine =
