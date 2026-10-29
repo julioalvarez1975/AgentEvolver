@@ -160,8 +160,8 @@ assert(
 const cues = songToSubtitleCues(song, 120_000);
 assert(cues.length === chunks.length, "cue count = exact lines");
 assert(
-  cues[0]!.startMs >= 2_000 && cues[0]!.startMs <= 7_000,
-  `equal-time fallback short intro, got ${cues[0]!.startMs}`,
+  cues[0]!.startMs >= 3_000 && cues[0]!.startMs <= 12_000,
+  `equal-time fallback modest intro, got ${cues[0]!.startMs}`,
 );
 assert(cues[cues.length - 1]!.endMs >= 100_000, "last end near duration");
 assert(
@@ -208,17 +208,22 @@ assert(
     11_000,
     CANCIONERO_DEFAULT_LEAD_MS,
     exactOpts,
-  )?.text === "Señor mi Dios",
-  "−1s lead shows first line 1s before voice",
+  ) === null,
+  "default lead 0: still blank 1s before first voice",
 );
 assert(
   cueAtPositionWithLeadMs(
     aligned.cues,
-    13_500,
+    12_500,
     CANCIONERO_DEFAULT_LEAD_MS,
     exactOpts,
-  )?.text === "al contemplar los cielos",
-  "−1s lead advances to next line 1s before its voice",
+  )?.text === "Señor mi Dios",
+  "default lead 0: first line at voice onset",
+);
+assert(
+  cueAtPositionWithLeadMs(aligned.cues, 13_500, -1000, exactOpts)?.text ===
+    "al contemplar los cielos",
+  "optional Adelante −1s advances next line before its voice",
 );
 assert(
   cueAtPositionWithLeadMs(aligned.cues, 14_500, 0, exactOpts)?.text ===
@@ -226,7 +231,7 @@ assert(
   "without lead, next line appears at its voice onset",
 );
 
-assert(CANCIONERO_DEFAULT_LEAD_MS === -1000, "cancionero default lead −1s");
+assert(CANCIONERO_DEFAULT_LEAD_MS === 0, "cancionero default lead is 0");
 
 // Karaoke-gen: token stream + prompt + 2–3 line display pack.
 const stream = flattenTimingTokens(timing);
@@ -251,11 +256,11 @@ assert(packed[0]!.startMs === aligned.cues[0]!.startMs, "pack start = first line
 assert(
   cueAtPositionWithLeadMs(
     packed,
-    11_000,
+    12_500,
     CANCIONERO_DEFAULT_LEAD_MS,
     exactOpts,
   )?.text.split("\n")[0] === "Señor mi Dios",
-  "−1s lead on packed karaoke cue",
+  "default lead 0 on packed karaoke cue at onset",
 );
 
 // ASR typos must not rewrite cancionero text.

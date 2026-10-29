@@ -363,10 +363,10 @@ export const SUBTITLE_LEAD_MS_OPTIONS: readonly SubtitleLeadMs[] = [
 export const DEFAULT_SUBTITLE_LEAD_MS: SubtitleLeadMs = 0;
 
 /**
- * Cancionero / Biblioteca lyric path (#83): show text 1s before the sung onset.
- * Applied when that path finishes; operator can still change Adelante after.
+ * Cancionero / Biblioteca lyric path: sync with aligned onset (no default
+ * adelante). Operators can still pick Adelante −3…−0.5 in the toolbar.
  */
-export const CANCIONERO_DEFAULT_LEAD_MS: SubtitleLeadMs = -1000;
+export const CANCIONERO_DEFAULT_LEAD_MS: SubtitleLeadMs = 0;
 
 /**
  * How the overlay maps mediaClock → cue.

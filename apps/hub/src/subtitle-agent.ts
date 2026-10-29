@@ -860,7 +860,7 @@ async function tryCancioneroLyricPath(options: {
     targetLang,
     alreadyEnglish: targetLang === "en",
     // Exact Biblioteca text; exact timingMode so we wait for the voice
-    // (no intro-hold race). leadMs −1s reveals each group 1s before onset.
+    // (no intro-hold race). Default lead 0 — sync with onset (Adelante optional).
     nativeTrack: true,
     preserveLyricsSource: true,
     timingMode: "exact",

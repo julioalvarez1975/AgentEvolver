@@ -559,9 +559,10 @@ export function alignCancioneroLinesToTiming(
   const starts: number[] = new Array(exactLines.length).fill(-1);
   let cursor = 0;
   let alignedCount = 0;
-  /** Local search ahead of cursor — was 48 and missed late verses → mid-song stall. */
-  const TOKEN_SEARCH_AHEAD = 180;
-  const CUE_SEARCH_AHEAD = 28;
+  /** Local search ahead of cursor — wide enough to recover mid-song, not so
+   * wide that early weak matches latch the whole chart forward. */
+  const TOKEN_SEARCH_AHEAD = 96;
+  const CUE_SEARCH_AHEAD = 18;
   const MIN_LINE_GAP_MS = 850;
 
   for (let li = 0; li < exactLines.length; li++) {
@@ -577,21 +578,23 @@ export function alignCancioneroLinesToTiming(
       const need = Math.max(1, lineTok.length);
       const searchEnd = Math.min(
         stream.length,
-        cursor + Math.max(TOKEN_SEARCH_AHEAD, need * 10),
+        cursor + Math.max(TOKEN_SEARCH_AHEAD, need * 8),
       );
       for (let i = cursor; i < searchEnd; i++) {
-        const maxJ = Math.min(stream.length, i + need + 4);
+        const maxJ = Math.min(stream.length, i + need + 3);
         for (let j = i; j < maxJ; j++) {
           const windowToks = stream.slice(i, j + 1).map((t) => t.token);
           const windowText = windowToks.join(" ");
           const score = lineTimingScore(lineTok, windowText);
-          const earlierBonus = (searchEnd - i) * 0.00035;
-          const adjusted = score + earlierBonus;
-          if (
-            score >= 0.38 &&
-            (adjusted > bestScore + 0.012 ||
-              (adjusted >= bestScore && bestStart < 0))
-          ) {
+          // Prefer stronger text match; near-ties keep the earlier onset.
+          // No “earlier bonus” — that pulled whole songs ahead of the voice.
+          if (score < 0.4) continue;
+          const better =
+            bestStart < 0 ||
+            score > bestScore + 0.02 ||
+            (score >= bestScore - 0.01 &&
+              stream[i]!.startMs < bestStart);
+          if (better) {
             bestScore = score;
             bestStart = stream[i]!.startMs;
             bestEndCursor = j + 1;
@@ -615,15 +618,13 @@ export function alignCancioneroLinesToTiming(
       );
       for (let i = Math.max(0, cueCursor); i < searchEnd; i++) {
         let window = "";
-        for (let j = i; j < Math.min(speech.length, i + 5); j++) {
+        for (let j = i; j < Math.min(speech.length, i + 4); j++) {
           window = window ? `${window} ${speech[j]!.text}` : speech[j]!.text;
           const score = lineTimingScore(lineTok, window);
-          const earlierBonus = (searchEnd - i) * 0.0008;
-          const adjusted = score + earlierBonus;
           if (
-            score >= 0.42 &&
-            (adjusted > bestScore + 0.015 ||
-              (adjusted >= bestScore && bestStart < 0))
+            score >= 0.45 &&
+            (score > bestScore + 0.02 ||
+              (score >= bestScore && bestStart < 0))
           ) {
             bestScore = score;
             bestStart = speech[i]!.startMs;
@@ -642,7 +643,7 @@ export function alignCancioneroLinesToTiming(
       }
     }
 
-    if (bestStart >= 0 && bestScore >= 0.38) {
+    if (bestStart >= 0 && bestScore >= 0.4) {
       starts[li] = bestStart;
       cursor = Math.max(cursor + 1, bestEndCursor);
       alignedCount += 1;
@@ -750,9 +751,9 @@ export function alignCancioneroLinesToTiming(
 
 /** Musical intro before equal-time fallback starts advancing lines. */
 function conservativeIntroMs(totalMs: number, lineCount: number): number {
-  // Keep short — long intros made karaoke look like it "started late".
-  const byPct = Math.floor(totalMs * 0.05);
-  const capped = Math.min(7_000, Math.max(2_000, byPct));
+  // Modest lead-in — too short looked early; too long looked late.
+  const byPct = Math.floor(totalMs * 0.08);
+  const capped = Math.min(12_000, Math.max(3_000, byPct));
   const maxIntro = Math.max(0, totalMs - lineCount * 2_000);
   return Math.min(capped, maxIntro);
 }
@@ -786,7 +787,7 @@ function cuesFromEqualTime(
 /**
  * Build timed cues from exact cancionero lines.
  * Equal-time fallback only — prefer alignCancioneroLinesToTiming when ASR /
- * captions clocks exist. −1s display lead is applied via agent leadMs.
+ * captions clocks exist. Display lead is operator Adelante (default 0).
  */
 export function songToSubtitleCues(
   song: LibrarySongPayload,

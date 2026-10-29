@@ -28,7 +28,7 @@ const cues: SubtitleCue[] = [
 
 function main(): void {
   assert(DEFAULT_SUBTITLE_LEAD_MS === 0, "native default lead is 0");
-  assert(CANCIONERO_DEFAULT_LEAD_MS === -1000, "cancionero default lead −1s");
+  assert(CANCIONERO_DEFAULT_LEAD_MS === 0, "cancionero default lead is 0");
 
   // Native / exact: blank until official startMs (matches YouTube lyric video).
   assert(
@@ -41,15 +41,24 @@ function main(): void {
     "exact: first lyric at official window",
   );
 
-  // Cancionero exact + −1s: line appears 1s before voice onset startMs.
+  // Optional Adelante −1s: line appears 1s before voice onset startMs.
   assert(
     cueAtPositionWithLeadMs(cues, 11_000, -1000, { holdIntro: false })?.text ===
       "Primera letra",
-    "cancionero −1s shows first line at onset−1s",
+    "Adelante −1s shows first line at onset−1s",
   );
   assert(
     cueAtPositionWithLeadMs(cues, 10_500, -1000, { holdIntro: false }) === null,
-    "cancionero −1s still blank before onset−1s",
+    "Adelante −1s still blank before onset−1s",
+  );
+  assert(
+    cueAtPositionWithLeadMs(
+      cues,
+      11_000,
+      CANCIONERO_DEFAULT_LEAD_MS,
+      { holdIntro: false },
+    ) === null,
+    "cancionero default 0: blank 1s before onset",
   );
 
   // Assisted ASR: at theme start, first lyric visible (cancionero hold).
